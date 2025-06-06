@@ -22,3 +22,12 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Environment variables
+.env
+.env.*
+!.env.example 
+# La riga !.env.example è opzionale: se crei un file .env.example
+# (senza valori sensibili, solo i nomi delle variabili) per gli altri sviluppatori,
+# puoi escluderlo da .gitignore per committerlo.
+
