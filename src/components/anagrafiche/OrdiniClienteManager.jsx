@@ -2,16 +2,19 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
 
-function OrdiniClienteManager({ session, clienti, commesse }) { // Riceve session, clienti, commesse
+function OrdiniClienteManager({ session, clienti, commesse }) {
     const [ordini, setOrdini] = useState([]);
-    const [numeroOrdine, setNumeroOrdine] = useState('');
-    const [dataOrdine, setDataOrdine] = useState('');
-    const [descrizioneOrdine, setDescrizioneOrdine] = useState('');
-    const [selectedClienteIdOrdine, setSelectedClienteIdOrdine] = useState('');
-    const [selectedCommessaIdOrdine, setSelectedCommessaIdOrdine] = useState('');
     const [loading, setLoading] = useState(false);
     const [pageLoading, setPageLoading] = useState(true);
     const [error, setError] = useState(null);
+
+    // Stati per il form
+    const [formNumeroOrdine, setFormNumeroOrdine] = useState('');
+    const [formDataOrdine, setFormDataOrdine] = useState('');
+    const [formDescrizioneOrdine, setFormDescrizioneOrdine] = useState('');
+    const [formSelectedClienteIdOrdine, setFormSelectedClienteIdOrdine] = useState('');
+    const [formSelectedCommessaIdOrdine, setFormSelectedCommessaIdOrdine] = useState('');
+    const [editingOrdine, setEditingOrdine] = useState(null);
 
     const userRole = session?.user?.role;
     const canManage = userRole === 'admin' || userRole === 'manager';
@@ -21,14 +24,7 @@ function OrdiniClienteManager({ session, clienti, commesse }) { // Riceve sessio
         setError(null);
         const { data, error: fetchError } = await supabase
             .from('ordini_cliente')
-            .select(`
-                id,
-                numero_ordine_cliente,
-                data_ordine,
-                descrizione_ordine,
-                clienti (id, nome_azienda),
-                commesse (id, codice_commessa)
-            `)
+            .select(`id, numero_ordine_cliente, data_ordine, descrizione_ordine, cliente_id, commessa_id, clienti (id, nome_azienda), commesse (id, codice_commessa)`)
             .order('data_ordine', { ascending: false });
         if (fetchError) {
             setError(fetchError.message);
@@ -48,37 +44,71 @@ function OrdiniClienteManager({ session, clienti, commesse }) { // Riceve sessio
         }
     }, [session]);
 
-    const handleAddOrdine = async (e) => {
-        e.preventDefault();
+    const resetForm = () => {
+        setFormNumeroOrdine('');
+        setFormDataOrdine('');
+        setFormDescrizioneOrdine('');
+        setFormSelectedClienteIdOrdine('');
+        setFormSelectedCommessaIdOrdine('');
+        setEditingOrdine(null);
+    };
+
+    const handleEditOrdine = (ordine) => {
         if (!canManage) {
-            alert("Non hai i permessi per aggiungere ordini.");
+            alert("Non hai i permessi per modificare ordini.");
             return;
         }
-        if (!numeroOrdine.trim() || !selectedClienteIdOrdine) {
+        setEditingOrdine(ordine);
+        setFormNumeroOrdine(ordine.numero_ordine_cliente);
+        setFormDataOrdine(ordine.data_ordine ? new Date(ordine.data_ordine).toISOString().split('T')[0] : '');
+        setFormDescrizioneOrdine(ordine.descrizione_ordine || '');
+        setFormSelectedClienteIdOrdine(ordine.cliente_id);
+        setFormSelectedCommessaIdOrdine(ordine.commessa_id || '');
+        window.scrollTo(0, 0);
+    };
+
+    const handleSubmitForm = async (e) => {
+        e.preventDefault();
+        if (!canManage) {
+            alert("Non hai i permessi per questa operazione.");
+            return;
+        }
+        if (!formNumeroOrdine.trim() || !formSelectedClienteIdOrdine) {
             alert("Numero ordine e cliente sono obbligatori.");
             return;
         }
         setLoading(true);
         setError(null);
-        const { error: insertError } = await supabase.from('ordini_cliente').insert([{
-            numero_ordine_cliente: numeroOrdine,
-            data_ordine: dataOrdine || null,
-            descrizione_ordine: descrizioneOrdine,
-            cliente_id: selectedClienteIdOrdine,
-            commessa_id: selectedCommessaIdOrdine || null,
-        }]);
-        if (insertError) {
-            setError(insertError.message);
-            console.error('Errore inserimento ordine:', insertError);
-            alert('Errore inserimento ordine: ' + insertError.message);
+        const ordineData = {
+            numero_ordine_cliente: formNumeroOrdine,
+            data_ordine: formDataOrdine || null,
+            descrizione_ordine: formDescrizioneOrdine,
+            cliente_id: formSelectedClienteIdOrdine,
+            commessa_id: formSelectedCommessaIdOrdine || null,
+        };
+        let operationError = null;
+
+        if (editingOrdine) {
+            const { error: updateError } = await supabase
+                .from('ordini_cliente')
+                .update(ordineData)
+                .eq('id', editingOrdine.id);
+            operationError = updateError;
         } else {
-            setNumeroOrdine('');
-            setDataOrdine('');
-            setDescrizioneOrdine('');
-            // Non resettare cliente e commessa per facilitare inserimenti multipli se si vuole
-            // setSelectedClienteIdOrdine(''); 
-            // setSelectedCommessaIdOrdine('');
+            const { error: insertError } = await supabase
+                .from('ordini_cliente')
+                .insert([ordineData]);
+            operationError = insertError;
+        }
+
+        if (operationError) {
+            setError(operationError.message);
+            console.error(editingOrdine ? 'Errore modifica ordine:' : 'Errore inserimento ordine:', operationError);
+            alert((editingOrdine ? 'Errore modifica: ' : 'Errore inserimento: ') + operationError.message);
+        } else {
+            resetForm();
             await fetchOrdini();
+            alert(editingOrdine ? "Ordine cliente modificato con successo!" : "Ordine cliente aggiunto con successo!");
         }
         setLoading(false);
     };
@@ -98,13 +128,17 @@ function OrdiniClienteManager({ session, clienti, commesse }) { // Riceve sessio
                 alert("Errore durante l'eliminazione: " + deleteError.message);
             } else {
                 await fetchOrdini();
+                if (editingOrdine && editingOrdine.id === ordineId) {
+                    resetForm();
+                }
+                alert("Ordine cliente eliminato con successo.");
             }
             setLoading(false);
         }
     };
 
-    const commesseFiltratePerCliente = selectedClienteIdOrdine && commesse
-        ? commesse.filter(c => c.cliente_id === selectedClienteIdOrdine || !c.cliente_id) // Mostra commesse del cliente o quelle generiche
+    const commesseFiltratePerCliente = formSelectedClienteIdOrdine && commesse
+        ? commesse.filter(c => c.cliente_id === formSelectedClienteIdOrdine || !c.cliente_id)
         : (commesse || []);
 
     if (pageLoading) {
@@ -115,38 +149,43 @@ function OrdiniClienteManager({ session, clienti, commesse }) { // Riceve sessio
         <div>
             <h2>Anagrafica Ordini Cliente</h2>
             {canManage && (
-                <form onSubmit={handleAddOrdine} style={{ marginBottom: '20px', padding: '15px', border: '1px solid #eee', borderRadius: '5px' }}>
-                    <h3>Nuovo Ordine Cliente</h3>
+                <form onSubmit={handleSubmitForm} style={{ marginBottom: '20px', padding: '15px', border: '1px solid #eee', borderRadius: '5px' }}>
+                    <h3>{editingOrdine ? 'Modifica Ordine Cliente' : 'Nuovo Ordine Cliente'}</h3>
                     <div>
-                        <label htmlFor="clienteOrdine">Cliente Associato (Obbligatorio):</label>
-                        <select id="clienteOrdine" value={selectedClienteIdOrdine} onChange={e => {
-                            setSelectedClienteIdOrdine(e.target.value);
-                            setSelectedCommessaIdOrdine(''); 
+                        <label htmlFor="formClienteOrdine">Cliente Associato (Obbligatorio):</label>
+                        <select id="formClienteOrdine" value={formSelectedClienteIdOrdine} onChange={e => {
+                            setFormSelectedClienteIdOrdine(e.target.value);
+                            setFormSelectedCommessaIdOrdine(''); 
                         }} required>
                             <option value="">Seleziona Cliente</option>
                             {(clienti || []).map(c => <option key={c.id} value={c.id}>{c.nome_azienda}</option>)}
                         </select>
                     </div>
                     <div>
-                        <label htmlFor="numeroOrdine">Numero Ordine Cliente:</label>
-                        <input type="text" id="numeroOrdine" placeholder="Es. ORD-CL-001" value={numeroOrdine} onChange={e => setNumeroOrdine(e.target.value)} required />
+                        <label htmlFor="formNumeroOrdine">Numero Ordine Cliente:</label>
+                        <input type="text" id="formNumeroOrdine" value={formNumeroOrdine} onChange={e => setFormNumeroOrdine(e.target.value)} required />
                     </div>
                     <div>
-                        <label htmlFor="dataOrdine">Data Ordine:</label>
-                        <input type="date" id="dataOrdine" value={dataOrdine} onChange={e => setDataOrdine(e.target.value)} />
+                        <label htmlFor="formDataOrdine">Data Ordine:</label>
+                        <input type="date" id="formDataOrdine" value={formDataOrdine} onChange={e => setFormDataOrdine(e.target.value)} />
                     </div>
                     <div>
-                        <label htmlFor="descrizioneOrdine">Descrizione Ordine:</label>
-                        <input type="text" id="descrizioneOrdine" placeholder="Descrizione" value={descrizioneOrdine} onChange={e => setDescrizioneOrdine(e.target.value)} />
+                        <label htmlFor="formDescrizioneOrdine">Descrizione Ordine:</label>
+                        <input type="text" id="formDescrizioneOrdine" value={formDescrizioneOrdine} onChange={e => setFormDescrizioneOrdine(e.target.value)} />
                     </div>
                     <div>
-                        <label htmlFor="commessaOrdine">Commessa Oilsafe Associata (Opzionale):</label>
-                        <select id="commessaOrdine" value={selectedCommessaIdOrdine} onChange={e => setSelectedCommessaIdOrdine(e.target.value)} disabled={!selectedClienteIdOrdine}>
+                        <label htmlFor="formCommessaOrdine">Commessa Oilsafe Associata (Opzionale):</label>
+                        <select id="formCommessaOrdine" value={formSelectedCommessaIdOrdine} onChange={e => setFormSelectedCommessaIdOrdine(e.target.value)} disabled={!formSelectedClienteIdOrdine}>
                             <option value="">Nessuna Commessa Specifica</option>
                             {commesseFiltratePerCliente.map(c => <option key={c.id} value={c.id}>{c.codice_commessa} - {c.descrizione_commessa}</option>)}
                         </select>
                     </div>
-                    <button type="submit" disabled={loading}>{loading ? 'Salvataggio...' : 'Aggiungi Ordine'}</button>
+                    <button type="submit" disabled={loading}>{loading ? 'Salvataggio...' : (editingOrdine ? 'Salva Modifiche' : 'Aggiungi Ordine')}</button>
+                    {editingOrdine && (
+                        <button type="button" className="secondary" onClick={resetForm} disabled={loading} style={{marginLeft:'10px'}}>
+                            Annulla Modifica
+                        </button>
+                    )}
                 </form>
             )}
 
@@ -169,7 +208,7 @@ function OrdiniClienteManager({ session, clienti, commesse }) { // Riceve sessio
                     </thead>
                     <tbody>
                         {ordini.map(ordine => (
-                            <tr key={ordine.id}>
+                            <tr key={ordine.id} style={editingOrdine && editingOrdine.id === ordine.id ? {backgroundColor: '#e6f7ff'} : {}}>
                                 <td>{ordine.numero_ordine_cliente}</td>
                                 <td>{ordine.data_ordine ? new Date(ordine.data_ordine).toLocaleDateString() : '-'}</td>
                                 <td>{ordine.clienti?.nome_azienda || 'N/D'}</td>
@@ -177,8 +216,8 @@ function OrdiniClienteManager({ session, clienti, commesse }) { // Riceve sessio
                                 <td>{ordine.descrizione_ordine || '-'}</td>
                                 {canManage && (
                                     <td className="actions">
-                                        {/* <button className="secondary" disabled={loading}>Modifica</button> */}
-                                        <button className="danger" onClick={() => handleDeleteOrdine(ordine.id)} disabled={loading}>Elimina</button>
+                                        <button className="secondary" onClick={() => handleEditOrdine(ordine)} disabled={loading}>Modifica</button>
+                                        <button className="danger" onClick={() => handleDeleteOrdine(ordine.id)} disabled={loading} style={{marginLeft:'5px'}}>Elimina</button>
                                     </td>
                                 )}
                             </tr>

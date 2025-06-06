@@ -2,17 +2,20 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
 
-function ClientiManager({ session }) { // Riceve session come prop
+function ClientiManager({ session }) {
     const [clienti, setClienti] = useState([]);
-    const [nomeAzienda, setNomeAzienda] = useState('');
-    const [indirizzo, setIndirizzo] = useState('');
-    const [loading, setLoading] = useState(false); // Loading per azioni specifiche (add/delete)
+    const [loading, setLoading] = useState(false); // Loading per azioni specifiche (add/delete/update)
     const [pageLoading, setPageLoading] = useState(true); // Loading per il fetch iniziale
     const [error, setError] = useState(null);
 
-    // Ottieni il ruolo dell'utente dalla sessione
+    // Stati per il form (sia per aggiunta che per modifica)
+    const [formNomeAzienda, setFormNomeAzienda] = useState('');
+    const [formIndirizzo, setFormIndirizzo] = useState('');
+
+    // Stato per tenere traccia del cliente attualmente in modifica
+    const [editingCliente, setEditingCliente] = useState(null); // Oggetto cliente o null
+
     const userRole = session?.user?.role;
-    // Determina se l'utente ha i permessi per gestire (admin o manager)
     const canManage = userRole === 'admin' || userRole === 'manager';
 
     const fetchClienti = async () => {
@@ -33,37 +36,78 @@ function ClientiManager({ session }) { // Riceve session come prop
     };
 
     useEffect(() => {
-        // Se non c'è sessione o ruolo, non fare nulla (o gestisci diversamente)
-        // Le RLS proteggeranno comunque il backend, ma è bene non fare chiamate non necessarie
         if (session) {
             fetchClienti();
         } else {
-            setClienti([]); // Svuota i clienti se non c'è sessione
+            setClienti([]);
             setPageLoading(false);
         }
-    }, [session]); // Riesegui se la sessione cambia
+    }, [session]);
 
-    const handleAddCliente = async (e) => {
-        e.preventDefault();
+    // Funzione per resettare i campi del form
+    const resetForm = () => {
+        setFormNomeAzienda('');
+        setFormIndirizzo('');
+        setEditingCliente(null); // Esci dalla modalità modifica
+    };
+
+    // Funzione per impostare la modalità modifica
+    const handleEditCliente = (cliente) => {
         if (!canManage) {
-            alert("Non hai i permessi per aggiungere clienti.");
+            alert("Non hai i permessi per modificare clienti.");
             return;
         }
-        if (!nomeAzienda.trim()) {
+        setEditingCliente(cliente);
+        setFormNomeAzienda(cliente.nome_azienda);
+        setFormIndirizzo(cliente.indirizzo || '');
+        window.scrollTo(0, 0); // Scrolla in cima alla pagina per vedere il form
+    };
+
+
+    const handleSubmitForm = async (e) => {
+        e.preventDefault();
+        if (!canManage) {
+            alert("Non hai i permessi per questa operazione.");
+            return;
+        }
+        if (!formNomeAzienda.trim()) {
             alert("Il nome azienda è obbligatorio.");
             return;
         }
-        setLoading(true); // Loading per l'azione specifica
+
+        setLoading(true);
         setError(null);
-        const { error: insertError } = await supabase.from('clienti').insert([{ nome_azienda: nomeAzienda, indirizzo }]);
-        if (insertError) {
-            setError(insertError.message);
-            console.error('Errore inserimento cliente:', insertError);
-            alert('Errore inserimento cliente: ' + insertError.message);
+
+        const clienteData = {
+            nome_azienda: formNomeAzienda,
+            indirizzo: formIndirizzo,
+        };
+
+        let operationError = null;
+
+        if (editingCliente) {
+            // Modalità Modifica
+            const { error: updateError } = await supabase
+                .from('clienti')
+                .update(clienteData)
+                .eq('id', editingCliente.id);
+            operationError = updateError;
         } else {
-            setNomeAzienda('');
-            setIndirizzo('');
-            await fetchClienti(); // Ricarica la lista dopo l'inserimento
+            // Modalità Aggiunta
+            const { error: insertError } = await supabase
+                .from('clienti')
+                .insert([clienteData]);
+            operationError = insertError;
+        }
+
+        if (operationError) {
+            setError(operationError.message);
+            console.error(editingCliente ? 'Errore modifica cliente:' : 'Errore inserimento cliente:', operationError);
+            alert((editingCliente ? 'Errore modifica: ' : 'Errore inserimento: ') + operationError.message);
+        } else {
+            resetForm();
+            await fetchClienti(); // Ricarica la lista
+            alert(editingCliente ? "Cliente modificato con successo!" : "Cliente aggiunto con successo!");
         }
         setLoading(false);
     };
@@ -73,8 +117,8 @@ function ClientiManager({ session }) { // Riceve session come prop
             alert("Non hai i permessi per eliminare clienti.");
             return;
         }
-        if (window.confirm("Sei sicuro di voler eliminare questo cliente? Questa azione non può essere annullata e potrebbe influire sui fogli di assistenza associati.")) {
-            setLoading(true); // Loading per l'azione specifica
+        if (window.confirm("Sei sicuro di voler eliminare questo cliente? Questa azione non può essere annullata.")) {
+            setLoading(true);
             setError(null);
             const { error: deleteError } = await supabase.from('clienti').delete().eq('id', clienteId);
             if (deleteError) {
@@ -82,7 +126,11 @@ function ClientiManager({ session }) { // Riceve session come prop
                 console.error("Errore eliminazione cliente:", deleteError);
                 alert("Errore durante l'eliminazione: " + deleteError.message);
             } else {
-                await fetchClienti(); // Ricarica la lista
+                await fetchClienti();
+                if (editingCliente && editingCliente.id === clienteId) {
+                    resetForm(); // Se il cliente eliminato era in modifica, resetta il form
+                }
+                alert("Cliente eliminato con successo.");
             }
             setLoading(false);
         }
@@ -92,27 +140,26 @@ function ClientiManager({ session }) { // Riceve session come prop
         return <p>Caricamento anagrafica clienti...</p>;
     }
 
-    // Se l'utente non è admin o manager, potresti mostrare un messaggio di accesso negato
-    // o semplicemente non renderizzare nulla/parte del componente.
-    // Le RLS sul backend bloccheranno comunque le operazioni non autorizzate.
-    // Qui, la visualizzazione della tabella è permessa anche a 'head' e 'user' secondo le policy,
-    // ma le azioni di gestione (form e pulsanti elimina) sono nascoste.
-
     return (
         <div>
             <h2>Anagrafica Clienti</h2>
-            {canManage && ( // Mostra il form solo se l'utente può gestire
-                <form onSubmit={handleAddCliente} style={{ marginBottom: '20px', padding: '15px', border: '1px solid #eee', borderRadius: '5px' }}>
-                    <h3>Nuovo Cliente</h3>
+            {canManage && (
+                <form onSubmit={handleSubmitForm} style={{ marginBottom: '20px', padding: '15px', border: '1px solid #eee', borderRadius: '5px' }}>
+                    <h3>{editingCliente ? 'Modifica Cliente' : 'Nuovo Cliente'}</h3>
                     <div>
-                        <label htmlFor="nomeAzienda">Nome Azienda:</label>
-                        <input type="text" id="nomeAzienda" placeholder="Nome Azienda" value={nomeAzienda} onChange={e => setNomeAzienda(e.target.value)} required />
+                        <label htmlFor="formNomeAzienda">Nome Azienda:</label>
+                        <input type="text" id="formNomeAzienda" value={formNomeAzienda} onChange={e => setFormNomeAzienda(e.target.value)} required />
                     </div>
                     <div>
-                        <label htmlFor="indirizzoCliente">Indirizzo:</label>
-                        <input type="text" id="indirizzoCliente" placeholder="Indirizzo (Via, CAP, Città)" value={indirizzo} onChange={e => setIndirizzo(e.target.value)} />
+                        <label htmlFor="formIndirizzo">Indirizzo:</label>
+                        <input type="text" id="formIndirizzo" value={formIndirizzo} onChange={e => setFormIndirizzo(e.target.value)} />
                     </div>
-                    <button type="submit" disabled={loading}>{loading ? 'Salvataggio...' : 'Aggiungi Cliente'}</button>
+                    <button type="submit" disabled={loading}>{loading ? 'Salvataggio...' : (editingCliente ? 'Salva Modifiche' : 'Aggiungi Cliente')}</button>
+                    {editingCliente && (
+                        <button type="button" className="secondary" onClick={resetForm} disabled={loading} style={{marginLeft:'10px'}}>
+                            Annulla Modifica
+                        </button>
+                    )}
                 </form>
             )}
 
@@ -127,18 +174,18 @@ function ClientiManager({ session }) { // Riceve session come prop
                         <tr>
                             <th>Nome Azienda</th>
                             <th>Indirizzo</th>
-                            {canManage && <th>Azioni</th>} {/* Mostra colonna azioni solo se può gestire */}
+                            {canManage && <th>Azioni</th>}
                         </tr>
                     </thead>
                     <tbody>
                         {clienti.map(cliente => (
-                            <tr key={cliente.id}>
+                            <tr key={cliente.id} style={editingCliente && editingCliente.id === cliente.id ? {backgroundColor: '#e6f7ff'} : {}}>
                                 <td>{cliente.nome_azienda}</td>
                                 <td>{cliente.indirizzo || '-'}</td>
                                 {canManage && (
                                    <td className="actions">
-                                       {/* <button className="secondary" onClick={() => setEditingCliente(cliente)} disabled={loading}>Modifica</button> */}
-                                       <button className="danger" onClick={() => handleDeleteCliente(cliente.id)} disabled={loading}>Elimina</button>
+                                       <button className="secondary" onClick={() => handleEditCliente(cliente)} disabled={loading}>Modifica</button>
+                                       <button className="danger" onClick={() => handleDeleteCliente(cliente.id)} disabled={loading} style={{marginLeft:'5px'}}>Elimina</button>
                                    </td>
                                 )}
                             </tr>

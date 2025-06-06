@@ -1,10 +1,10 @@
 // src/pages/FoglioAssistenzaFormPage.jsx
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, Link } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import SignatureCanvas from 'react-signature-canvas';
 
-// Funzione helper per convertire dataURL in Blob (da spostare in un file utils se usata altrove)
+// Funzione helper per convertire dataURL in Blob
 function dataURLtoBlob(dataurl) {
     if (!dataurl) return null;
     try {
@@ -26,14 +26,13 @@ function dataURLtoBlob(dataurl) {
     }
 }
 
-
-function FoglioAssistenzaFormPage({ session, clienti, commesse, ordini }) {
+function FoglioAssistenzaFormPage({ session, clienti, commesse, ordini /*, utentiPerAssegnazione */ }) {
     const navigate = useNavigate();
-    const { foglioId: foglioIdParam } = useParams(); // Per la modalità modifica (non ancora implementata completamente)
+    const { foglioIdParam } = useParams(); // Rinominato per chiarezza
     const isEditMode = !!foglioIdParam;
 
-    const [loading, setLoading] = useState(false); // Loading per l'azione di submit
-    const [pageLoading, setPageLoading] = useState(false); // Loading per caricare dati in edit mode
+    const [loadingSubmit, setLoadingSubmit] = useState(false);
+    const [pageLoading, setPageLoading] = useState(isEditMode); // Inizia a caricare se in edit mode
     const [error, setError] = useState(null);
 
     // Stati del Form
@@ -48,30 +47,32 @@ function FoglioAssistenzaFormPage({ session, clienti, commesse, ordini }) {
     const [osservazioniGenerali, setOsservazioniGenerali] = useState('');
     const [materialiForniti, setMaterialiForniti] = useState('');
     const [statoFoglio, setStatoFoglio] = useState('Aperto');
-    const [creatoDaUserIdForm, setCreatoDaUserIdForm] = useState(''); // Per admin che assegna foglio
+    const [creatoDaUserIdOriginal, setCreatoDaUserIdOriginal] = useState(''); // Per mantenere l'ID originale in edit mode
+    // const [selectedAssegnaUtenteId, setSelectedAssegnaUtenteId] = useState(''); // Per dropdown di assegnazione admin
 
-    // Ref per le firme
     const sigCanvasClienteRef = useRef(null);
     const sigCanvasTecnicoRef = useRef(null);
 
-    // Dati per le firme (URL o base64 se non si fa l'upload immediato)
     const [firmaClientePreview, setFirmaClientePreview] = useState(null);
     const [firmaTecnicoPreview, setFirmaTecnicoPreview] = useState(null);
 
     const userRole = session?.user?.role;
     const currentUserId = session?.user?.id;
 
-    // Solo admin e user possono creare fogli (come definito in App.jsx)
-    // Se isEditMode, anche manager potrebbe modificare (da gestire con policy RLS)
-    const canSubmit = userRole === 'admin' || userRole === 'user' || (isEditMode && userRole === 'manager');
+    // Permessi: admin può sempre, user può creare, user/manager possono modificare se le policy lo permettono
+    const canSubmitForm = 
+        userRole === 'admin' || 
+        (!isEditMode && userRole === 'user') || 
+        (isEditMode && (userRole === 'manager' || (userRole === 'user' && creatoDaUserIdOriginal === currentUserId)));
+
 
     useEffect(() => {
-        if (isEditMode && foglioIdParam) {
+        if (isEditMode && foglioIdParam && session) { // Assicurati che la sessione sia caricata
             setPageLoading(true);
             const fetchFoglioData = async () => {
                 const { data, error: fetchError } = await supabase
                     .from('fogli_assistenza')
-                    .select('*')
+                    .select('*') // Seleziona tutto per popolare tutti i campi
                     .eq('id', foglioIdParam)
                     .single();
                 
@@ -79,9 +80,10 @@ function FoglioAssistenzaFormPage({ session, clienti, commesse, ordini }) {
                     setError("Errore caricamento dati foglio: " + fetchError.message);
                     console.error(fetchError);
                 } else if (data) {
+                    // Popola gli stati del form
                     setNumeroFoglio(data.numero_foglio || '');
-                    setDataApertura(data.data_apertura_foglio);
-                    setSelectedClienteId(data.cliente_id);
+                    setDataApertura(data.data_apertura_foglio ? new Date(data.data_apertura_foglio).toISOString().split('T')[0] : '');
+                    setSelectedClienteId(data.cliente_id || '');
                     setReferenteCliente(data.referente_cliente_richiesta || '');
                     setMotivoGenerale(data.motivo_intervento_generale || '');
                     setSelectedCommessaId(data.commessa_id || '');
@@ -90,81 +92,75 @@ function FoglioAssistenzaFormPage({ session, clienti, commesse, ordini }) {
                     setOsservazioniGenerali(data.osservazioni_generali || '');
                     setMaterialiForniti(data.materiali_forniti_generale || '');
                     setStatoFoglio(data.stato_foglio || 'Aperto');
-                    setCreatoDaUserIdForm(data.creato_da_user_id || '');
-                    setFirmaClientePreview(data.firma_cliente_url || null); // Per visualizzare firma esistente
+                    setCreatoDaUserIdOriginal(data.creato_da_user_id || ''); // Salva l'originale
+                    // setSelectedAssegnaUtenteId(data.creato_da_user_id || ''); // Per il dropdown admin
+                    setFirmaClientePreview(data.firma_cliente_url || null);
                     setFirmaTecnicoPreview(data.firma_tecnico_principale_url || null);
+                } else {
+                    setError("Foglio non trovato.");
                 }
                 setPageLoading(false);
             };
             fetchFoglioData();
+        } else if (!isEditMode) {
+            setPageLoading(false); // Non c'è nulla da caricare in modalità creazione
         }
-    }, [isEditMode, foglioIdParam]);
+    }, [isEditMode, foglioIdParam, session]);
 
 
-    const clearSignature = (ref, setPreview) => {
+    const clearSignature = (ref, setPreviewStateKey) => {
         if (ref.current) ref.current.clear();
-        if (setPreview) setPreview(null); // Pulisce anche la preview della firma esistente
+        if (setPreviewStateKey === 'cliente') setFirmaClientePreview(null);
+        if (setPreviewStateKey === 'tecnico') setFirmaTecnicoPreview(null);
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!canSubmit) {
-            alert("Non hai i permessi per questa operazione.");
+        if (!canSubmitForm) {
+            alert("Non hai i permessi per eseguire questa operazione su questo foglio.");
             return;
         }
-        setLoading(true);
+        setLoadingSubmit(true);
         setError(null);
 
         if (!selectedClienteId) {
             setError("Selezionare un cliente è obbligatorio.");
-            setLoading(false);
+            setLoadingSubmit(false);
             return;
         }
 
-        let firmaClienteUrlToSave = firmaClientePreview; // Mantiene URL esistente se non si firma di nuovo
-        let firmaTecnicoUrlToSave = firmaTecnicoPreview;
+        let finalFirmaClienteUrl = firmaClientePreview;
+        let finalFirmaTecnicoUrl = firmaTecnicoPreview;
 
-        // Gestione upload firma cliente se è stata disegnata una nuova firma
+        // Upload firma cliente se ridisegnata
         if (sigCanvasClienteRef.current && !sigCanvasClienteRef.current.isEmpty()) {
-            const firmaClienteDataURL = sigCanvasClienteRef.current.getTrimmedCanvas().toDataURL('image/png');
-            const fileBlob = dataURLtoBlob(firmaClienteDataURL);
+            const firmaDataURL = sigCanvasClienteRef.current.getTrimmedCanvas().toDataURL('image/png');
+            const fileBlob = dataURLtoBlob(firmaDataURL);
             if (fileBlob) {
-                const fileName = `firma_cliente_${foglioIdParam || Date.now()}.png`;
+                const fileName = `firma_cliente_${foglioIdParam || currentUserId}_${Date.now()}.png`;
                 const { data: uploadData, error: uploadError } = await supabase.storage
                     .from('firme-assistenza')
-                    .upload(fileName, fileBlob, { upsert: true, contentType: 'image/png' }); // upsert:true sovrascrive se esiste
-                
-                if (uploadError) {
-                    setError("Errore upload firma cliente: " + uploadError.message);
-                    setLoading(false);
-                    return;
-                }
-                const { data: urlData } = supabase.storage.from('firme-assistenza').getPublicUrl(uploadData.path);
-                firmaClienteUrlToSave = urlData.publicUrl;
+                    .upload(fileName, fileBlob, { upsert: true, contentType: 'image/png' });
+                if (uploadError) { setError("Upload firma cliente fallito: " + uploadError.message); setLoadingSubmit(false); return; }
+                finalFirmaClienteUrl = supabase.storage.from('firme-assistenza').getPublicUrl(uploadData.path).data.publicUrl;
             }
         }
         
-        // Gestione upload firma tecnico
+        // Upload firma tecnico se ridisegnata
         if (sigCanvasTecnicoRef.current && !sigCanvasTecnicoRef.current.isEmpty()) {
-            const firmaTecnicoDataURL = sigCanvasTecnicoRef.current.getTrimmedCanvas().toDataURL('image/png');
-            const fileBlobTecnico = dataURLtoBlob(firmaTecnicoDataURL);
-            if (fileBlobTecnico) {
-                const fileNameTecnico = `firma_tecnico_${foglioIdParam || Date.now()}.png`;
-                const { data: uploadDataTecnico, error: uploadErrorTecnico } = await supabase.storage
+            const firmaDataURL = sigCanvasTecnicoRef.current.getTrimmedCanvas().toDataURL('image/png');
+            const fileBlob = dataURLtoBlob(firmaDataURL);
+            if (fileBlob) {
+                const fileName = `firma_tecnico_${foglioIdParam || currentUserId}_${Date.now()}.png`;
+                const { data: uploadData, error: uploadError } = await supabase.storage
                     .from('firme-assistenza')
-                    .upload(fileNameTecnico, fileBlobTecnico, { upsert: true, contentType: 'image/png' });
-
-                if (uploadErrorTecnico) {
-                    setError("Errore upload firma tecnico: " + uploadErrorTecnico.message);
-                    setLoading(false);
-                    return;
-                }
-                const { data: urlDataTecnico } = supabase.storage.from('firme-assistenza').getPublicUrl(uploadDataTecnico.path);
-                firmaTecnicoUrlToSave = urlDataTecnico.publicUrl;
+                    .upload(fileName, fileBlob, { upsert: true, contentType: 'image/png' });
+                if (uploadError) { setError("Upload firma tecnico fallito: " + uploadError.message); setLoadingSubmit(false); return; }
+                finalFirmaTecnicoUrl = supabase.storage.from('firme-assistenza').getPublicUrl(uploadData.path).data.publicUrl;
             }
         }
 
-        const foglioData = {
+        const foglioPayload = {
           numero_foglio: numeroFoglio || null,
           data_apertura_foglio: dataApertura,
           cliente_id: selectedClienteId,
@@ -175,38 +171,41 @@ function FoglioAssistenzaFormPage({ session, clienti, commesse, ordini }) {
           descrizione_lavoro_generale: descrizioneGenerale,
           osservazioni_generali: osservazioniGenerali,
           materiali_forniti_generale: materialiForniti,
-          firma_cliente_url: firmaClienteUrlToSave,
-          firma_tecnico_principale_url: firmaTecnicoUrlToSave,
+          firma_cliente_url: finalFirmaClienteUrl,
+          firma_tecnico_principale_url: finalFirmaTecnicoUrl,
           stato_foglio: statoFoglio,
-          // Gestione creato_da_user_id
-          creato_da_user_id: isEditMode 
-                             ? (creatoDaUserIdForm || (userRole === 'user' ? currentUserId : null)) // Mantiene esistente o imposta se user
-                             : (userRole === 'user' ? currentUserId : (creatoDaUserIdForm || null)) // Imposta se user o se admin assegna
         };
         
-        // Se admin sta creando e non ha specificato un utente, potremmo volerlo null o l'id dell'admin stesso
-        if (!isEditMode && userRole === 'admin' && !creatoDaUserIdForm) {
-            // foglioData.creato_da_user_id = currentUserId; // Opzione: admin è il creatore
-            // Oppure lasciare null se le policy lo permettono e non è un campo obbligatorio
+        // Gestione `creato_da_user_id`
+        if (!isEditMode) { // Solo in creazione
+            if (userRole === 'user') {
+                foglioPayload.creato_da_user_id = currentUserId;
+            } else if (userRole === 'admin' /* && selectedAssegnaUtenteId */) {
+                // foglioPayload.creato_da_user_id = selectedAssegnaUtenteId || currentUserId; // Admin assegna o è lui
+            }
+            // Se manager crea (non dovrebbe secondo le regole attuali), gestisci qui
+        } else {
+            // In modifica, non cambiamo `creato_da_user_id` a meno che un admin non lo faccia esplicitamente
+            // if (userRole === 'admin' && selectedAssegnaUtenteId !== creatoDaUserIdOriginal) {
+            //     foglioPayload.creato_da_user_id = selectedAssegnaUtenteId;
+            // }
         }
 
 
         let resultData, resultError;
         if (isEditMode) {
-          // Logica di UPDATE
           const { data, error } = await supabase
             .from('fogli_assistenza')
-            .update(foglioData)
+            .update(foglioPayload)
             .eq('id', foglioIdParam)
             .select()
             .single();
             resultData = data;
             resultError = error;
         } else {
-          // Logica di INSERT
           const { data, error } = await supabase
             .from('fogli_assistenza')
-            .insert([foglioData])
+            .insert([foglioPayload])
             .select()
             .single();
             resultData = data;
@@ -221,7 +220,7 @@ function FoglioAssistenzaFormPage({ session, clienti, commesse, ordini }) {
             alert(isEditMode ? "Foglio di assistenza aggiornato!" : "Foglio di assistenza creato!");
             navigate(`/fogli-assistenza/${resultData.id}`);
         }
-        setLoading(false);
+        setLoadingSubmit(false);
     };
       
     const commesseFiltrate = selectedClienteId && commesse
@@ -232,14 +231,20 @@ function FoglioAssistenzaFormPage({ session, clienti, commesse, ordini }) {
         : (ordini || []);
 
     if (pageLoading) return <p>Caricamento dati foglio...</p>;
-    if (!session) return <p>Devi essere loggato per accedere a questa pagina.</p>; // Controllo aggiuntivo
-    // if (!canSubmit && !isEditMode) return <p>Non hai i permessi per creare un nuovo foglio.</p>; // Se la rotta non lo gestisce
+    if (!session) return <Navigate to="/login" replace />;
+    if (!canSubmitForm && isEditMode) return <p>Non hai i permessi per modificare questo foglio.</p>;
+    if (!canSubmitForm && !isEditMode) return <p>Non hai i permessi per creare un nuovo foglio.</p>;
 
 
     return (
         <div>
-          <h2>{isEditMode ? "Modifica" : "Nuovo"} Foglio Assistenza</h2>
+          <Link to={isEditMode ? `/fogli-assistenza/${foglioIdParam}` : "/fogli-assistenza"}>
+            ← Torna {isEditMode ? 'al dettaglio foglio' : 'alla lista'}
+          </Link>
+          <h2>{isEditMode ? "Modifica Intestazione Foglio Assistenza" : "Nuovo Foglio Assistenza"}</h2>
           <form onSubmit={handleSubmit}>
+            {/* ... (tutti i campi del form come prima) ... */}
+            {/* Numero Foglio, Data Apertura, Cliente, Referente ... */}
             <div>
               <label htmlFor="numeroFoglio">Numero Foglio (opzionale):</label>
               <input type="text" id="numeroFoglio" value={numeroFoglio} onChange={(e) => setNumeroFoglio(e.target.value)} />
@@ -252,41 +257,37 @@ function FoglioAssistenzaFormPage({ session, clienti, commesse, ordini }) {
               <label htmlFor="cliente">Cliente:</label>
               <select id="cliente" value={selectedClienteId} onChange={(e) => {
                   setSelectedClienteId(e.target.value);
-                  setSelectedCommessaId('');
-                  setSelectedOrdineId('');
+                  setSelectedCommessaId(''); setSelectedOrdineId('');
                 }} required>
                 <option value="">Seleziona Cliente</option>
                 {(clienti || []).map(c => <option key={c.id} value={c.id}>{c.nome_azienda}</option>)}
               </select>
             </div>
-            <div>
+             <div>
               <label htmlFor="referenteCliente">Referente Cliente (per richiesta):</label>
               <input type="text" id="referenteCliente" value={referenteCliente} onChange={(e) => setReferenteCliente(e.target.value)} />
             </div>
 
-            {/* Admin potrebbe voler assegnare il foglio a un utente specifico */}
+            {/*  Sezione Assegna Utente per Admin (da implementare se necessario)
             {userRole === 'admin' && (
                 <div>
-                    <label htmlFor="assegnaUtente">Assegna/Creato da Utente (ID - Lascia vuoto per te stesso se admin crea):</label>
-                    <input 
-                        type="text" 
-                        id="assegnaUtente" 
-                        placeholder="ID Utente (opzionale per admin)"
-                        value={creatoDaUserIdForm} 
-                        onChange={(e) => setCreatoDaUserIdForm(e.target.value)} 
-                    />
+                    <label htmlFor="assegnaUtente">Assegna/Creato da Utente:</label>
+                    <select id="assegnaUtente" value={selectedAssegnaUtenteId} onChange={e => setSelectedAssegnaUtenteId(e.target.value)}>
+                        <option value="">{isEditMode && creatoDaUserIdOriginal ? "Mantieni esistente" : (userRole === 'admin' ? "Assegna a te stesso (Admin)" : "")}</option>
+                        {(utentiPerAssegnazione || []).map(u => <option key={u.id} value={u.id}>{u.full_name || u.email}</option>)}
+                    </select>
                 </div>
             )}
-
+            */}
             <div>
-              <label htmlFor="commessa">Commessa (filtrata per cliente):</label>
+              <label htmlFor="commessa">Commessa:</label>
               <select id="commessa" value={selectedCommessaId} onChange={(e) => setSelectedCommessaId(e.target.value)} disabled={!selectedClienteId}>
                 <option value="">Nessuna Commessa</option>
                 {commesseFiltrate.map(c => <option key={c.id} value={c.id}>{c.codice_commessa} - {c.descrizione_commessa}</option>)}
               </select>
             </div>
             <div>
-              <label htmlFor="ordine">Ordine Cliente (filtrato per cliente):</label>
+              <label htmlFor="ordine">Ordine Cliente:</label>
               <select id="ordine" value={selectedOrdineId} onChange={(e) => setSelectedOrdineId(e.target.value)} disabled={!selectedClienteId}>
                 <option value="">Nessun Ordine</option>
                 {ordiniFiltrati.map(o => <option key={o.id} value={o.id}>{o.numero_ordine_cliente} - {o.descrizione_ordine}</option>)}
@@ -309,46 +310,38 @@ function FoglioAssistenzaFormPage({ session, clienti, commesse, ordini }) {
               <textarea id="osservazioniGenerali" value={osservazioniGenerali} onChange={(e) => setOsservazioniGenerali(e.target.value)} />
             </div>
 
+            {/* Firme */}
             <div>
               <label>Firma Cliente:</label>
-              {firmaClientePreview && !sigCanvasClienteRef.current?.isEmpty() === false && ( // Mostra preview se c'è un URL e non si sta disegnando
+              {isEditMode && firmaClientePreview && (
                 <div style={{marginBottom: '10px'}}>
                     <img src={firmaClientePreview} alt="Firma Cliente Esistente" style={{border:'1px solid #ccc', maxWidth: '300px', maxHeight: '100px'}}/>
-                    <button type="button" className="secondary" onClick={() => {setFirmaClientePreview(null); if(sigCanvasClienteRef.current) sigCanvasClienteRef.current.clear();}}>Cambia Firma</button>
+                    <button type="button" className="secondary" style={{fontSize:'0.8em', padding:'0.2em 0.5em', marginLeft:'5px'}} onClick={() => {setFirmaClientePreview(null); if(sigCanvasClienteRef.current) sigCanvasClienteRef.current.clear();}}>Ridisegna</button>
                 </div>
               )}
-              {(!firmaClientePreview || sigCanvasClienteRef.current?.isEmpty() === false) && (
+              {(!isEditMode || !firmaClientePreview) && ( // Mostra canvas se in creazione o se preview è stata rimossa
                 <>
                   <div className="signature-pad-container">
-                    <SignatureCanvas
-                      penColor='blue'
-                      canvasProps={{ width: 400, height: 150, className: 'sigCanvasCliente' }}
-                      ref={sigCanvasClienteRef}
-                    />
+                    <SignatureCanvas penColor='blue' canvasProps={{ width: 400, height: 150, className: 'sigCanvasCliente' }} ref={sigCanvasClienteRef} />
                   </div>
-                  <button type="button" className="secondary" onClick={() => clearSignature(sigCanvasClienteRef)}>Cancella Disegno Firma Cliente</button>
+                  <button type="button" className="secondary" onClick={() => clearSignature(sigCanvasClienteRef, 'cliente')}>Cancella Disegno</button>
                 </>
               )}
             </div>
-
             <div>
               <label>Firma Tecnico Responsabile:</label>
-               {firmaTecnicoPreview && !sigCanvasTecnicoRef.current?.isEmpty() === false && (
+               {isEditMode && firmaTecnicoPreview && (
                 <div style={{marginBottom: '10px'}}>
                     <img src={firmaTecnicoPreview} alt="Firma Tecnico Esistente" style={{border:'1px solid #ccc', maxWidth: '300px', maxHeight: '100px'}}/>
-                     <button type="button" className="secondary" onClick={() => {setFirmaTecnicoPreview(null); if(sigCanvasTecnicoRef.current) sigCanvasTecnicoRef.current.clear();}}>Cambia Firma</button>
+                    <button type="button" className="secondary" style={{fontSize:'0.8em', padding:'0.2em 0.5em', marginLeft:'5px'}} onClick={() => {setFirmaTecnicoPreview(null); if(sigCanvasTecnicoRef.current) sigCanvasTecnicoRef.current.clear();}}>Ridisegna</button>
                 </div>
               )}
-              {(!firmaTecnicoPreview || sigCanvasTecnicoRef.current?.isEmpty() === false) && (
+              {(!isEditMode || !firmaTecnicoPreview) && (
                 <>
                   <div className="signature-pad-container">
-                    <SignatureCanvas
-                      penColor='black'
-                      canvasProps={{ width: 400, height: 150, className: 'sigCanvasTecnico' }}
-                      ref={sigCanvasTecnicoRef}
-                    />
+                    <SignatureCanvas penColor='black' canvasProps={{ width: 400, height: 150, className: 'sigCanvasTecnico' }} ref={sigCanvasTecnicoRef} />
                   </div>
-                  <button type="button" className="secondary" onClick={() => clearSignature(sigCanvasTecnicoRef)}>Cancella Disegno Firma Tecnico</button>
+                  <button type="button" className="secondary" onClick={() => clearSignature(sigCanvasTecnicoRef, 'tecnico')}>Cancella Disegno</button>
                 </>
               )}
             </div>
@@ -365,8 +358,8 @@ function FoglioAssistenzaFormPage({ session, clienti, commesse, ordini }) {
             </div>
 
             {error && <p style={{ color: 'red', fontWeight:'bold' }}>ERRORE: {error}</p>}
-            <button type="submit" disabled={loading || !canSubmit} style={{marginTop:'20px'}}>
-              {loading ? "Salvataggio..." : (isEditMode ? "Aggiorna Foglio" : "Crea Foglio Assistenza")}
+            <button type="submit" disabled={loadingSubmit || !canSubmitForm} style={{marginTop:'20px'}}>
+              {loadingSubmit ? "Salvataggio..." : (isEditMode ? "Aggiorna Intestazione Foglio" : "Crea Foglio Assistenza")}
             </button>
           </form>
         </div>

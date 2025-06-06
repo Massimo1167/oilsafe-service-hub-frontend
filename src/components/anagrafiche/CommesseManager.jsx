@@ -2,15 +2,18 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
 
-function CommesseManager({ session, clienti }) { // Riceve session e clienti come props
+function CommesseManager({ session, clienti }) {
     const [commesse, setCommesse] = useState([]);
-    const [codiceCommessa, setCodiceCommessa] = useState('');
-    const [descrizioneCommessa, setDescrizioneCommessa] = useState('');
-    const [selectedClienteId, setSelectedClienteId] = useState('');
-    const [statoCommessa, setStatoCommessa] = useState('Aperta');
     const [loading, setLoading] = useState(false);
     const [pageLoading, setPageLoading] = useState(true);
     const [error, setError] = useState(null);
+
+    // Stati per il form
+    const [formCodiceCommessa, setFormCodiceCommessa] = useState('');
+    const [formDescrizioneCommessa, setFormDescrizioneCommessa] = useState('');
+    const [formSelectedClienteId, setFormSelectedClienteId] = useState('');
+    const [formStatoCommessa, setFormStatoCommessa] = useState('Aperta');
+    const [editingCommessa, setEditingCommessa] = useState(null);
 
     const userRole = session?.user?.role;
     const canManage = userRole === 'admin' || userRole === 'manager';
@@ -20,15 +23,8 @@ function CommesseManager({ session, clienti }) { // Riceve session e clienti com
         setError(null);
         const { data, error: fetchError } = await supabase
             .from('commesse')
-            .select(`
-                id,
-                codice_commessa,
-                descrizione_commessa,
-                stato,
-                clienti (id, nome_azienda)
-            `)
+            .select(`id, codice_commessa, descrizione_commessa, stato, cliente_id, clienti (id, nome_azienda)`)
             .order('codice_commessa');
-
         if (fetchError) {
             setError(fetchError.message);
             console.error('Errore fetch commesse:', fetchError);
@@ -47,35 +43,68 @@ function CommesseManager({ session, clienti }) { // Riceve session e clienti com
         }
     }, [session]);
 
-    const handleAddCommessa = async (e) => {
-        e.preventDefault();
+    const resetForm = () => {
+        setFormCodiceCommessa('');
+        setFormDescrizioneCommessa('');
+        setFormSelectedClienteId('');
+        setFormStatoCommessa('Aperta');
+        setEditingCommessa(null);
+    };
+
+    const handleEditCommessa = (commessa) => {
         if (!canManage) {
-            alert("Non hai i permessi per aggiungere commesse.");
+            alert("Non hai i permessi per modificare commesse.");
             return;
         }
-        if (!codiceCommessa.trim()) {
+        setEditingCommessa(commessa);
+        setFormCodiceCommessa(commessa.codice_commessa);
+        setFormDescrizioneCommessa(commessa.descrizione_commessa || '');
+        setFormSelectedClienteId(commessa.cliente_id || '');
+        setFormStatoCommessa(commessa.stato || 'Aperta');
+        window.scrollTo(0, 0);
+    };
+
+    const handleSubmitForm = async (e) => {
+        e.preventDefault();
+        if (!canManage) {
+            alert("Non hai i permessi per questa operazione.");
+            return;
+        }
+        if (!formCodiceCommessa.trim()) {
             alert("Il codice commessa è obbligatorio.");
             return;
         }
         setLoading(true);
         setError(null);
-        const { error: insertError } = await supabase.from('commesse').insert([{
-            codice_commessa: codiceCommessa,
-            descrizione_commessa: descrizioneCommessa,
-            cliente_id: selectedClienteId || null,
-            stato: statoCommessa,
-        }]);
+        const commessaData = {
+            codice_commessa: formCodiceCommessa,
+            descrizione_commessa: formDescrizioneCommessa,
+            cliente_id: formSelectedClienteId || null,
+            stato: formStatoCommessa,
+        };
+        let operationError = null;
 
-        if (insertError) {
-            setError(insertError.message);
-            console.error('Errore inserimento commessa:', insertError);
-            alert('Errore inserimento commessa: ' + insertError.message);
+        if (editingCommessa) {
+            const { error: updateError } = await supabase
+                .from('commesse')
+                .update(commessaData)
+                .eq('id', editingCommessa.id);
+            operationError = updateError;
         } else {
-            setCodiceCommessa('');
-            setDescrizioneCommessa('');
-            setSelectedClienteId('');
-            setStatoCommessa('Aperta');
+            const { error: insertError } = await supabase
+                .from('commesse')
+                .insert([commessaData]);
+            operationError = insertError;
+        }
+
+        if (operationError) {
+            setError(operationError.message);
+            console.error(editingCommessa ? 'Errore modifica commessa:' : 'Errore inserimento commessa:', operationError);
+            alert((editingCommessa ? 'Errore modifica: ' : 'Errore inserimento: ') + operationError.message);
+        } else {
+            resetForm();
             await fetchCommesse();
+            alert(editingCommessa ? "Commessa modificata con successo!" : "Commessa aggiunta con successo!");
         }
         setLoading(false);
     };
@@ -95,6 +124,10 @@ function CommesseManager({ session, clienti }) { // Riceve session e clienti com
                 alert("Errore durante l'eliminazione: " + deleteError.message);
             } else {
                 await fetchCommesse();
+                if (editingCommessa && editingCommessa.id === commessaId) {
+                    resetForm();
+                }
+                alert("Commessa eliminata con successo.");
             }
             setLoading(false);
         }
@@ -108,33 +141,38 @@ function CommesseManager({ session, clienti }) { // Riceve session e clienti com
         <div>
             <h2>Anagrafica Commesse Oilsafe</h2>
             {canManage && (
-                <form onSubmit={handleAddCommessa} style={{ marginBottom: '20px', padding: '15px', border: '1px solid #eee', borderRadius: '5px' }}>
-                    <h3>Nuova Commessa</h3>
+                <form onSubmit={handleSubmitForm} style={{ marginBottom: '20px', padding: '15px', border: '1px solid #eee', borderRadius: '5px' }}>
+                    <h3>{editingCommessa ? 'Modifica Commessa' : 'Nuova Commessa'}</h3>
                     <div>
-                        <label htmlFor="codiceCommessa">Codice Commessa:</label>
-                        <input type="text" id="codiceCommessa" placeholder="Es. COM-2024-001" value={codiceCommessa} onChange={e => setCodiceCommessa(e.target.value)} required />
+                        <label htmlFor="formCodiceCommessa">Codice Commessa:</label>
+                        <input type="text" id="formCodiceCommessa" value={formCodiceCommessa} onChange={e => setFormCodiceCommessa(e.target.value)} required />
                     </div>
                     <div>
-                        <label htmlFor="descrizioneCommessa">Descrizione Commessa:</label>
-                        <input type="text" id="descrizioneCommessa" placeholder="Descrizione" value={descrizioneCommessa} onChange={e => setDescrizioneCommessa(e.target.value)} />
+                        <label htmlFor="formDescrizioneCommessa">Descrizione Commessa:</label>
+                        <input type="text" id="formDescrizioneCommessa" value={formDescrizioneCommessa} onChange={e => setFormDescrizioneCommessa(e.target.value)} />
                     </div>
                     <div>
-                        <label htmlFor="clienteCommessa">Cliente Associato (Opzionale):</label>
-                        <select id="clienteCommessa" value={selectedClienteId} onChange={e => setSelectedClienteId(e.target.value)}>
+                        <label htmlFor="formClienteCommessa">Cliente Associato (Opzionale):</label>
+                        <select id="formClienteCommessa" value={formSelectedClienteId} onChange={e => setFormSelectedClienteId(e.target.value)}>
                             <option value="">Nessun Cliente Specifico</option>
                             {(clienti || []).map(c => <option key={c.id} value={c.id}>{c.nome_azienda}</option>)}
                         </select>
                     </div>
                     <div>
-                        <label htmlFor="statoCommessa">Stato Commessa:</label>
-                        <select id="statoCommessa" value={statoCommessa} onChange={e => setStatoCommessa(e.target.value)}>
+                        <label htmlFor="formStatoCommessa">Stato Commessa:</label>
+                        <select id="formStatoCommessa" value={formStatoCommessa} onChange={e => setFormStatoCommessa(e.target.value)}>
                             <option value="Aperta">Aperta</option>
                             <option value="In Lavorazione">In Lavorazione</option>
                             <option value="Chiusa">Chiusa</option>
                             <option value="Annullata">Annullata</option>
                         </select>
                     </div>
-                    <button type="submit" disabled={loading}>{loading ? 'Salvataggio...' : 'Aggiungi Commessa'}</button>
+                    <button type="submit" disabled={loading}>{loading ? 'Salvataggio...' : (editingCommessa ? 'Salva Modifiche' : 'Aggiungi Commessa')}</button>
+                    {editingCommessa && (
+                        <button type="button" className="secondary" onClick={resetForm} disabled={loading} style={{marginLeft:'10px'}}>
+                            Annulla Modifica
+                        </button>
+                    )}
                 </form>
             )}
 
@@ -156,15 +194,15 @@ function CommesseManager({ session, clienti }) { // Riceve session e clienti com
                     </thead>
                     <tbody>
                         {commesse.map(commessa => (
-                            <tr key={commessa.id}>
+                            <tr key={commessa.id} style={editingCommessa && editingCommessa.id === commessa.id ? {backgroundColor: '#e6f7ff'} : {}}>
                                 <td>{commessa.codice_commessa}</td>
                                 <td>{commessa.descrizione_commessa || '-'}</td>
                                 <td>{commessa.clienti?.nome_azienda || 'N/D'}</td>
                                 <td>{commessa.stato}</td>
                                 {canManage && (
                                     <td className="actions">
-                                        {/* <button className="secondary" disabled={loading}>Modifica</button> */}
-                                        <button className="danger" onClick={() => handleDeleteCommessa(commessa.id)} disabled={loading}>Elimina</button>
+                                        <button className="secondary" onClick={() => handleEditCommessa(commessa)} disabled={loading}>Modifica</button>
+                                        <button className="danger" onClick={() => handleDeleteCommessa(commessa.id)} disabled={loading} style={{marginLeft:'5px'}}>Elimina</button>
                                     </td>
                                 )}
                             </tr>
