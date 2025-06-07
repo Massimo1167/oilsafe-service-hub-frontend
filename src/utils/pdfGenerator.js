@@ -3,21 +3,16 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
 const loadImageAsDataURL = (url) => {
-    return new Promise((resolve) => { // Semplificato il reject per ora
+    // ... (come prima) ...
+    return new Promise((resolve) => {
         if (!url) { resolve(null); return; }
         if (url.startsWith('data:image')) { resolve(url); return; }
-        const img = new Image();
-        img.crossOrigin = 'Anonymous';
+        const img = new Image(); img.crossOrigin = 'Anonymous';
         img.onload = () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = img.width;
-            canvas.height = img.height;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0);
-            try {
-                const dataURL = canvas.toDataURL('image/png');
-                resolve(dataURL);
-            } catch (e) { console.error("Errore conversione DataURL:", e); resolve(null); }
+            const canvas = document.createElement('canvas'); canvas.width = img.width; canvas.height = img.height;
+            const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0);
+            try { const dataURL = canvas.toDataURL('image/png'); resolve(dataURL); }
+            catch (e) { console.error("Errore conversione DataURL:", e); resolve(null); }
         };
         img.onerror = (err) => { console.error(`Errore caricamento immagine ${url}:`, err); resolve(null); };
         img.src = url;
@@ -28,165 +23,180 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData) =>
     if (!foglioData) { console.error("Dati foglio mancanti per PDF."); return; }
 
     const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
-    let yPosition = 15; 
+    let yPosition = 15;
     const pageHeight = doc.internal.pageSize.getHeight();
     const pageWidth = doc.internal.pageSize.getWidth();
     const marginLeft = 15;
     const marginRight = 15;
     const contentWidth = pageWidth - marginLeft - marginRight;
-    const marginBottom = 15;
-
-    // Data di stampa per il footer
-    const dataStampa = new Date().toLocaleDateString('it-IT', {
-        day: '2-digit', month: '2-digit', year: 'numeric'
-    });
-
-    // Titolo del foglio per l'intestazione di pagina
+    const marginBottom = 15; // Margine inferiore della pagina
+    const dataStampa = new Date().toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
     const titoloFoglioHeader = `Foglio Assistenza N. ${foglioData.numero_foglio || `ID: ${foglioData.id.substring(0,8)}`}`;
 
+    // Funzione per aggiungere l'header solo una volta per pagina
+    const addPageHeaderOnce = (currentDoc) => {
+        currentDoc.setFontSize(8);
+        currentDoc.setTextColor(100);
+        currentDoc.text(titoloFoglioHeader, pageWidth - marginRight, 10, { align: 'right' });
+        currentDoc.setTextColor(0);
+    };
 
-    const checkAndAddPage = (neededHeight = 10) => {
+    const checkAndAddPage = (currentDoc, neededHeight = 10) => {
         if (yPosition + neededHeight > pageHeight - marginBottom) {
-            doc.addPage();
-            yPosition = 15; // Reset yPosition per la nuova pagina
-            // Aggiungi nuovamente l'intestazione di pagina a destra
-            doc.setFontSize(8);
-            doc.setTextColor(100);
-            doc.text(titoloFoglioHeader, pageWidth - marginRight, 10, { align: 'right' });
-            doc.setTextColor(0); // Reset colore testo
+            currentDoc.addPage();
+            yPosition = 15; 
+            addPageHeaderOnce(currentDoc); // Aggiungi header alla nuova pagina
+            return true; // Pagina aggiunta
         }
+        return false; // Nessuna pagina aggiunta
     };
     
-    const addFormattedText = (text, x, y, options = {}, defaultLineHeight = 4) => {
+    const addFormattedText = (currentDoc, text, x, options = {}) => {
         const fontSize = options.fontSize || 10;
-        const textHeightEstimate = fontSize / 2.83465 * 1.2 * (String(text).split('\n').length + 2);
-        checkAndAddPage(textHeightEstimate);
+        const textLineHeight = (fontSize / 2.83465 * 1.2);
+        const linesArray = currentDoc.splitTextToSize(String(text) || '-', options.maxWidth || contentWidth);
+        const estimatedHeight = linesArray.length * textLineHeight + (options.marginBottom || 2);
         
-        doc.setFontSize(fontSize);
-        doc.setFont(undefined, options.fontStyle || 'normal');
-        const lines = doc.splitTextToSize(String(text) || '-', options.maxWidth || contentWidth);
-        doc.text(lines, x, y, { align: options.align || 'left' });
-        const textDimensions = doc.getTextDimensions(lines, { fontSize: fontSize });
-        return y + textDimensions.h + (options.marginBottom || 2);
+        checkAndAddPage(currentDoc, estimatedHeight);
+        
+        currentDoc.setFontSize(fontSize);
+        currentDoc.setFont(undefined, options.fontStyle || 'normal');
+        currentDoc.text(linesArray, x, yPosition, { align: options.align || 'left' });
+        const textDimensions = currentDoc.getTextDimensions(linesArray, { fontSize: fontSize });
+        yPosition += textDimensions.h + (options.marginBottom || 2);
     };
 
-    const addLabelAndValue = (label, value, x, currentY, labelWidth = 40, valueMaxWidthOffset = 5) => {
+    const addLabelAndValue = (currentDoc, label, value, x, labelWidth = 40, valueMaxWidthOffset = 5) => {
         const labelFontSize = 10;
         const valueFontSize = 10;
-        const labelHeight = doc.getTextDimensions(label, {fontSize: labelFontSize}).h;
-        let valueHeight = doc.getTextDimensions('X', {fontSize: valueFontSize}).h; // Altezza di una riga di valore
+        const defaultLineHeight = (labelFontSize / 2.83465 * 1.2);
+
+        const labelLines = currentDoc.splitTextToSize(label, labelWidth - 2); // -2 per un po' di margine
+        const labelTextHeight = currentDoc.getTextDimensions(labelLines, {fontSize: labelFontSize}).h;
         
+        let valueTextHeight = defaultLineHeight; // Altezza minima per una riga
+        let valueLines = ['-']; // Default se value è nullo o vuoto
+
         if (value) {
-            const valueX = x + labelWidth;
-            const calculatedValueMaxWidth = contentWidth - labelWidth - valueMaxWidthOffset;
-            const valueLines = doc.splitTextToSize(String(value), calculatedValueMaxWidth > 10 ? calculatedValueMaxWidth : contentWidth - valueX );
-            valueHeight = doc.getTextDimensions(valueLines, {fontSize: valueFontSize}).h;
-        }
-        
-        checkAndAddPage(Math.max(labelHeight, valueHeight) + 2); // Stima altezza necessaria
-        
-        doc.setFontSize(labelFontSize);
-        doc.setFont(undefined, 'bold');
-        doc.text(label, x, currentY);
-        
-        doc.setFontSize(valueFontSize);
-        doc.setFont(undefined, 'normal');
-        if (value) {
-            const valueX = x + labelWidth + 2; // +2 per spazio tra label e value
+            const valueX = x + labelWidth + 2; // +2 per spazio
             const calculatedValueMaxWidth = contentWidth - (labelWidth + 2) - valueMaxWidthOffset;
-            const valueLines = doc.splitTextToSize(String(value), calculatedValueMaxWidth > 10 ? calculatedValueMaxWidth : contentWidth - valueX);
-            doc.text(valueLines, valueX, currentY);
+            valueLines = currentDoc.splitTextToSize(String(value), calculatedValueMaxWidth > 10 ? calculatedValueMaxWidth : contentWidth - valueX );
+            valueTextHeight = currentDoc.getTextDimensions(valueLines, {fontSize: valueFontSize}).h;
         }
-        return currentY + Math.max(labelHeight, valueHeight) + 1;
+        
+        // Controlla se l'intero blocco (etichetta + valore) ci sta
+        const combinedHeight = Math.max(labelTextHeight, valueTextHeight) + 3; // +3 per margine
+        if (yPosition + combinedHeight > pageHeight - marginBottom) {
+            currentDoc.addPage();
+            yPosition = 15;
+            addPageHeaderOnce(currentDoc);
+        }
+        
+        currentDoc.setFontSize(labelFontSize);
+        currentDoc.setFont(undefined, 'bold');
+        currentDoc.text(labelLines, x, yPosition);
+        
+        currentDoc.setFontSize(valueFontSize);
+        currentDoc.setFont(undefined, 'normal');
+        if (value) { // Disegna il valore solo se esiste
+             const valueX = x + labelWidth + 2;
+             const calculatedValueMaxWidth = contentWidth - (labelWidth + 2) - valueMaxWidthOffset;
+             // Ricalcola valueLines nel caso sia cambiato yPosition a causa di addPage
+             const currentValLines = currentDoc.splitTextToSize(String(value), calculatedValueMaxWidth > 10 ? calculatedValueMaxWidth : contentWidth - valueX);
+             currentDoc.text(currentValLines, valueX, yPosition);
+        }
+        yPosition += Math.max(labelTextHeight, valueTextHeight) + 1; // Interlinea
     };
 
-    const addLine = (y) => {
-        checkAndAddPage(5);
-        doc.setDrawColor(180, 180, 180);
-        doc.line(marginLeft, y, pageWidth - marginRight, y);
-        return y + 2;
+    const addLine = (currentDoc, y) => {
+        checkAndAddPage(currentDoc, 6); // Spazio per la linea E per il contenuto successivo
+        currentDoc.setDrawColor(180, 180, 180);
+        currentDoc.line(marginLeft, y, pageWidth - marginRight, y);
+        return y + 4; // Aumentato lo spazio dopo la linea
     };
 
-    // --- INTESTAZIONE DI PAGINA (a destra) ---
-    doc.setFontSize(8);
-    doc.setTextColor(100); // Grigio per l'intestazione
-    doc.text(titoloFoglioHeader, pageWidth - marginRight, 10, { align: 'right' });
-    doc.setTextColor(0); // Reset colore testo
+    // --- PRIMA PAGINA ---
+    addPageHeaderOnce(doc); // Aggiungi header solo una volta all'inizio per la prima pagina
 
-    // --- INTESTAZIONE AZIENDA ---
+    // ... (Intestazione Azienda Oilsafe S.r.l. come prima, ma usando yPosition e addFormattedText) ...
+    // yPosition = 15; // Già inizializzata
     const NOME_AZIENDA = "Oilsafe S.r.l.";
     const INDIRIZZO_AZIENDA = "Via Toscanini, 209 - 41122 Modena (MO)";
     const PARTITA_IVA_AZIENDA = "02589600366";
     const TELEFONO_AZIENDA = "+39 059 285294";
     const EMAIL_AZIENDA = "amministrazione@oilsafe.it";
 
-    yPosition = addFormattedText(NOME_AZIENDA, marginLeft, yPosition, { fontSize: 16, fontStyle: 'bold' });
-    yPosition = addFormattedText(INDIRIZZO_AZIENDA, marginLeft, yPosition, { fontSize: 9 });
-    yPosition = addFormattedText(`P.IVA: ${PARTITA_IVA_AZIENDA} - Tel: ${TELEFONO_AZIENDA}`, marginLeft, yPosition, { fontSize: 9 });
-    yPosition = addFormattedText(`Email: ${EMAIL_AZIENDA}`, marginLeft, yPosition, { fontSize: 9, marginBottom: 7 });
+    addFormattedText(doc, NOME_AZIENDA, marginLeft, { fontSize: 16, fontStyle: 'bold' });
+    addFormattedText(doc, INDIRIZZO_AZIENDA, marginLeft, { fontSize: 9 });
+    addFormattedText(doc, `P.IVA: ${PARTITA_IVA_AZIENDA} - Tel: ${TELEFONO_AZIENDA}`, marginLeft, { fontSize: 9 });
+    addFormattedText(doc, `Email: ${EMAIL_AZIENDA}`, marginLeft, { fontSize: 9, marginBottom: 7 });
 
-    // --- TITOLO DOCUMENTO (Centrato, ma l'intestazione di pagina è già a dx) ---
-    // yPosition = addFormattedText(titoloFoglioHeader, pageWidth / 2, yPosition, { fontSize: 14, fontStyle: 'bold', align: 'center', marginBottom: 7 });
-    // Se vogliamo un titolo grande e centrato oltre all'intestazione di pagina:
     const titoloDocumento = `RAPPORTO DI INTERVENTO TECNICO`;
-    yPosition = addFormattedText(titoloDocumento, pageWidth / 2, yPosition, { fontSize: 14, fontStyle: 'bold', align: 'center', marginBottom: 7 });
-
+    addFormattedText(doc, titoloDocumento, pageWidth / 2, { fontSize: 14, fontStyle: 'bold', align: 'center', marginBottom: 7 });
 
     // --- DATI GENERALI FOGLIO ---
-    // ... (logica addLabelAndValue come prima, usando marginLeft invece di 15) ...
-    yPosition = addFormattedText('Dati Generali del Foglio:', marginLeft, yPosition, { fontSize: 11, fontStyle: 'bold', marginBottom: 3 });
-    doc.setFontSize(10);
-
-    yPosition = addLabelAndValue('Data Apertura:', new Date(foglioData.data_apertura_foglio).toLocaleDateString(), marginLeft, yPosition);
-    yPosition = addLabelAndValue('Cliente:', foglioData.clienti?.nome_azienda || 'N/D', marginLeft, yPosition);
-    if(foglioData.clienti?.indirizzo) yPosition = addLabelAndValue('Indirizzo Cliente:', foglioData.clienti.indirizzo, marginLeft, yPosition);
-    yPosition = addLabelAndValue('Referente Richiesta:', foglioData.referente_cliente_richiesta || 'N/D', marginLeft, yPosition);
-    if (foglioData.commesse) yPosition = addLabelAndValue('Commessa:', `${foglioData.commesse.codice_commessa} (${foglioData.commesse.descrizione_commessa || 'N/D'})`, marginLeft, yPosition);
-    if (foglioData.ordini_cliente) yPosition = addLabelAndValue('Ordine Cliente:', `${foglioData.ordini_cliente.numero_ordine_cliente} (${foglioData.ordini_cliente.descrizione_ordine || 'N/D'})`, marginLeft, yPosition);
-    yPosition = addLabelAndValue('Stato Foglio:', foglioData.stato_foglio, marginLeft, yPosition);
+    addFormattedText(doc, 'Dati Generali del Foglio:', marginLeft, { fontSize: 11, fontStyle: 'bold', marginBottom: 3 });
+    addLabelAndValue(doc, 'Data Apertura:', new Date(foglioData.data_apertura_foglio).toLocaleDateString(), marginLeft);
+    addLabelAndValue(doc, 'Cliente:', foglioData.clienti?.nome_azienda || 'N/D', marginLeft);
+    if(foglioData.clienti?.indirizzo) addLabelAndValue(doc, 'Indirizzo Cliente:', foglioData.clienti.indirizzo, marginLeft);
+    addLabelAndValue(doc, 'Referente Richiesta:', foglioData.referente_cliente_richiesta || 'N/D', marginLeft);
+    if (foglioData.commesse) addLabelAndValue(doc, 'Commessa:', `${foglioData.commesse.codice_commessa} (${foglioData.commesse.descrizione_commessa || 'N/D'})`, marginLeft);
+    if (foglioData.ordini_cliente) addLabelAndValue(doc, 'Ordine Cliente:', `${foglioData.ordini_cliente.numero_ordine_cliente} (${foglioData.ordini_cliente.descrizione_ordine || 'N/D'})`, marginLeft);
+    addLabelAndValue(doc, 'Stato Foglio:', foglioData.stato_foglio, marginLeft);
     if (foglioData.creato_da_user_id) {
-        yPosition = addLabelAndValue('Rif. Utente Oilsafe:', `${foglioData.creato_da_user_id.substring(0,8)}...`, marginLeft, yPosition);
+        addLabelAndValue(doc, 'Rif. Utente Oilsafe:', `${foglioData.creato_da_user_id.substring(0,8)}...`, marginLeft);
     }
     yPosition += 3;
 
-    yPosition = addFormattedText('Motivo Intervento Generale:', marginLeft, yPosition, {fontStyle: 'bold'});
-    yPosition = addFormattedText(foglioData.motivo_intervento_generale || 'N/D', marginLeft, yPosition, { maxWidth: contentWidth, marginBottom: 2 });
+    // Per evitare stacco tra titolo e valore, passiamo il valore alla funzione addFormattedText
+    // che ora gestisce il controllo pagina per il blocco intero (etichetta + valore se etichetta è un testo formattato)
+    // Questa logica andrebbe integrata meglio in addLabelAndValue, ma per ora facciamo così:
+    const motivoLabel = 'Motivo Intervento Generale:';
+    const motivoValue = foglioData.motivo_intervento_generale || 'N/D';
+    const motivoLabelHeight = doc.getTextDimensions(motivoLabel, {fontSize: 10, fontStyle: 'bold'}).h;
+    const motivoValueLines = doc.splitTextToSize(motivoValue, contentWidth);
+    const motivoValueHeight = doc.getTextDimensions(motivoValueLines, {fontSize: 10}).h;
+    checkAndAddPage(doc, motivoLabelHeight + motivoValueHeight + 5); // +5 per margini
+    addFormattedText(doc, motivoLabel, marginLeft, {fontStyle: 'bold', marginBottom: 1}); // Meno marginBottom
+    addFormattedText(doc, motivoValue, marginLeft, { maxWidth: contentWidth, marginBottom: 2 });
 
-    yPosition = addFormattedText('Descrizione Lavoro Generale:', marginLeft, yPosition, {fontStyle: 'bold'});
-    yPosition = addFormattedText(foglioData.descrizione_lavoro_generale || 'N/D', marginLeft, yPosition, { maxWidth: contentWidth, marginBottom: 5 });
+    const descLabel = 'Descrizione Lavoro Generale:';
+    const descValue = foglioData.descrizione_lavoro_generale || 'N/D';
+    const descLabelHeight = doc.getTextDimensions(descLabel, {fontSize: 10, fontStyle: 'bold'}).h;
+    const descValueLines = doc.splitTextToSize(descValue, contentWidth);
+    const descValueHeight = doc.getTextDimensions(descValueLines, {fontSize: 10}).h;
+    checkAndAddPage(doc, descLabelHeight + descValueHeight + 5);
+    addFormattedText(doc, descLabel, marginLeft, {fontStyle: 'bold', marginBottom: 1});
+    addFormattedText(doc, descValue, marginLeft, { maxWidth: contentWidth, marginBottom: 5 });
 
 
     // --- TABELLA INTERVENTI ---
     if (interventiData && interventiData.length > 0) {
-        checkAndAddPage(20);
-        yPosition = addLine(yPosition);
-        yPosition = addFormattedText('Dettaglio Interventi Svolti:', marginLeft, yPosition + 2, { fontSize: 11, fontStyle: 'bold', marginBottom: 3 });
+        // Calcola altezza stimata titolo + almeno una riga di tabella per decidere se cambiare pagina
+        const tableTitleHeight = 10; // Stima
+        const oneRowHeight = 10; // Stima
+        checkAndAddPage(doc, tableTitleHeight + oneRowHeight); 
+
+        yPosition = addLine(doc, yPosition); // yPosition viene aggiornato da addLine
+        addFormattedText(doc, 'Dettaglio Interventi Svolti:', marginLeft, { fontSize: 11, fontStyle: 'bold', marginBottom: 3 });
         
-        const head = [['Data', 'Tecnico', 'Tipo', 'H Lav.', 'H Via.', 'Km', 'Descrizione Attività', 'Osservazioni Int.', 'Spese']];
-        const body = interventiData.map(int => [ /* ... come prima ... */
-            new Date(int.data_intervento_effettivo).toLocaleDateString(),
-            int.tecnici ? `${int.tecnici.nome.substring(0,1)}. ${int.tecnici.cognome}` : 'N/D',
-            int.tipo_intervento || '-',
-            int.ore_lavoro_effettive || '-',
-            int.ore_viaggio || '-',
-            int.km_percorsi || '-',
-            int.descrizione_attivita_svolta_intervento || '-',
-            int.osservazioni_intervento || '-',
-            [ (int.vitto ? "V" : ""), (int.autostrada ? "A" : ""), (int.alloggio ? "H" : "") ].filter(Boolean).join('/') || '-'
-        ]);
+        const head = [/* ... come prima ... */]; const body = [/* ... come prima ... */];
+        head[0] = ['Data', 'Tecnico', 'Tipo', 'H Lav.', 'H Via.', 'Km', 'Descrizione Attività', 'Osservazioni Int.', 'Spese'];
+        body.length = 0; // Pulisci e ripopola se era globale
+        interventiData.forEach(int => {
+            body.push([
+                new Date(int.data_intervento_effettivo).toLocaleDateString(),
+                int.tecnici ? `${int.tecnici.nome.substring(0,1)}. ${int.tecnici.cognome}` : 'N/D',
+                int.tipo_intervento || '-', int.ore_lavoro_effettive || '-', int.ore_viaggio || '-', int.km_percorsi || '-',
+                int.descrizione_attivita_svolta_intervento || '-', int.osservazioni_intervento || '-',
+                [ (int.vitto ? "V" : ""), (int.autostrada ? "A" : ""), (int.alloggio ? "H" : "") ].filter(Boolean).join('/') || '-'
+            ]);
+        });
+
 
         doc.autoTable({
-            startY: yPosition,
-            head: head,
-            body: body,
-            theme: 'striped',
-            headStyles: { 
-                fillColor: [0, 123, 255], // Colore Blu per l'intestazione (RGB)
-                textColor: 255, 
-                fontStyle: 'bold', 
-                fontSize: 7.5, 
-                halign: 'center' 
-            },
+            startY: yPosition, head: head, body: body, theme: 'striped',
+            headStyles: { fillColor: [0, 123, 255], textColor: 255, fontStyle: 'bold', fontSize: 7.5, halign: 'center' },
             styles: { fontSize: 7, cellPadding: 1, overflow: 'linebreak' },
             columnStyles: { /* ... come prima ... */
                 0: { cellWidth: 16, halign: 'center' }, 1: { cellWidth: 25 }, 2: { cellWidth: 13, halign: 'center' },
@@ -194,77 +204,96 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData) =>
                 6: { cellWidth: 'auto' }, 7: { cellWidth: 35 }, 8: { cellWidth: 12, halign: 'center' },
             },
             didDrawPage: (data) => { 
-                yPosition = data.cursor.y; 
-                checkAndAddPage(0); 
-                // Aggiungi nuovamente l'intestazione di pagina a destra per le nuove pagine della tabella
-                doc.setFontSize(8);
-                doc.setTextColor(100);
-                doc.text(titoloFoglioHeader, pageWidth - marginRight, 10, { align: 'right' });
-                doc.setTextColor(0);
+                yPosition = 15; 
+                addPageHeaderOnce(doc);
+                // Se la tabella ha un titolo di sezione, andrebbe ridisegnato qui se la tabella continua
+                // Ma il titolo "Dettaglio Interventi Svolti" è già stato disegnato prima di autoTable.
+                // Per le pagine successive della tabella, non lo ridisegniamo.
             },
-            margin: { top: 15, right: marginRight, bottom: marginBottom + 5, left: marginLeft } // Margini per la tabella
+            margin: { top: 15, right: marginRight, bottom: marginBottom + 10, left: marginLeft }
         });
-        yPosition = doc.autoTable.previous.finalY ? doc.autoTable.previous.finalY + 5 : yPosition + 5;
+        yPosition = doc.autoTable.previous.finalY ? doc.autoTable.previous.finalY + 5 : yPosition;
+    } else { 
+        addFormattedText(doc, 'Nessun intervento specifico registrato.', marginLeft, {marginBottom: 5});
+    }
 
-    } else { /* ... come prima ... */ }
+    // --- MATERIALI E OSSERVAZIONI GENERALI (CON CONTROLLO STACCO) ---
+    yPosition = addLine(doc, yPosition);
+    const matLabel = `Materiali Forniti (Generale):`;
+    const matValue = foglioData.materiali_forniti_generale || 'Nessuno';
+    const matLabelHeight = doc.getTextDimensions(matLabel, {fontSize: 10, fontStyle: 'bold'}).h;
+    const matValueLines = doc.splitTextToSize(matValue, contentWidth);
+    const matValueHeight = doc.getTextDimensions(matValueLines, {fontSize: 10}).h;
+    checkAndAddPage(doc, matLabelHeight + matValueHeight + 5);
+    addFormattedText(doc, matLabel, marginLeft, {fontStyle: 'bold', marginBottom: 1});
+    addFormattedText(doc, matValue, marginLeft, { maxWidth: contentWidth, marginBottom: 3 });
 
-    // --- MATERIALI E OSSERVAZIONI GENERALI ---
-    // ... (logica addFormattedText come prima, usando marginLeft) ...
-    checkAndAddPage(20);
-    yPosition = addLine(yPosition);
-    yPosition = addFormattedText(`Materiali Forniti (Generale):`, marginLeft, yPosition + 2, {fontStyle: 'bold'});
-    yPosition = addFormattedText(foglioData.materiali_forniti_generale || 'Nessuno', marginLeft, yPosition, { maxWidth: contentWidth, marginBottom: 3 });
-    yPosition = addFormattedText(`Osservazioni Generali (Foglio):`, marginLeft, yPosition, {fontStyle: 'bold'});
-    yPosition = addFormattedText(foglioData.osservazioni_generali || 'Nessuna', marginLeft, yPosition, { maxWidth: contentWidth, marginBottom: 10 });
-
+    const ossLabel = `Osservazioni Generali (Foglio):`;
+    const ossValue = foglioData.osservazioni_generali || 'Nessuna';
+    const ossLabelHeight = doc.getTextDimensions(ossLabel, {fontSize: 10, fontStyle: 'bold'}).h;
+    const ossValueLines = doc.splitTextToSize(ossValue, contentWidth);
+    const ossValueHeight = doc.getTextDimensions(ossValueLines, {fontSize: 10}).h;
+    checkAndAddPage(doc, ossLabelHeight + ossValueHeight + 5);
+    addFormattedText(doc, ossLabel, marginLeft, {fontStyle: 'bold', marginBottom: 1});
+    addFormattedText(doc, ossValue, marginLeft, { maxWidth: contentWidth, marginBottom: 10 });
 
     // --- FIRME ---
-    // ... (logica firme come prima, usando marginLeft e signatureXCliente/Tecnico) ...
-    checkAndAddPage(65);
-    yPosition = addLine(yPosition);
-    yPosition = addFormattedText('Firme:', marginLeft, yPosition + 3, { fontSize: 11, fontStyle: 'bold', marginBottom: 3 });
-    doc.setFontSize(10);
+    // ... (Codice firme come l'ultima versione con dimensioni 52x26, ma assicurati che checkAndAddPage venga chiamato correttamente prima)
+    const signatureBoxHeightEstimation = 26 + 10; // Altezza immagine + etichetta + margine
+    checkAndAddPage(doc, signatureBoxHeightEstimation * 2); // Spazio per due blocchi firma
 
-    const signatureWidth = 70; const signatureHeight = 35;
-    const signatureYStart = yPosition + 2;
-    const signatureXCliente = marginLeft + 5; // Leggermente indentato dai margini
-    const signatureXTecnico = pageWidth - marginRight - signatureWidth - 5; // Leggermente indentato dai margini
-
-    yPosition = addFormattedText('Firma Cliente:', signatureXCliente, signatureYStart, {fontStyle: 'bold', marginBottom:1});
-    const firmaClienteDataUrl = await loadImageAsDataURL(foglioData.firma_cliente_url);
-    if (firmaClienteDataUrl) { try { doc.addImage(firmaClienteDataUrl, 'PNG', signatureXCliente, yPosition, signatureWidth, signatureHeight); } catch (e) { yPosition = addFormattedText('[Err firma]', signatureXCliente, yPosition); } }
-    else { yPosition = addFormattedText('[Firma Cliente non disponibile]', signatureXCliente, yPosition + 5); }
-
-    let yTecnicoLabel = signatureYStart;
-    let yTecnicoImage = yPosition; // Stessa y dell'immagine cliente precedente
-    addFormattedText('Firma Tecnico Oilsafe:', signatureXTecnico, yTecnicoLabel, {fontStyle: 'bold', marginBottom:1});
-    const firmaTecnicoDataUrl = await loadImageAsDataURL(foglioData.firma_tecnico_principale_url);
-    if (firmaTecnicoDataUrl) { try { doc.addImage(firmaTecnicoDataUrl, 'PNG', signatureXTecnico, yTecnicoImage, signatureWidth, signatureHeight); } catch (e) { addFormattedText('[Err firma]', signatureXTecnico, yTecnicoImage); } }
-    else { addFormattedText('[Firma Tecnico non disponibile]', signatureXTecnico, yTecnicoImage + 5); }
+    yPosition = addLine(doc, yPosition);
+    addFormattedText(doc, 'Firme:', marginLeft, { fontSize: 11, fontStyle: 'bold', marginBottom: 3 });
     
-    yPosition = Math.max(yPosition + signatureHeight, yTecnicoImage + signatureHeight) + 10;
+    const signatureWidth = 52; 
+    const signatureHeight = 26;
+    const signatureYStartForLabels = yPosition;
+    let yForImages = signatureYStartForLabels + doc.getTextDimensions('X', {fontSize:10}).h + 1; // Spazio per l'etichetta
+
+    const signatureXCliente = marginLeft + 5;
+    const signatureXTecnico = pageWidth - marginRight - signatureWidth - 5;
+
+    // Firma Cliente
+    addFormattedText(doc, 'Firma Cliente:', signatureXCliente, {fontStyle: 'bold', marginBottom:0});
+    const firmaClienteDataUrl = await loadImageAsDataURL(foglioData.firma_cliente_url);
+    if (firmaClienteDataUrl) { 
+        checkAndAddPage(doc, signatureHeight + 2);
+        doc.addImage(firmaClienteDataUrl, 'PNG', signatureXCliente, yForImages, signatureWidth, signatureHeight); 
+    } else { 
+        checkAndAddPage(doc, 10);
+        addFormattedText(doc, '[Firma Cliente non disponibile]', signatureXCliente, {fontSize: 8, marginBottom: signatureHeight - 8}); 
+    }
+
+    // Firma Tecnico
+    addFormattedText(doc, 'Firma Tecnico Oilsafe:', signatureXTecnico, {fontStyle: 'bold', marginBottom:0});
+    const firmaTecnicoDataUrl = await loadImageAsDataURL(foglioData.firma_tecnico_principale_url);
+    if (firmaTecnicoDataUrl) { 
+        checkAndAddPage(doc, signatureHeight + 2); // Controlla solo se l'immagine potrebbe andare su una nuova pagina
+        doc.addImage(firmaTecnicoDataUrl, 'PNG', signatureXTecnico, yForImages, signatureWidth, signatureHeight); 
+    } else { 
+        checkAndAddPage(doc, 10);
+        addFormattedText(doc, '[Firma Tecnico non disponibile]', signatureXTecnico, {fontSize: 8, marginBottom: signatureHeight - 8});
+    }
+    
+    yPosition = yForImages + signatureHeight + 10;
 
 
-    // --- PIÈ DI PAGINA (Numero pagina e Data Stampa) ---
+    // --- PIÈ DI PAGINA ---
     const totalPages = doc.internal.getNumberOfPages();
     for (let i = 1; i <= totalPages; i++) {
-        doc.setPage(i); // Attiva la pagina i-esima
+        doc.setPage(i);
         doc.setFontSize(8);
         doc.setTextColor(100);
-
-        // Data di stampa a sinistra
         doc.text(dataStampa, marginLeft, pageHeight - 10, { align: 'left' });
-
-        // Numero pagina al centro
         doc.text(`Pagina ${i} di ${totalPages}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
-
-        // Intestazione a destra (se non già aggiunta da didDrawPage di autoTable)
-        // La logica di checkAndAddPage e didDrawPage dovrebbe già gestire questo per le pagine successive.
-        // Lo mettiamo qui per la prima pagina o se la tabella non va su più pagine.
-        if (i > 1 || !doc.autoTable.previous) { // Evita di sovrascrivere se autoTable l'ha già fatto
-             doc.text(titoloFoglioHeader, pageWidth - marginRight, 10, { align: 'right' });
+        // L'header di pagina a destra viene già aggiunto da addPageHeaderOnce o didDrawPage
+        // Ma se è la prima pagina e non c'è stata tabella, assicuriamoci che ci sia
+        if (i === 1 && doc.internal.getCurrentPageInfo().pageNumber === 1) { // Evita di ridisegnarlo se autoTable l'ha fatto
+             // addPageHeaderOnce(doc); // La primissima chiamata a addPageHeaderOnce dovrebbe coprire la pagina 1
+        } else if (i > 1) { // Per le pagine successive, se non è una pagina creata da autoTable
+            addPageHeaderOnce(doc);
         }
-        doc.setTextColor(0); // Reset colore testo
+        doc.setTextColor(0);
     }
 
     const fileName = `FoglioAssistenza_${foglioData.numero_foglio || foglioData.id.substring(0,8)}.pdf`;
