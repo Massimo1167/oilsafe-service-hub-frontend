@@ -1,10 +1,10 @@
 // src/pages/FoglioAssistenzaFormPage.jsx
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import SignatureCanvas from 'react-signature-canvas';
 
-// Funzione helper per convertire dataURL in Blob
+// Funzione helper per convertire dataURL in Blob (da spostare in un file utils se usata altrove)
 function dataURLtoBlob(dataurl) {
     if (!dataurl) return null;
     try {
@@ -26,78 +26,85 @@ function dataURLtoBlob(dataurl) {
     }
 }
 
-function FoglioAssistenzaFormPage({ session, clienti, commesse, ordini /*, utentiPerAssegnazione */ }) {
+function FoglioAssistenzaFormPage({ session, clienti, commesse, ordini }) {
     const navigate = useNavigate();
-    const { foglioIdParam } = useParams(); // Rinominato per chiarezza
+    const { foglioIdParam } = useParams(); 
     const isEditMode = !!foglioIdParam;
 
+    // Stati del Form
+    const [formNumeroFoglio, setFormNumeroFoglio] = useState('');
+    const [formDataApertura, setFormDataApertura] = useState(new Date().toISOString().split('T')[0]);
+    const [formSelectedClienteId, setFormSelectedClienteId] = useState('');
+    const [formReferenteCliente, setFormReferenteCliente] = useState('');
+    const [formMotivoGenerale, setFormMotivoGenerale] = useState('');
+    const [formSelectedCommessaId, setFormSelectedCommessaId] = useState('');
+    const [formSelectedOrdineId, setFormSelectedOrdineId] = useState('');
+    const [formDescrizioneGenerale, setFormDescrizioneGenerale] = useState('');
+    const [formOsservazioniGenerali, setFormOsservazioniGenerali] = useState('');
+    const [formMaterialiForniti, setFormMaterialiForniti] = useState('');
+    const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
+    const [formCreatoDaUserIdOriginal, setFormCreatoDaUserIdOriginal] = useState(''); // Per mantenere l'ID originale in edit mode
+    // const [formSelectedAssegnaUtenteId, setFormSelectedAssegnaUtenteId] = useState(''); // Per admin che assegna foglio (da implementare se necessario)
+
+    // Stati per i Filtri dei Dropdown
+    const [filtroCliente, setFiltroCliente] = useState('');
+    const [filtroCommessa, setFiltroCommessa] = useState('');
+    const [filtroOrdine, setFiltroOrdine] = useState('');
+
+    // Stati generali della pagina
     const [loadingSubmit, setLoadingSubmit] = useState(false);
-    const [pageLoading, setPageLoading] = useState(isEditMode); // Inizia a caricare se in edit mode
+    const [pageLoading, setPageLoading] = useState(isEditMode); 
     const [error, setError] = useState(null);
 
-    // Stati del Form
-    const [numeroFoglio, setNumeroFoglio] = useState('');
-    const [dataApertura, setDataApertura] = useState(new Date().toISOString().split('T')[0]);
-    const [selectedClienteId, setSelectedClienteId] = useState('');
-    const [referenteCliente, setReferenteCliente] = useState('');
-    const [motivoGenerale, setMotivoGenerale] = useState('');
-    const [selectedCommessaId, setSelectedCommessaId] = useState('');
-    const [selectedOrdineId, setSelectedOrdineId] = useState('');
-    const [descrizioneGenerale, setDescrizioneGenerale] = useState('');
-    const [osservazioniGenerali, setOsservazioniGenerali] = useState('');
-    const [materialiForniti, setMaterialiForniti] = useState('');
-    const [statoFoglio, setStatoFoglio] = useState('Aperto');
-    const [creatoDaUserIdOriginal, setCreatoDaUserIdOriginal] = useState(''); // Per mantenere l'ID originale in edit mode
-    // const [selectedAssegnaUtenteId, setSelectedAssegnaUtenteId] = useState(''); // Per dropdown di assegnazione admin
-
+    // Ref per le firme
     const sigCanvasClienteRef = useRef(null);
     const sigCanvasTecnicoRef = useRef(null);
 
+    // Stati per le preview delle firme (URL da DB)
     const [firmaClientePreview, setFirmaClientePreview] = useState(null);
     const [firmaTecnicoPreview, setFirmaTecnicoPreview] = useState(null);
 
     const userRole = session?.user?.role;
     const currentUserId = session?.user?.id;
 
-    // Permessi: admin può sempre, user può creare, user/manager possono modificare se le policy lo permettono
+    // Determina se l'utente può sottomettere il form
     const canSubmitForm = 
         userRole === 'admin' || 
         (!isEditMode && userRole === 'user') || 
-        (isEditMode && (userRole === 'manager' || (userRole === 'user' && creatoDaUserIdOriginal === currentUserId)));
+        (isEditMode && (userRole === 'manager' || (userRole === 'user' && formCreatoDaUserIdOriginal === currentUserId)));
 
-
+    // Carica i dati del foglio se siamo in modalità modifica
     useEffect(() => {
-        if (isEditMode && foglioIdParam && session) { // Assicurati che la sessione sia caricata
+        if (isEditMode && foglioIdParam && session) {
             setPageLoading(true);
             const fetchFoglioData = async () => {
                 const { data, error: fetchError } = await supabase
                     .from('fogli_assistenza')
-                    .select('*') // Seleziona tutto per popolare tutti i campi
+                    .select('*')
                     .eq('id', foglioIdParam)
                     .single();
                 
-                if (fetchError) {
-                    setError("Errore caricamento dati foglio: " + fetchError.message);
-                    console.error(fetchError);
+                if (fetchError) { 
+                    setError("Errore caricamento dati foglio: " + fetchError.message); 
+                    console.error("Fetch foglio error:", fetchError);
                 } else if (data) {
-                    // Popola gli stati del form
-                    setNumeroFoglio(data.numero_foglio || '');
-                    setDataApertura(data.data_apertura_foglio ? new Date(data.data_apertura_foglio).toISOString().split('T')[0] : '');
-                    setSelectedClienteId(data.cliente_id || '');
-                    setReferenteCliente(data.referente_cliente_richiesta || '');
-                    setMotivoGenerale(data.motivo_intervento_generale || '');
-                    setSelectedCommessaId(data.commessa_id || '');
-                    setSelectedOrdineId(data.ordine_cliente_id || '');
-                    setDescrizioneGenerale(data.descrizione_lavoro_generale || '');
-                    setOsservazioniGenerali(data.osservazioni_generali || '');
-                    setMaterialiForniti(data.materiali_forniti_generale || '');
-                    setStatoFoglio(data.stato_foglio || 'Aperto');
-                    setCreatoDaUserIdOriginal(data.creato_da_user_id || ''); // Salva l'originale
-                    // setSelectedAssegnaUtenteId(data.creato_da_user_id || ''); // Per il dropdown admin
+                    setFormNumeroFoglio(data.numero_foglio || '');
+                    setFormDataApertura(data.data_apertura_foglio ? new Date(data.data_apertura_foglio).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
+                    setFormSelectedClienteId(data.cliente_id || '');
+                    setFormReferenteCliente(data.referente_cliente_richiesta || '');
+                    setFormMotivoGenerale(data.motivo_intervento_generale || '');
+                    setFormSelectedCommessaId(data.commessa_id || '');
+                    setFormSelectedOrdineId(data.ordine_cliente_id || '');
+                    setFormDescrizioneGenerale(data.descrizione_lavoro_generale || '');
+                    setFormOsservazioniGenerali(data.osservazioni_generali || '');
+                    setFormMaterialiForniti(data.materiali_forniti_generale || '');
+                    setFormStatoFoglio(data.stato_foglio || 'Aperto');
+                    setFormCreatoDaUserIdOriginal(data.creato_da_user_id || '');
+                    // setSelectedAssegnaUtenteId(data.creato_da_user_id || ''); // Se admin assegna
                     setFirmaClientePreview(data.firma_cliente_url || null);
                     setFirmaTecnicoPreview(data.firma_tecnico_principale_url || null);
                 } else {
-                    setError("Foglio non trovato.");
+                    setError("Foglio di assistenza non trovato.");
                 }
                 setPageLoading(false);
             };
@@ -107,90 +114,89 @@ function FoglioAssistenzaFormPage({ session, clienti, commesse, ordini /*, utent
         }
     }, [isEditMode, foglioIdParam, session]);
 
-
-    const clearSignature = (ref, setPreviewStateKey) => {
+    const clearSignature = (ref, previewSetter) => {
         if (ref.current) ref.current.clear();
-        if (setPreviewStateKey === 'cliente') setFirmaClientePreview(null);
-        if (setPreviewStateKey === 'tecnico') setFirmaTecnicoPreview(null);
+        if (previewSetter) previewSetter(null); 
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!canSubmitForm) {
-            alert("Non hai i permessi per eseguire questa operazione su questo foglio.");
+            alert("Non hai i permessi per eseguire questa operazione.");
             return;
         }
         setLoadingSubmit(true);
         setError(null);
 
-        if (!selectedClienteId) {
+        if (!formSelectedClienteId) {
             setError("Selezionare un cliente è obbligatorio.");
             setLoadingSubmit(false);
             return;
         }
 
-        let finalFirmaClienteUrl = firmaClientePreview;
-        let finalFirmaTecnicoUrl = firmaTecnicoPreview;
+        let firmaClienteUrlToSave = firmaClientePreview; 
+        let firmaTecnicoUrlToSave = firmaTecnicoPreview;
 
-        // Upload firma cliente se ridisegnata
+        // Gestione upload firma cliente se è stata disegnata una nuova firma
         if (sigCanvasClienteRef.current && !sigCanvasClienteRef.current.isEmpty()) {
-            const firmaDataURL = sigCanvasClienteRef.current.getTrimmedCanvas().toDataURL('image/png');
-            const fileBlob = dataURLtoBlob(firmaDataURL);
+            const firmaClienteDataURL = sigCanvasClienteRef.current.toDataURL('image/png'); // Usiamo toDataURL invece di getTrimmedCanvas per evitare l'errore
+            const fileBlob = dataURLtoBlob(firmaClienteDataURL);
             if (fileBlob) {
-                const fileName = `firma_cliente_${foglioIdParam || currentUserId}_${Date.now()}.png`;
+                const fileName = `firma_cliente_${foglioIdParam || currentUserId || 'new'}_${Date.now()}.png`;
                 const { data: uploadData, error: uploadError } = await supabase.storage
                     .from('firme-assistenza')
-                    .upload(fileName, fileBlob, { upsert: true, contentType: 'image/png' });
+                    .upload(fileName, fileBlob, { upsert: true, contentType: 'image/png' }); 
+                
                 if (uploadError) { setError("Upload firma cliente fallito: " + uploadError.message); setLoadingSubmit(false); return; }
-                finalFirmaClienteUrl = supabase.storage.from('firme-assistenza').getPublicUrl(uploadData.path).data.publicUrl;
+                const { data: urlData } = supabase.storage.from('firme-assistenza').getPublicUrl(uploadData.path);
+                firmaClienteUrlToSave = urlData.publicUrl;
             }
         }
         
-        // Upload firma tecnico se ridisegnata
+        // Gestione upload firma tecnico se ridisegnata
         if (sigCanvasTecnicoRef.current && !sigCanvasTecnicoRef.current.isEmpty()) {
-            const firmaDataURL = sigCanvasTecnicoRef.current.getTrimmedCanvas().toDataURL('image/png');
-            const fileBlob = dataURLtoBlob(firmaDataURL);
-            if (fileBlob) {
-                const fileName = `firma_tecnico_${foglioIdParam || currentUserId}_${Date.now()}.png`;
-                const { data: uploadData, error: uploadError } = await supabase.storage
+            const firmaTecnicoDataURL = sigCanvasTecnicoRef.current.toDataURL('image/png'); // Usiamo toDataURL
+            const fileBlobTecnico = dataURLtoBlob(firmaTecnicoDataURL);
+            if (fileBlobTecnico) {
+                const fileNameTecnico = `firma_tecnico_${foglioIdParam || currentUserId || 'new'}_${Date.now()}.png`;
+                const { data: uploadDataTecnico, error: uploadErrorTecnico } = await supabase.storage
                     .from('firme-assistenza')
-                    .upload(fileName, fileBlob, { upsert: true, contentType: 'image/png' });
-                if (uploadError) { setError("Upload firma tecnico fallito: " + uploadError.message); setLoadingSubmit(false); return; }
-                finalFirmaTecnicoUrl = supabase.storage.from('firme-assistenza').getPublicUrl(uploadData.path).data.publicUrl;
+                    .upload(fileNameTecnico, fileBlobTecnico, { upsert: true, contentType: 'image/png' });
+
+                if (uploadErrorTecnico) { setError("Upload firma tecnico fallito: " + uploadErrorTecnico.message); setLoadingSubmit(false); return; }
+                const { data: urlDataTecnico } = supabase.storage.from('firme-assistenza').getPublicUrl(uploadDataTecnico.path);
+                firmaTecnicoUrlToSave = urlDataTecnico.publicUrl;
             }
         }
 
         const foglioPayload = {
-          numero_foglio: numeroFoglio || null,
-          data_apertura_foglio: dataApertura,
-          cliente_id: selectedClienteId,
-          referente_cliente_richiesta: referenteCliente,
-          motivo_intervento_generale: motivoGenerale,
-          commessa_id: selectedCommessaId || null,
-          ordine_cliente_id: selectedOrdineId || null,
-          descrizione_lavoro_generale: descrizioneGenerale,
-          osservazioni_generali: osservazioniGenerali,
-          materiali_forniti_generale: materialiForniti,
-          firma_cliente_url: finalFirmaClienteUrl,
-          firma_tecnico_principale_url: finalFirmaTecnicoUrl,
-          stato_foglio: statoFoglio,
+          numero_foglio: formNumeroFoglio.trim() || null, 
+          data_apertura_foglio: formDataApertura, 
+          cliente_id: formSelectedClienteId,
+          referente_cliente_richiesta: formReferenteCliente.trim(), 
+          motivo_intervento_generale: formMotivoGenerale.trim(),
+          commessa_id: formSelectedCommessaId || null, 
+          ordine_cliente_id: formSelectedOrdineId || null,
+          descrizione_lavoro_generale: formDescrizioneGenerale.trim(), 
+          osservazioni_generali: formOsservazioniGenerali.trim(),
+          materiali_forniti_generale: formMaterialiForniti.trim(), 
+          firma_cliente_url: firmaClienteUrlToSave,
+          firma_tecnico_principale_url: firmaTecnicoUrlToSave,
+          stato_foglio: formStatoFoglio,
         };
         
-        // Gestione `creato_da_user_id`
-        if (!isEditMode) { // Solo in creazione
-            if (userRole === 'user') {
+        if (!isEditMode) { 
+            if (userRole === 'user' && currentUserId) {
                 foglioPayload.creato_da_user_id = currentUserId;
-            } else if (userRole === 'admin' /* && selectedAssegnaUtenteId */) {
-                // foglioPayload.creato_da_user_id = selectedAssegnaUtenteId || currentUserId; // Admin assegna o è lui
+            } else if (userRole === 'admin' /* && formSelectedAssegnaUtenteId */) {
+                // foglioPayload.creato_da_user_id = formSelectedAssegnaUtenteId || currentUserId; // Admin assegna o è lui
             }
-            // Se manager crea (non dovrebbe secondo le regole attuali), gestisci qui
         } else {
-            // In modifica, non cambiamo `creato_da_user_id` a meno che un admin non lo faccia esplicitamente
-            // if (userRole === 'admin' && selectedAssegnaUtenteId !== creatoDaUserIdOriginal) {
-            //     foglioPayload.creato_da_user_id = selectedAssegnaUtenteId;
+            // In modifica, non cambiamo creato_da_user_id a meno di logica specifica per admin
+            // if (userRole === 'admin' && formSelectedAssegnaUtenteId && formSelectedAssegnaUtenteId !== formCreatoDaUserIdOriginal) {
+            //     foglioPayload.creato_da_user_id = formSelectedAssegnaUtenteId;
             // }
         }
-
 
         let resultData, resultError;
         if (isEditMode) {
@@ -217,22 +223,53 @@ function FoglioAssistenzaFormPage({ session, clienti, commesse, ordini /*, utent
             console.error(isEditMode ? "Errore aggiornamento foglio:" : "Errore inserimento foglio:", resultError);
             alert((isEditMode ? "Errore aggiornamento: " : "Errore inserimento: ") + resultError.message);
         } else if (resultData) {
-            alert(isEditMode ? "Foglio di assistenza aggiornato!" : "Foglio di assistenza creato!");
+            alert(isEditMode ? "Foglio di assistenza aggiornato con successo!" : "Foglio di assistenza creato con successo!");
             navigate(`/fogli-assistenza/${resultData.id}`);
         }
         setLoadingSubmit(false);
     };
       
-    const commesseFiltrate = selectedClienteId && commesse
-        ? commesse.filter(c => c.cliente_id === selectedClienteId || !c.cliente_id)
-        : (commesse || []);
-    const ordiniFiltrati = selectedClienteId && ordini
-        ? ordini.filter(o => o.cliente_id === selectedClienteId)
-        : (ordini || []);
+    // Liste filtrate e ordinate per i dropdown
+    const clientiOrdinati = useMemo(() => 
+        [...(clienti || [])].sort((a, b) => a.nome_azienda.localeCompare(b.nome_azienda)), 
+    [clienti]);
+
+    const clientiFiltrati = useMemo(() => 
+        clientiOrdinati.filter(c => c.nome_azienda.toLowerCase().includes(filtroCliente.toLowerCase())),
+    [clientiOrdinati, filtroCliente]);
+
+    const commesseDisponibili = useMemo(() => 
+        formSelectedClienteId && commesse 
+        ? [...(commesse || [])].filter(c => c.cliente_id === formSelectedClienteId || !c.cliente_id) // Mostra specifiche del cliente + generiche
+                               .sort((a,b) => a.codice_commessa.localeCompare(b.codice_commessa))
+        : [...(commesse || [])].sort((a,b) => a.codice_commessa.localeCompare(b.codice_commessa)), // Mostra tutte se nessun cliente selezionato
+    [commesse, formSelectedClienteId]);
+    
+    const commesseFiltrate = useMemo(() =>
+        commesseDisponibili.filter(c => 
+            c.codice_commessa.toLowerCase().includes(filtroCommessa.toLowerCase()) || 
+            (c.descrizione_commessa || '').toLowerCase().includes(filtroCommessa.toLowerCase())
+        ),
+    [commesseDisponibili, filtroCommessa]);
+
+    const ordiniDisponibili = useMemo(() =>
+        formSelectedClienteId && ordini
+        ? [...(ordini || [])].filter(o => o.cliente_id === formSelectedClienteId)
+                             .sort((a,b) => a.numero_ordine_cliente.localeCompare(b.numero_ordine_cliente))
+        : [...(ordini || [])].sort((a,b) => a.numero_ordine_cliente.localeCompare(b.numero_ordine_cliente)), // Mostra tutti se nessun cliente
+    [ordini, formSelectedClienteId]);
+
+    const ordiniFiltrati = useMemo(() =>
+        ordiniDisponibili.filter(o => 
+            o.numero_ordine_cliente.toLowerCase().includes(filtroOrdine.toLowerCase()) ||
+            (o.descrizione_ordine || '').toLowerCase().includes(filtroOrdine.toLowerCase())
+        ),
+    [ordiniDisponibili, filtroOrdine]);
+
 
     if (pageLoading) return <p>Caricamento dati foglio...</p>;
     if (!session) return <Navigate to="/login" replace />;
-    if (!canSubmitForm && isEditMode) return <p>Non hai i permessi per modificare questo foglio.</p>;
+    if (!canSubmitForm && isEditMode && !pageLoading) return <p>Non hai i permessi per modificare questo foglio.</p>; // Mostra solo se non sta caricando
     if (!canSubmitForm && !isEditMode) return <p>Non hai i permessi per creare un nuovo foglio.</p>;
 
 
@@ -243,71 +280,101 @@ function FoglioAssistenzaFormPage({ session, clienti, commesse, ordini /*, utent
           </Link>
           <h2>{isEditMode ? "Modifica Intestazione Foglio Assistenza" : "Nuovo Foglio Assistenza"}</h2>
           <form onSubmit={handleSubmit}>
-            {/* ... (tutti i campi del form come prima) ... */}
-            {/* Numero Foglio, Data Apertura, Cliente, Referente ... */}
             <div>
-              <label htmlFor="numeroFoglio">Numero Foglio (opzionale):</label>
-              <input type="text" id="numeroFoglio" value={numeroFoglio} onChange={(e) => setNumeroFoglio(e.target.value)} />
+              <label htmlFor="formNumeroFoglio">Numero Foglio (opzionale):</label>
+              <input type="text" id="formNumeroFoglio" value={formNumeroFoglio} onChange={(e) => setFormNumeroFoglio(e.target.value)} />
             </div>
             <div>
-              <label htmlFor="dataApertura">Data Apertura:</label>
-              <input type="date" id="dataApertura" value={dataApertura} onChange={(e) => setDataApertura(e.target.value)} required />
+              <label htmlFor="formDataApertura">Data Apertura:</label>
+              <input type="date" id="formDataApertura" value={formDataApertura} onChange={(e) => setFormDataApertura(e.target.value)} required />
             </div>
+            
             <div>
               <label htmlFor="cliente">Cliente:</label>
-              <select id="cliente" value={selectedClienteId} onChange={(e) => {
-                  setSelectedClienteId(e.target.value);
-                  setSelectedCommessaId(''); setSelectedOrdineId('');
-                }} required>
-                <option value="">Seleziona Cliente</option>
-                {(clienti || []).map(c => <option key={c.id} value={c.id}>{c.nome_azienda}</option>)}
+              <input 
+                type="text" 
+                placeholder="Filtra cliente per nome..." 
+                value={filtroCliente} 
+                onChange={e => setFiltroCliente(e.target.value)} 
+                style={{marginBottom:'5px', width:'calc(100% - 22px)'}} // Aggiustato width per padding/border
+              />
+              <select 
+                id="cliente" 
+                value={formSelectedClienteId} 
+                onChange={(e) => {
+                  setFormSelectedClienteId(e.target.value);
+                  setFormSelectedCommessaId(''); 
+                  setFormSelectedOrdineId('');
+                  setFiltroCliente(''); 
+                }} 
+                required
+              >
+                <option value="">Seleziona Cliente ({clientiFiltrati.length} trovati)</option>
+                {clientiFiltrati.map(c => <option key={c.id} value={c.id}>{c.nome_azienda}</option>)}
               </select>
             </div>
-             <div>
-              <label htmlFor="referenteCliente">Referente Cliente (per richiesta):</label>
-              <input type="text" id="referenteCliente" value={referenteCliente} onChange={(e) => setReferenteCliente(e.target.value)} />
-            </div>
 
-            {/*  Sezione Assegna Utente per Admin (da implementare se necessario)
-            {userRole === 'admin' && (
-                <div>
-                    <label htmlFor="assegnaUtente">Assegna/Creato da Utente:</label>
-                    <select id="assegnaUtente" value={selectedAssegnaUtenteId} onChange={e => setSelectedAssegnaUtenteId(e.target.value)}>
-                        <option value="">{isEditMode && creatoDaUserIdOriginal ? "Mantieni esistente" : (userRole === 'admin' ? "Assegna a te stesso (Admin)" : "")}</option>
-                        {(utentiPerAssegnazione || []).map(u => <option key={u.id} value={u.id}>{u.full_name || u.email}</option>)}
-                    </select>
-                </div>
-            )}
-            */}
+            <div>
+              <label htmlFor="formReferenteCliente">Referente Cliente (per richiesta):</label>
+              <input type="text" id="formReferenteCliente" value={formReferenteCliente} onChange={(e) => setFormReferenteCliente(e.target.value)} />
+            </div>
+            
             <div>
               <label htmlFor="commessa">Commessa:</label>
-              <select id="commessa" value={selectedCommessaId} onChange={(e) => setSelectedCommessaId(e.target.value)} disabled={!selectedClienteId}>
-                <option value="">Nessuna Commessa</option>
+              <input 
+                type="text" 
+                placeholder="Filtra commessa per codice/desc..." 
+                value={filtroCommessa} 
+                onChange={e => setFiltroCommessa(e.target.value)} 
+                disabled={!formSelectedClienteId && commesse.some(c => c.cliente_id)}
+                style={{marginBottom:'5px', width:'calc(100% - 22px)'}}
+              />
+              <select 
+                id="commessa" 
+                value={formSelectedCommessaId} 
+                onChange={(e) => { setFormSelectedCommessaId(e.target.value); setFiltroCommessa(''); }} 
+              >
+                <option value="">Nessuna Commessa ({commesseFiltrate.length} trovate)</option>
                 {commesseFiltrate.map(c => <option key={c.id} value={c.id}>{c.codice_commessa} - {c.descrizione_commessa}</option>)}
               </select>
             </div>
+
             <div>
               <label htmlFor="ordine">Ordine Cliente:</label>
-              <select id="ordine" value={selectedOrdineId} onChange={(e) => setSelectedOrdineId(e.target.value)} disabled={!selectedClienteId}>
-                <option value="">Nessun Ordine</option>
+               <input 
+                type="text" 
+                placeholder="Filtra ordine per numero/desc..." 
+                value={filtroOrdine} 
+                onChange={e => setFiltroOrdine(e.target.value)} 
+                disabled={!formSelectedClienteId}
+                style={{marginBottom:'5px', width:'calc(100% - 22px)'}}
+              />
+              <select 
+                id="ordine" 
+                value={formSelectedOrdineId} 
+                onChange={(e) => { setFormSelectedOrdineId(e.target.value); setFiltroOrdine(''); }} 
+                disabled={!formSelectedClienteId}
+               >
+                <option value="">Nessun Ordine ({ordiniFiltrati.length} trovati)</option>
                 {ordiniFiltrati.map(o => <option key={o.id} value={o.id}>{o.numero_ordine_cliente} - {o.descrizione_ordine}</option>)}
               </select>
             </div>
+
             <div>
-              <label htmlFor="motivoGenerale">Motivo Intervento Generale:</label>
-              <textarea id="motivoGenerale" value={motivoGenerale} onChange={(e) => setMotivoGenerale(e.target.value)} />
+              <label htmlFor="formMotivoGenerale">Motivo Intervento Generale:</label>
+              <textarea id="formMotivoGenerale" value={formMotivoGenerale} onChange={(e) => setFormMotivoGenerale(e.target.value)} />
             </div>
             <div>
-              <label htmlFor="descrizioneGenerale">Descrizione Lavoro Generale:</label>
-              <textarea id="descrizioneGenerale" value={descrizioneGenerale} onChange={(e) => setDescrizioneGenerale(e.target.value)} />
+              <label htmlFor="formDescrizioneGenerale">Descrizione Lavoro Generale:</label>
+              <textarea id="formDescrizioneGenerale" value={formDescrizioneGenerale} onChange={(e) => setFormDescrizioneGenerale(e.target.value)} />
             </div>
             <div>
-              <label htmlFor="materialiForniti">Materiali Forniti (Generale):</label>
-              <textarea id="materialiForniti" value={materialiForniti} onChange={(e) => setMaterialiForniti(e.target.value)} />
+              <label htmlFor="formMaterialiForniti">Materiali Forniti (Generale):</label>
+              <textarea id="formMaterialiForniti" value={formMaterialiForniti} onChange={(e) => setFormMaterialiForniti(e.target.value)} />
             </div>
             <div>
-              <label htmlFor="osservazioniGenerali">Osservazioni Generali:</label>
-              <textarea id="osservazioniGenerali" value={osservazioniGenerali} onChange={(e) => setOsservazioniGenerali(e.target.value)} />
+              <label htmlFor="formOsservazioniGenerali">Osservazioni Generali:</label>
+              <textarea id="formOsservazioniGenerali" value={formOsservazioniGenerali} onChange={(e) => setFormOsservazioniGenerali(e.target.value)} />
             </div>
 
             {/* Firme */}
@@ -319,12 +386,12 @@ function FoglioAssistenzaFormPage({ session, clienti, commesse, ordini /*, utent
                     <button type="button" className="secondary" style={{fontSize:'0.8em', padding:'0.2em 0.5em', marginLeft:'5px'}} onClick={() => {setFirmaClientePreview(null); if(sigCanvasClienteRef.current) sigCanvasClienteRef.current.clear();}}>Ridisegna</button>
                 </div>
               )}
-              {(!isEditMode || !firmaClientePreview) && ( // Mostra canvas se in creazione o se preview è stata rimossa
+              {(!isEditMode || !firmaClientePreview) && (
                 <>
                   <div className="signature-pad-container">
                     <SignatureCanvas penColor='blue' canvasProps={{ width: 400, height: 150, className: 'sigCanvasCliente' }} ref={sigCanvasClienteRef} />
                   </div>
-                  <button type="button" className="secondary" onClick={() => clearSignature(sigCanvasClienteRef, 'cliente')}>Cancella Disegno</button>
+                  <button type="button" className="secondary" onClick={() => clearSignature(sigCanvasClienteRef, setFirmaClientePreview)}>Cancella Disegno</button>
                 </>
               )}
             </div>
@@ -333,7 +400,7 @@ function FoglioAssistenzaFormPage({ session, clienti, commesse, ordini /*, utent
                {isEditMode && firmaTecnicoPreview && (
                 <div style={{marginBottom: '10px'}}>
                     <img src={firmaTecnicoPreview} alt="Firma Tecnico Esistente" style={{border:'1px solid #ccc', maxWidth: '300px', maxHeight: '100px'}}/>
-                    <button type="button" className="secondary" style={{fontSize:'0.8em', padding:'0.2em 0.5em', marginLeft:'5px'}} onClick={() => {setFirmaTecnicoPreview(null); if(sigCanvasTecnicoRef.current) sigCanvasTecnicoRef.current.clear();}}>Ridisegna</button>
+                     <button type="button" className="secondary" style={{fontSize:'0.8em', padding:'0.2em 0.5em', marginLeft:'5px'}} onClick={() => {setFirmaTecnicoPreview(null); if(sigCanvasTecnicoRef.current) sigCanvasTecnicoRef.current.clear();}}>Ridisegna</button>
                 </div>
               )}
               {(!isEditMode || !firmaTecnicoPreview) && (
@@ -341,14 +408,14 @@ function FoglioAssistenzaFormPage({ session, clienti, commesse, ordini /*, utent
                   <div className="signature-pad-container">
                     <SignatureCanvas penColor='black' canvasProps={{ width: 400, height: 150, className: 'sigCanvasTecnico' }} ref={sigCanvasTecnicoRef} />
                   </div>
-                  <button type="button" className="secondary" onClick={() => clearSignature(sigCanvasTecnicoRef, 'tecnico')}>Cancella Disegno</button>
+                  <button type="button" className="secondary" onClick={() => clearSignature(sigCanvasTecnicoRef, setFirmaTecnicoPreview)}>Cancella Disegno</button>
                 </>
               )}
             </div>
             
             <div>
-                <label htmlFor="statoFoglio">Stato Foglio:</label>
-                <select id="statoFoglio" value={statoFoglio} onChange={e => setStatoFoglio(e.target.value)}>
+                <label htmlFor="formStatoFoglio">Stato Foglio:</label>
+                <select id="formStatoFoglio" value={formStatoFoglio} onChange={e => setFormStatoFoglio(e.target.value)}>
                     <option value="Aperto">Aperto</option>
                     <option value="In Lavorazione">In Lavorazione</option>
                     <option value="Attesa Firma">Attesa Firma</option>
@@ -361,6 +428,11 @@ function FoglioAssistenzaFormPage({ session, clienti, commesse, ordini /*, utent
             <button type="submit" disabled={loadingSubmit || !canSubmitForm} style={{marginTop:'20px'}}>
               {loadingSubmit ? "Salvataggio..." : (isEditMode ? "Aggiorna Intestazione Foglio" : "Crea Foglio Assistenza")}
             </button>
+            {isEditMode && (
+                 <button type="button" className="secondary" onClick={() => navigate(`/fogli-assistenza/${foglioIdParam}`)} disabled={loadingSubmit} style={{marginLeft:'10px'}}>
+                    Annulla Modifica
+                </button>
+            )}
           </form>
         </div>
     );

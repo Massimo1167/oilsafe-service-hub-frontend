@@ -1,17 +1,18 @@
 // src/components/Anagrafiche/TecniciManager.jsx
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../supabaseClient';
+import { supabase } from '../../supabaseClient'; // Assicurati che il percorso sia corretto
 
 function TecniciManager({ session }) {
     const [tecnici, setTecnici] = useState([]);
-    const [loading, setLoading] = useState(false);
-    const [pageLoading, setPageLoading] = useState(true);
+    const [loading, setLoading] = useState(false); // Loading per azioni specifiche (add/delete/update)
+    const [pageLoading, setPageLoading] = useState(true); // Loading per il fetch iniziale
     const [error, setError] = useState(null);
 
-    // Stati per il form
+    // Stati per il form (sia per aggiunta che per modifica)
     const [formNome, setFormNome] = useState('');
     const [formCognome, setFormCognome] = useState('');
-    const [editingTecnico, setEditingTecnico] = useState(null);
+    const [formEmail, setFormEmail] = useState(''); 
+    const [editingTecnico, setEditingTecnico] = useState(null); // Oggetto tecnico o null
 
     const userRole = session?.user?.role;
     const canManage = userRole === 'admin' || userRole === 'manager';
@@ -21,7 +22,7 @@ function TecniciManager({ session }) {
         setError(null);
         const { data, error: fetchError } = await supabase
             .from('tecnici')
-            .select('*')
+            .select('*') 
             .order('cognome')
             .order('nome');
         if (fetchError) {
@@ -42,12 +43,15 @@ function TecniciManager({ session }) {
         }
     }, [session]);
 
+    // Funzione per resettare i campi del form
     const resetForm = () => {
         setFormNome('');
         setFormCognome('');
-        setEditingTecnico(null);
+        setFormEmail(''); 
+        setEditingTecnico(null); 
     };
 
+    // Funzione per impostare la modalità modifica
     const handleEditTecnico = (tecnico) => {
         if (!canManage) {
             alert("Non hai i permessi per modificare tecnici.");
@@ -56,8 +60,10 @@ function TecniciManager({ session }) {
         setEditingTecnico(tecnico);
         setFormNome(tecnico.nome);
         setFormCognome(tecnico.cognome);
-        window.scrollTo(0, 0);
+        setFormEmail(tecnico.email || ''); 
+        window.scrollTo(0, 0); 
     };
+
 
     const handleSubmitForm = async (e) => {
         e.preventDefault();
@@ -69,18 +75,26 @@ function TecniciManager({ session }) {
             alert("Nome e cognome sono obbligatori.");
             return;
         }
+        
         setLoading(true);
         setError(null);
-        const tecnicoData = { nome: formNome, cognome: formCognome };
+
+        const tecnicoData = { 
+            nome: formNome.trim(), 
+            cognome: formCognome.trim(),
+            email: formEmail.trim() || null 
+        };
         let operationError = null;
 
         if (editingTecnico) {
+            // Modalità Modifica
             const { error: updateError } = await supabase
                 .from('tecnici')
                 .update(tecnicoData)
                 .eq('id', editingTecnico.id);
             operationError = updateError;
         } else {
+            // Modalità Aggiunta
             const { error: insertError } = await supabase
                 .from('tecnici')
                 .insert([tecnicoData]);
@@ -90,10 +104,10 @@ function TecniciManager({ session }) {
         if (operationError) {
             setError(operationError.message);
             console.error(editingTecnico ? 'Errore modifica tecnico:' : 'Errore inserimento tecnico:', operationError);
-            alert((editingTecnico ? 'Errore modifica: ' : 'Errore inserimento: ') + operationError.message);
+            alert((editingTecnico ? 'Errore modifica tecnico: ' : 'Errore inserimento tecnico: ') + operationError.message);
         } else {
             resetForm();
-            await fetchTecnici();
+            await fetchTecnici(); // Ricarica la lista
             alert(editingTecnico ? "Tecnico modificato con successo!" : "Tecnico aggiunto con successo!");
         }
         setLoading(false);
@@ -104,16 +118,21 @@ function TecniciManager({ session }) {
             alert("Non hai i permessi per eliminare tecnici.");
             return;
         }
-        if (window.confirm("Sei sicuro di voler eliminare questo tecnico?")) {
+        if (window.confirm("Sei sicuro di voler eliminare questo tecnico? Questa azione potrebbe influire sugli interventi di assistenza associati.")) {
             setLoading(true);
             setError(null);
-            const { error: deleteError } = await supabase.from('tecnici').delete().eq('id', tecnicoId);
+            const { error: deleteError } = await supabase
+                .from('tecnici')
+                .delete()
+                .eq('id', tecnicoId);
+
             if (deleteError) {
                 setError(deleteError.message);
                 console.error("Errore eliminazione tecnico:", deleteError);
-                alert("Errore durante l'eliminazione: " + deleteError.message);
+                alert("Errore durante l'eliminazione del tecnico: " + deleteError.message);
             } else {
-                await fetchTecnici();
+                await fetchTecnici(); // Ricarica la lista dei tecnici
+                // Se il tecnico eliminato era quello in modifica, resetta il form
                 if (editingTecnico && editingTecnico.id === tecnicoId) {
                     resetForm();
                 }
@@ -141,6 +160,10 @@ function TecniciManager({ session }) {
                         <label htmlFor="formCognomeTecnico">Cognome:</label>
                         <input type="text" id="formCognomeTecnico" value={formCognome} onChange={e => setFormCognome(e.target.value)} required />
                     </div>
+                    <div>
+                        <label htmlFor="formEmailTecnico">Email (Opzionale):</label>
+                        <input type="email" id="formEmailTecnico" value={formEmail} onChange={e => setFormEmail(e.target.value)} />
+                    </div>
                     <button type="submit" disabled={loading}>{loading ? 'Salvataggio...' : (editingTecnico ? 'Salva Modifiche' : 'Aggiungi Tecnico')}</button>
                     {editingTecnico && (
                         <button type="button" className="secondary" onClick={resetForm} disabled={loading} style={{marginLeft:'10px'}}>
@@ -161,6 +184,7 @@ function TecniciManager({ session }) {
                         <tr>
                             <th>Cognome</th>
                             <th>Nome</th>
+                            <th>Email</th>
                             {canManage && <th>Azioni</th>}
                         </tr>
                     </thead>
@@ -169,6 +193,7 @@ function TecniciManager({ session }) {
                             <tr key={tecnico.id} style={editingTecnico && editingTecnico.id === tecnico.id ? {backgroundColor: '#e6f7ff'} : {}}>
                                 <td>{tecnico.cognome}</td>
                                 <td>{tecnico.nome}</td>
+                                <td>{tecnico.email || '-'}</td>
                                  {canManage && (
                                     <td className="actions">
                                         <button className="secondary" onClick={() => handleEditTecnico(tecnico)} disabled={loading}>Modifica</button>
