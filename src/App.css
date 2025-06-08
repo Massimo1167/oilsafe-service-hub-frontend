@@ -105,3 +105,42 @@ a.button {
 a.button:hover {
     color: white !important;
 }
+
+.spinner {
+  border: 4px solid rgba(0, 0, 0, 0.1);
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border-left-color: #007bff; /* Blu primario o colore del tuo brand */
+  animation: spin 1s linear infinite; /* Cambiato 'ease' in 'linear' per uno spin più fluido */
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Stile per il pulsante di logout nell'header */
+header nav { /* Aggiunto per allineare il bottone a destra */
+    display: flex;
+    align-items: center;
+}
+
+.button-logout {
+    margin-left: auto; /* Spinge il bottone a destra */
+    background: transparent;
+    border: 1px solid white;
+    color: white;
+    cursor: pointer;
+    padding: 0.4em 0.8em;
+    border-radius: 4px;
+    font-size: 0.9em;
+    transition: background-color 0.2s ease-in-out;
+}
+.button-logout:hover {
+    background-color: rgba(255, 255, 255, 0.15);
+}
