@@ -11,6 +11,7 @@ function TecniciManager({ session }) {
     const [pageLoading, setPageLoading] = useState(true);
     const [error, setError] = useState(null);
     const [successMessage, setSuccessMessage] = useState('');
+    const [importProgress, setImportProgress] = useState('');
 
     const [formNome, setFormNome] = useState('');
     const [formCognome, setFormCognome] = useState('');
@@ -22,43 +23,22 @@ function TecniciManager({ session }) {
     const fileInputRef = useRef(null);
 
     const fetchTecnici = async () => {
-        setPageLoading(true); 
-        setError(null);
-        const { data, error: fetchError } = await supabase
-            .from('tecnici')
-            .select('*')
-            .order('cognome')
-            .order('nome');
-        if (fetchError) { 
-            setError(fetchError.message); 
-            console.error('Errore fetch tecnici:', fetchError); 
-        } else { 
-            setTecnici(data || []); 
-        }
+        setPageLoading(true); setError(null);
+        const { data, error: fetchError } = await supabase.from('tecnici').select('*').order('cognome').order('nome');
+        if (fetchError) { setError(fetchError.message); console.error('Errore fetch tecnici:', fetchError); }
+        else { setTecnici(data || []); }
         setPageLoading(false);
     };
 
     useEffect(() => {
-        if (session && canManage) { 
-            fetchTecnici(); 
-        } else { 
-            setTecnici([]); 
-            setPageLoading(false); 
-        }
+        if (session && canManage) { fetchTecnici(); }
+        else { setTecnici([]); setPageLoading(false); }
     }, [session, canManage]);
 
-    const resetForm = () => { 
-        setFormNome(''); 
-        setFormCognome(''); 
-        setFormEmail(''); 
-        setEditingTecnico(null); 
-    };
+    const resetForm = () => { setFormNome(''); setFormCognome(''); setFormEmail(''); setEditingTecnico(null); };
     
     const handleEditTecnico = (tecnico) => {
-        if (!canManage) { 
-            alert("Non hai i permessi per modificare tecnici."); 
-            return; 
-        }
+        if (!canManage) { alert("Non hai i permessi per modificare."); return; }
         setEditingTecnico(tecnico); 
         setFormNome(tecnico.nome); 
         setFormCognome(tecnico.cognome); 
@@ -68,14 +48,8 @@ function TecniciManager({ session }) {
 
     const handleSubmitForm = async (e) => {
         e.preventDefault();
-        if (!canManage) { 
-            alert("Non hai i permessi per questa operazione."); 
-            return; 
-        }
-        if (!formNome.trim() || !formCognome.trim()) { 
-            alert("Nome e cognome sono obbligatori."); 
-            return; 
-        }
+        if (!canManage) { alert("Non hai i permessi."); return; }
+        if (!formNome.trim() || !formCognome.trim()) { alert("Nome e cognome obbligatori."); return; }
         setLoadingActions(true); setError(null); setSuccessMessage('');
         const tecnicoData = { 
             nome: formNome.trim(), 
@@ -103,11 +77,8 @@ function TecniciManager({ session }) {
     };
 
     const handleDeleteTecnico = async (tecnicoId) => {
-        if (!canManage) { 
-            alert("Non hai i permessi per eliminare tecnici."); 
-            return; 
-        }
-        if (window.confirm("Sei sicuro di voler eliminare questo tecnico? Questa azione potrebbe influire sugli interventi di assistenza associati.")) {
+        if (!canManage) { alert("Non hai i permessi."); return; }
+        if (window.confirm("Sei sicuro di voler eliminare questo tecnico?")) {
             setLoadingActions(true); setError(null); setSuccessMessage('');
             const { error: delError } = await supabase.from('tecnici').delete().eq('id', tecnicoId);
             if (delError) { 
@@ -128,12 +99,8 @@ function TecniciManager({ session }) {
         setLoadingActions(true); setError(null); setSuccessMessage('');
         const headers = ["id", "nome", "cognome", "email", "created_at", "user_id"];
         const dataToExport = tecnici.map(t => ({ 
-            id: t.id, 
-            nome: t.nome, 
-            cognome: t.cognome, 
-            email: t.email || '', 
-            created_at: t.created_at,
-            user_id: t.user_id || '' 
+            id: t.id, nome: t.nome, cognome: t.cognome, email: t.email || '', 
+            created_at: t.created_at, user_id: t.user_id || '' 
         }));
         try {
             if (format === 'xlsx') {
@@ -145,7 +112,7 @@ function TecniciManager({ session }) {
             } else {
                 const csvRows = [headers.join(',')];
                 for (const row of dataToExport) { 
-                    const values = headers.map(h => `"${(('' + (row[h] === null || typeof row[h] === 'undefined' ? '' : row[h])).replace(/"/g, '""'))}"`); 
+                    const values = headers.map(h => `"${(('' + (row[h] ?? '')).replace(/"/g, '""'))}"`); 
                     csvRows.push(values.join(',')); 
                 }
                 const csvString = csvRows.join('\n'); 
@@ -166,82 +133,65 @@ function TecniciManager({ session }) {
         }
         setLoadingActions(false);
     };
+    
+    const normalizeHeader = (header) => String(header || '').trim().toLowerCase().replace(/\s+/g, '_');
 
     const handleFileSelected = (event) => {
         const file = event.target.files[0];
         if (!file) return;
-        setLoadingActions(true); setError(null); setSuccessMessage('');
+        setLoadingActions(true); setError(null); setSuccessMessage(''); setImportProgress('');
         const reader = new FileReader();
         reader.onload = async (e) => {
+            let processedCount = 0; let successCount = 0; let errorCount = 0;
+            const errorsDetail = []; let parsedData = [];
             try {
-                const fileContent = e.target.result; 
-                let parsedData = [];
-                if (file.name.endsWith('.csv')) {
-                    const result = Papa.parse(fileContent, { header: true, skipEmptyLines: true });
-                    if (result.errors.length > 0) {
-                        throw new Error("Errore parsing CSV: " + result.errors.map(err => err.message).join(", "));
-                    }
+                const fileContent = e.target.result;
+                if (file.name.endsWith('.csv')) { /* ... (Papa.parse con normalizeHeader) ... */ 
+                    const result = Papa.parse(fileContent, { header: true, skipEmptyLines: true, transformHeader: normalizeHeader });
+                    if (result.errors.length > 0) throw new Error("Errore CSV: " + result.errors.map(err => err.message).join(", "));
                     parsedData = result.data;
-                } else if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
-                    const workbook = XLSX.read(fileContent, { type: 'binary' });
+                } else if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) { /* ... (XLSX.read e normalizzazione chiavi) ... */
+                    const workbook = XLSX.read(fileContent, { type: 'binary', cellDates: true });
                     const sheetName = workbook.SheetNames[0];
                     const worksheet = workbook.Sheets[sheetName];
-                    parsedData = XLSX.utils.sheet_to_json(worksheet, { header: 1 , raw: false, dateNF: 'yyyy-mm-dd'});
-                    if (parsedData.length > 0) {
-                        const headersXlsx = parsedData[0];
-                        parsedData = parsedData.slice(1).map(rowArray => {
-                            const rowObject = {};
-                            headersXlsx.forEach((header, index) => {
-                                rowObject[header] = rowArray[index];
-                            });
-                            return rowObject;
-                        });
-                    }
-                } else {
-                    throw new Error("Formato file non supportato. Usare .csv o .xlsx");
-                }
-                
+                    parsedData = XLSX.utils.sheet_to_json(worksheet, { raw: false, dateNF: 'yyyy-mm-dd' });
+                    parsedData = parsedData.map(row => { const normRow = {}; for (const key in row) { normRow[normalizeHeader(key)] = row[key]; } return normRow; });
+                } else { throw new Error("Formato file non supportato."); }
+
+                if (parsedData.length === 0) { throw new Error("Il file è vuoto o non contiene dati validi."); }
+                console.log("Dati letti e normalizzati (Tecnici):", parsedData);
+
                 const datiDaUpsert = parsedData.map(row => {
                     const tecnico = {};
-                    if (row.hasOwnProperty('nome')) tecnico.nome = row.nome?.trim();
-                    if (row.hasOwnProperty('cognome')) tecnico.cognome = row.cognome?.trim();
-                    if (row.hasOwnProperty('email')) tecnico.email = row.email?.trim() || null;
-                    // if (row.hasOwnProperty('user_id')) tecnico.user_id = row.user_id?.trim() || null; 
+                    if (row.hasOwnProperty('nome')) tecnico.nome = String(row.nome || '').trim();
+                    if (row.hasOwnProperty('cognome')) tecnico.cognome = String(row.cognome || '').trim();
+                    if (row.hasOwnProperty('email')) tecnico.email = String(row.email || '').trim() || null;
                     return tecnico;
                 }).filter(item => item.nome && item.cognome);
 
-                if (datiDaUpsert.length === 0) {
-                    setError("Nessun dato valido da importare (richiesti: nome, cognome).");
-                    setLoadingActions(false); if(fileInputRef.current) fileInputRef.current.value = ""; return;
-                }
+                if (datiDaUpsert.length === 0) { setError("Nessun dato valido (richiesti: nome, cognome)."); setLoadingActions(false); if(fileInputRef.current) fileInputRef.current.value = ""; return; }
                 console.log("Dati pronti per upsert (Tecnici):", datiDaUpsert);
-                const { data, error: upsertError } = await supabase.from('tecnici')
-                    .upsert(datiDaUpsert, { onConflict: 'nome,cognome' })
-                    .select();
-                if (upsertError) { 
-                    setError("Importazione/Aggiornamento fallito: " + upsertError.message); 
-                    console.error("Errore upsert tecnici:", upsertError);
-                } else { 
-                    setSuccessMessage(`${data ? data.length : 0} tecnici importati/aggiornati!`); 
-                    await fetchTecnici(); 
-                    setTimeout(()=> setSuccessMessage(''), 5000);
+
+                const batchSize = 100;
+                for (let i = 0; i < datiDaUpsert.length; i += batchSize) {
+                    const batch = datiDaUpsert.slice(i, i + batchSize);
+                    setImportProgress(`Processo ${i + batch.length} di ${datiDaUpsert.length}...`);
+                    const { data, error: upsertError } = await supabase.from('tecnici')
+                        .upsert(batch, { onConflict: 'nome,cognome' }) // Assicurati indice UNIQUE (LOWER(nome),LOWER(cognome))
+                        .select();
+                    if (upsertError) { errorsDetail.push(`Err batch tecnici: ${upsertError.message}`); errorCount += batch.length - (data ? data.length : 0); console.error("Err upsert tecnici:", upsertError); }
+                    else { successCount += data ? data.length : 0; }
                 }
-            } catch (parseError) { 
-                setError("Errore durante l'elaborazione del file: " + parseError.message); 
-                console.error("Errore elaborazione file (tecnici):", parseError);
-            } finally { 
-                setLoadingActions(false); 
-                if(fileInputRef.current) fileInputRef.current.value = ""; 
-            }
+                let finalMessage = `${successCount} tecnici importati/aggiornati.`;
+                if (errorCount > 0) { finalMessage += ` ${errorCount} errori.`; setError(`Errori import. ${errorsDetail.slice(0,3).join('; ')}... Vedi console.`); console.error("Err import tecnici:", errorsDetail); }
+                setSuccessMessage(finalMessage); setTimeout(()=> { setSuccessMessage(''); setError(null); }, 10000);
+                await fetchTecnici();
+            } catch (parseOrProcessError) { setError("Errore critico import: " + parseOrProcessError.message); console.error("Err critico import tecnici:", parseOrProcessError); }
+            finally { setLoadingActions(false); setImportProgress(''); if(fileInputRef.current) fileInputRef.current.value = ""; }
         };
-        if (file.name.endsWith('.csv')) {
-            reader.readAsText(file);
-        } else if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
-            reader.readAsBinaryString(file);
-        } else {
-            setError("Formato file non supportato.");
-            setLoadingActions(false);
-        }
+        if (file.name.endsWith('.csv')) reader.readAsText(file); 
+        else if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) reader.readAsBinaryString(file);
+        else { setError("Formato non supportato."); setLoadingActions(false); }
     };
     const triggerFileInput = () => fileInputRef.current?.click();
 
@@ -255,68 +205,39 @@ function TecniciManager({ session }) {
             {canManage && (
                 <div style={{ marginBottom: '20px', display: 'flex', gap: '10px', flexWrap:'wrap' }}>
                     <input type="file" accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" onChange={handleFileSelected} style={{ display: 'none' }} ref={fileInputRef} />
-                    <button onClick={triggerFileInput} className="button secondary" disabled={loadingActions}> 
-                        {loadingActions ? 'Attendere...' : 'Importa/Aggiorna Tecnici'} 
-                    </button>
+                    <button onClick={triggerFileInput} className="button secondary" disabled={loadingActions}> {loadingActions ? `Importando... ${importProgress}` : 'Importa/Aggiorna Tecnici'} </button>
                     <div style={{display:'flex', gap: '5px'}}>
-                        <button onClick={() => handleExport('csv')} className="button secondary small" disabled={loadingActions || tecnici.length === 0}> 
-                            Esporta CSV 
-                        </button>
-                        <button onClick={() => handleExport('xlsx')} className="button secondary small" disabled={loadingActions || tecnici.length === 0}> 
-                            Esporta XLSX 
-                        </button>
+                        <button onClick={() => handleExport('csv')} className="button secondary small" disabled={loadingActions || tecnici.length === 0}> Esporta CSV </button>
+                        <button onClick={() => handleExport('xlsx')} className="button secondary small" disabled={loadingActions || tecnici.length === 0}> Esporta XLSX </button>
                     </div>
                 </div>
             )}
+            {importProgress && !loadingActions && <p>{importProgress}</p> }
             {successMessage && <p style={{ color: 'green', fontWeight:'bold' }}>{successMessage}</p>}
             {error && <p style={{ color: 'red', fontWeight:'bold' }}>ERRORE: {error}</p>}
 
             {canManage && (
                 <form onSubmit={handleSubmitForm} style={{ marginBottom: '20px', padding: '15px', border: '1px solid #eee', borderRadius: '5px' }}>
                     <h3>{editingTecnico ? 'Modifica Tecnico' : 'Nuovo Tecnico'}</h3>
-                    <div> 
-                        <label htmlFor="formNomeTecnico">Nome:</label> 
-                        <input type="text" id="formNomeTecnico" value={formNome} onChange={e => setFormNome(e.target.value)} required /> 
-                    </div>
-                    <div> 
-                        <label htmlFor="formCognomeTecnico">Cognome:</label> 
-                        <input type="text" id="formCognomeTecnico" value={formCognome} onChange={e => setFormCognome(e.target.value)} required /> 
-                    </div>
-                    <div> 
-                        <label htmlFor="formEmailTecnico">Email (Opzionale):</label> 
-                        <input type="email" id="formEmailTecnico" value={formEmail} onChange={e => setFormEmail(e.target.value)} /> 
-                    </div>
+                    <div> <label htmlFor="formNomeTecnico">Nome:</label> <input type="text" id="formNomeTecnico" value={formNome} onChange={e => setFormNome(e.target.value)} required /> </div>
+                    <div> <label htmlFor="formCognomeTecnico">Cognome:</label> <input type="text" id="formCognomeTecnico" value={formCognome} onChange={e => setFormCognome(e.target.value)} required /> </div>
+                    <div> <label htmlFor="formEmailTecnico">Email (Opzionale):</label> <input type="email" id="formEmailTecnico" value={formEmail} onChange={e => setFormEmail(e.target.value)} /> </div>
                     <button type="submit" disabled={loadingActions}>{loadingActions ? 'Salvataggio...' : (editingTecnico ? 'Salva Modifiche' : 'Aggiungi Tecnico')}</button>
-                    {editingTecnico && ( 
-                        <button type="button" className="secondary" onClick={resetForm} disabled={loadingActions} style={{marginLeft:'10px'}}> 
-                            Annulla Modifica 
-                        </button> 
-                    )}
+                    {editingTecnico && ( <button type="button" className="secondary" onClick={resetForm} disabled={loadingActions} style={{marginLeft:'10px'}}> Annulla Modifica </button> )}
                 </form>
             )}
             <h3>Elenco Tecnici</h3>
             {tecnici.length === 0 && !pageLoading ? ( <p>Nessun tecnico trovato.</p> ) : (
                 <table>
-                    <thead>
-                        <tr>
-                            <th>Cognome</th>
-                            <th>Nome</th>
-                            <th>Email</th>
-                            {canManage && <th>Azioni</th>}
-                        </tr>
-                    </thead>
+                    <thead><tr><th>Cognome</th><th>Nome</th><th>Email</th>{canManage && <th>Azioni</th>}</tr></thead>
                     <tbody>
-                        {tecnici.map(tecnico => (
-                            <tr key={tecnico.id} style={editingTecnico && editingTecnico.id === tecnico.id ? {backgroundColor: '#e6f7ff'} : {}}>
-                                <td>{tecnico.cognome}</td>
-                                <td>{tecnico.nome}</td>
-                                <td>{tecnico.email || '-'}</td>
-                                 {canManage && (
-                                    <td className="actions">
-                                        <button className="button secondary small" onClick={() => handleEditTecnico(tecnico)} disabled={loadingActions}>Modifica</button>
-                                        <button className="button danger small" onClick={() => handleDeleteTecnico(tecnico.id)} disabled={loadingActions} style={{marginLeft:'5px'}}>Elimina</button>
-                                    </td>
-                                 )}
+                        {tecnici.map(t => (
+                            <tr key={t.id} style={editingTecnico && editingTecnico.id === t.id ? {backgroundColor: '#e6f7ff'} : {}}>
+                                <td>{t.cognome}</td><td>{t.nome}</td><td>{t.email || '-'}</td>
+                                 {canManage && (<td className="actions">
+                                        <button className="button secondary small" onClick={() => handleEditTecnico(t)} disabled={loadingActions}>Modifica</button>
+                                        <button className="button danger small" onClick={() => handleDeleteTecnico(t.id)} disabled={loadingActions} style={{marginLeft:'5px'}}>Elimina</button>
+                                    </td>)}
                             </tr>
                         ))}
                     </tbody>
