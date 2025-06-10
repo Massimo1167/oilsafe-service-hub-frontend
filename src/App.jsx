@@ -12,10 +12,10 @@ import FoglioAssistenzaFormPage from './pages/FoglioAssistenzaFormPage';
 import FoglioAssistenzaDetailPage from './pages/FoglioAssistenzaDetailPage';
 
 // Importa Componenti Manager Anagrafiche
-import ClientiManager from './components/Anagrafiche/ClientiManager';
-import TecniciManager from './components/Anagrafiche/TecniciManager';
-import CommesseManager from './components/Anagrafiche/CommesseManager';
-import OrdiniClienteManager from './components/Anagrafiche/OrdiniClienteManager';
+import ClientiManager from './components/anagrafiche/ClientiManager';
+import TecniciManager from './components/anagrafiche/TecniciManager';
+import CommesseManager from './components/anagrafiche/CommesseManager';
+import OrdiniClienteManager from './components/anagrafiche/OrdiniClienteManager';
 
 import './App.css';
 
