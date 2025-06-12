@@ -144,3 +144,32 @@ header nav { /* Aggiunto per allineare il bottone a destra */
 .button-logout:hover {
     background-color: rgba(255, 255, 255, 0.15);
 }
+.status-badge.status-default {
+    background-color: #17a2b8; /* Esempio colore per default (info blu/ciano) */
+    color: white;
+    font-size: 0.7em;
+    padding: 2px 5px;
+    border-radius: 3px;
+    margin-left: 5px;
+}
+
+.button.outline.small {
+    background-color: transparent;
+    border: 1px solid #6c757d; /* Colore del bordo secondario */
+    color: #6c757d; /* Colore del testo secondario */
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8em;
+}
+.button.outline.small:hover {
+    background-color: #6c757d;
+    color: white;
+}
+.button.success.small {
+    background-color: #28a745; /* Verde successo */
+    color: white;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8em;
+}
+.button.success.small:hover {
+    background-color: #218838;
+}
