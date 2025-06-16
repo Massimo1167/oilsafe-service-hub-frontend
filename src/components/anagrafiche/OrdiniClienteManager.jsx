@@ -364,6 +364,8 @@ function OrdiniClienteManager({ session, clienti, commesse }) {
         else { setError("Formato non supportato."); setLoadingActions(false); }
     };
 
+    const triggerFileInput = () => fileInputRef.current?.click();
+
     // Filtra le commesse disponibili per il cliente selezionato nel form manuale
     const commesseFiltratePerClienteForm = formSelectedClienteIdOrdine && commesse
         ? commesse.filter(c => c.cliente_id === formSelectedClienteIdOrdine || !c.cliente_id)
