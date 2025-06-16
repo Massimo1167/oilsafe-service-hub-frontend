@@ -1,0 +1,202 @@
+ (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
+diff --git a/src/pages/FoglioAssistenzaFormPage.jsx b/src/pages/FoglioAssistenzaFormPage.jsx
+index c3ad576fc5a11f3265acd64f51d6eb8edac92ba6..6aafedec8e7502e4d6a79b52a27d8c47c62cac88 100644
+--- a/src/pages/FoglioAssistenzaFormPage.jsx
++++ b/src/pages/FoglioAssistenzaFormPage.jsx
+@@ -1,81 +1,126 @@
+ // src/pages/FoglioAssistenzaFormPage.jsx
+ import React, { useState, useEffect, useRef, useMemo } from 'react';
+ import { useNavigate, useParams, Link } from 'react-router-dom';
+ import { supabase } from '../supabaseClient';
+ import SignatureCanvas from 'react-signature-canvas';
+ 
+ function dataURLtoBlob(dataurl) {
+     if (!dataurl) return null;
+     try {
+         const arr = dataurl.split(','); if (arr.length < 2) return null;
+         const mimeMatch = arr[0].match(/:(.*?);/); if (!mimeMatch || mimeMatch.length < 2) return null;
+         const mime = mimeMatch[1]; const bstr = atob(arr[1]); let n = bstr.length;
+         const u8arr = new Uint8Array(n); while (n--) { u8arr[n] = bstr.charCodeAt(n); }
+         return new Blob([u8arr], { type: mime });
+     } catch (e) { console.error("Errore conversione dataURLtoBlob:", e); return null; }
+ }
+ 
+ function FoglioAssistenzaFormPage({ session, clienti, commesse, ordini }) {
+     const navigate = useNavigate();
+-    const { foglioIdParam } = useParams(); 
++    const { foglioIdParam } = useParams();
+     const isEditMode = !!foglioIdParam;
+ 
++    const draftKey = foglioIdParam ? `draft-foglio-${foglioIdParam}` : 'draft-foglio-new';
++
+     // Stati del Form
+     const [formDataApertura, setFormDataApertura] = useState(new Date().toISOString().split('T')[0]);
+     const [formSelectedClienteId, setFormSelectedClienteId] = useState('');
+     const [formReferenteCliente, setFormReferenteCliente] = useState('');
+     const [formMotivoGenerale, setFormMotivoGenerale] = useState('');
+     const [formSelectedCommessaId, setFormSelectedCommessaId] = useState('');
+     const [formSelectedOrdineId, setFormSelectedOrdineId] = useState('');
+     const [formDescrizioneGenerale, setFormDescrizioneGenerale] = useState('');
+     const [formOsservazioniGenerali, setFormOsservazioniGenerali] = useState('');
+     const [formMaterialiForniti, setFormMaterialiForniti] = useState('');
+     const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
+     const [formCreatoDaUserIdOriginal, setFormCreatoDaUserIdOriginal] = useState('');
+     const [numeroFoglioVisualizzato, setNumeroFoglioVisualizzato] = useState('');
+ 
+     const [indirizziClienteSelezionato, setIndirizziClienteSelezionato] = useState([]);
+     const [formSelectedIndirizzoId, setFormSelectedIndirizzoId] = useState(''); 
+ 
+     const [filtroCliente, setFiltroCliente] = useState('');
+     const [filtroCommessa, setFiltroCommessa] = useState('');
+     const [filtroOrdine, setFiltroOrdine] = useState('');
+     const [filtroIndirizzo, setFiltroIndirizzo] = useState('');
+ 
+     const [loadingSubmit, setLoadingSubmit] = useState(false);
+     const [pageLoading, setPageLoading] = useState(isEditMode); 
+     const [error, setError] = useState(null);
+     const sigCanvasClienteRef = useRef(null);
+     const sigCanvasTecnicoRef = useRef(null);
+     const [firmaClientePreview, setFirmaClientePreview] = useState(null);
+     const [firmaTecnicoPreview, setFirmaTecnicoPreview] = useState(null);
+ 
+     const userRole = session?.user?.role;
+     const currentUserId = session?.user?.id;
+     const canSubmitForm = userRole === 'admin' || (!isEditMode && userRole === 'user') || (isEditMode && (userRole === 'manager' || (userRole === 'user' && formCreatoDaUserIdOriginal === currentUserId)));
+ 
++    useEffect(() => {
++        if (!pageLoading) {
++            const saved = localStorage.getItem(draftKey);
++            if (saved) {
++                try {
++                    const d = JSON.parse(saved);
++                    if (d.formDataApertura) setFormDataApertura(d.formDataApertura);
++                    if (d.formSelectedClienteId) setFormSelectedClienteId(d.formSelectedClienteId);
++                    if (d.formSelectedIndirizzoId) setFormSelectedIndirizzoId(d.formSelectedIndirizzoId);
++                    if (d.formReferenteCliente) setFormReferenteCliente(d.formReferenteCliente);
++                    if (d.formMotivoGenerale) setFormMotivoGenerale(d.formMotivoGenerale);
++                    if (d.formSelectedCommessaId) setFormSelectedCommessaId(d.formSelectedCommessaId);
++                    if (d.formSelectedOrdineId) setFormSelectedOrdineId(d.formSelectedOrdineId);
++                    if (d.formDescrizioneGenerale) setFormDescrizioneGenerale(d.formDescrizioneGenerale);
++                    if (d.formOsservazioniGenerali) setFormOsservazioniGenerali(d.formOsservazioniGenerali);
++                    if (d.formMaterialiForniti) setFormMaterialiForniti(d.formMaterialiForniti);
++                    if (d.formStatoFoglio) setFormStatoFoglio(d.formStatoFoglio);
++                } catch (e) {
++                    console.error('Errore caricamento draft form:', e);
++                }
++            }
++        }
++    }, [draftKey, pageLoading]);
++
++    useEffect(() => {
++        if (!pageLoading) {
++            const draft = {
++                formDataApertura,
++                formSelectedClienteId,
++                formSelectedIndirizzoId,
++                formReferenteCliente,
++                formMotivoGenerale,
++                formSelectedCommessaId,
++                formSelectedOrdineId,
++                formDescrizioneGenerale,
++                formOsservazioniGenerali,
++                formMaterialiForniti,
++                formStatoFoglio,
++            };
++            localStorage.setItem(draftKey, JSON.stringify(draft));
++        }
++    }, [draftKey, pageLoading, formDataApertura, formSelectedClienteId, formSelectedIndirizzoId, formReferenteCliente, formMotivoGenerale, formSelectedCommessaId, formSelectedOrdineId, formDescrizioneGenerale, formOsservazioniGenerali, formMaterialiForniti, formStatoFoglio]);
++
+     useEffect(() => {
+         if (formSelectedClienteId) {
+             const fetchIndirizzi = async () => {
+                 const { data, error: errIndirizzi } = await supabase.from('indirizzi_clienti')
+                     .select('id, indirizzo_completo, descrizione, is_default').eq('cliente_id', formSelectedClienteId)
+                     .order('is_default', { ascending: false }).order('descrizione');
+                 if (errIndirizzi) {
+                     console.error("Errore fetch indirizzi cliente:", errIndirizzi);
+                     setIndirizziClienteSelezionato([]);
+                     setFormSelectedIndirizzoId(''); 
+                 } else {
+                     setIndirizziClienteSelezionato(data || []);
+                     if (!formSelectedIndirizzoId && data && data.length > 0) { // Auto-seleziona solo se non c'è già un valore (es. da edit mode)
+                         const defaultAddr = data.find(addr => addr.is_default);
+                         setFormSelectedIndirizzoId(defaultAddr?.id || data[0].id);
+                     } else if (data.length === 0) {
+                         setFormSelectedIndirizzoId('');
+                     }
+                 }
+             };
+             fetchIndirizzi();
+         } else {
+             setIndirizziClienteSelezionato([]);
+             setFormSelectedIndirizzoId('');
+         }
+diff --git a/src/pages/FoglioAssistenzaFormPage.jsx b/src/pages/FoglioAssistenzaFormPage.jsx
+index c3ad576fc5a11f3265acd64f51d6eb8edac92ba6..6aafedec8e7502e4d6a79b52a27d8c47c62cac88 100644
+--- a/src/pages/FoglioAssistenzaFormPage.jsx
++++ b/src/pages/FoglioAssistenzaFormPage.jsx
+@@ -145,55 +190,56 @@ function FoglioAssistenzaFormPage({ session, clienti, commesse, ordini }) {
+               commessa_id: formSelectedCommessaId || null, 
+               ordine_cliente_id: formSelectedOrdineId || null,
+               descrizione_lavoro_generale: formDescrizioneGenerale.trim(), 
+               osservazioni_generali: formOsservazioniGenerali.trim(),
+               materiali_forniti_generale: formMaterialiForniti.trim(), 
+               firma_cliente_url: firmaClienteUrlToSave,
+               firma_tecnico_principale_url: firmaTecnicoUrlToSave,
+               stato_foglio: formStatoFoglio,
+             };
+             
+             let resultData, resultError;
+             if (isEditMode) { 
+                 const { data, error } = await supabase.from('fogli_assistenza').update(foglioPayload).eq('id', foglioIdParam).select().single();
+                 resultData = data; resultError = error;
+             } else { 
+                 console.log("Chiamata a RPC 'genera_prossimo_numero_foglio'...");
+                 const { data: numeroData, error: numeroError } = await supabase.rpc('genera_prossimo_numero_foglio');
+                 if (numeroError) throw new Error("Impossibile generare numero foglio: " + numeroError.message);
+                 console.log("Numero foglio generato:", numeroData);
+                 foglioPayload.numero_foglio = numeroData;
+                 if (userRole === 'user' && currentUserId) { foglioPayload.creato_da_user_id = currentUserId; }
+                 const { data, error } = await supabase.from('fogli_assistenza').insert([foglioPayload]).select().single();
+                 resultData = data; resultError = error;
+             }
+ 
+-            if (resultError) { throw resultError; } 
+-            
+-            if (resultData) { 
+-                alert(isEditMode ? 'Foglio aggiornato!' : 'Foglio creato!'); 
+-                navigate(`/fogli-assistenza/${resultData.id}`); 
++            if (resultError) { throw resultError; }
++
++            if (resultData) {
++                localStorage.removeItem(draftKey);
++                alert(isEditMode ? 'Foglio aggiornato!' : 'Foglio creato!');
++                navigate(`/fogli-assistenza/${resultData.id}`);
+             } else { throw new Error("Operazione completata ma nessun dato restituito."); }
+         } catch (opError) {
+             setError("Operazione fallita: " + opError.message); 
+             console.error(isEditMode ? "Errore aggiornamento foglio:" : "Errore creazione foglio:", opError);
+         } finally {
+             setLoadingSubmit(false);
+         }
+     };
+       
+     // Liste filtrate e ordinate
+     const clientiOrdinati = useMemo(() => [...(clienti || [])].sort((a, b) => a.nome_azienda.localeCompare(b.nome_azienda)), [clienti]);
+     const clientiFiltrati = useMemo(() => clientiOrdinati.filter(c => c.nome_azienda.toLowerCase().includes(filtroCliente.toLowerCase())), [clientiOrdinati, filtroCliente]);
+     const indirizziFiltrati = useMemo(() => (indirizziClienteSelezionato || []).filter(addr => (addr.indirizzo_completo || '').toLowerCase().includes(filtroIndirizzo.toLowerCase()) || (addr.descrizione || '').toLowerCase().includes(filtroIndirizzo.toLowerCase())), [indirizziClienteSelezionato, filtroIndirizzo]);
+     const commesseDisponibili = useMemo(() => formSelectedClienteId && commesse ? [...(commesse || [])].filter(c => c.cliente_id === formSelectedClienteId || !c.cliente_id).sort((a,b) => a.codice_commessa.localeCompare(b.codice_commessa)) : [...(commesse || [])].sort((a,b) => a.codice_commessa.localeCompare(b.codice_commessa)),[commesse, formSelectedClienteId]);
+     const commesseFiltrate = useMemo(() => commesseDisponibili.filter(c => c.codice_commessa.toLowerCase().includes(filtroCommessa.toLowerCase()) || (c.descrizione_commessa || '').toLowerCase().includes(filtroCommessa.toLowerCase())), [commesseDisponibili, filtroCommessa]);
+     const ordiniDisponibili = useMemo(() => formSelectedClienteId && ordini ? [...(ordini || [])].filter(o => o.cliente_id === formSelectedClienteId).sort((a,b) => a.numero_ordine_cliente.localeCompare(b.numero_ordine_cliente)) : [...(ordini || [])].sort((a,b) => a.numero_ordine_cliente.localeCompare(b.numero_ordine_cliente)),[ordini, formSelectedClienteId]);
+     const ordiniFiltrati = useMemo(() => ordiniDisponibili.filter(o => o.numero_ordine_cliente.toLowerCase().includes(filtroOrdine.toLowerCase()) || (o.descrizione_ordine || '').toLowerCase().includes(filtroOrdine.toLowerCase())), [ordiniDisponibili, filtroOrdine]);
+ 
+     if (pageLoading && isEditMode) return <p>Caricamento dati foglio...</p>;
+     if (!session) return <Navigate to="/login" replace />;
+     if (!pageLoading && !canSubmitForm) return <p>Non hai i permessi per accedere a questa pagina.</p>;
+ 
+     return (
+         <div>
+             <Link to={isEditMode ? `/fogli-assistenza/${foglioIdParam}` : "/fogli-assistenza"}>
+ 
+EOF
+)
