@@ -17,8 +17,10 @@ function dataURLtoBlob(dataurl) {
 
 function FoglioAssistenzaFormPage({ session, clienti, commesse, ordini }) {
     const navigate = useNavigate();
-    const { foglioIdParam } = useParams(); 
+    const { foglioIdParam } = useParams();
     const isEditMode = !!foglioIdParam;
+
+    const draftKey = foglioIdParam ? `draft-foglio-${foglioIdParam}` : 'draft-foglio-new';
 
     // Stati del Form
     const [formDataApertura, setFormDataApertura] = useState(new Date().toISOString().split('T')[0]);
@@ -53,6 +55,49 @@ function FoglioAssistenzaFormPage({ session, clienti, commesse, ordini }) {
     const userRole = session?.user?.role;
     const currentUserId = session?.user?.id;
     const canSubmitForm = userRole === 'admin' || (!isEditMode && userRole === 'user') || (isEditMode && (userRole === 'manager' || (userRole === 'user' && formCreatoDaUserIdOriginal === currentUserId)));
+
+    useEffect(() => {
+        if (!pageLoading) {
+            const saved = localStorage.getItem(draftKey);
+            if (saved) {
+                try {
+                    const d = JSON.parse(saved);
+                    if (d.formDataApertura) setFormDataApertura(d.formDataApertura);
+                    if (d.formSelectedClienteId) setFormSelectedClienteId(d.formSelectedClienteId);
+                    if (d.formSelectedIndirizzoId) setFormSelectedIndirizzoId(d.formSelectedIndirizzoId);
+                    if (d.formReferenteCliente) setFormReferenteCliente(d.formReferenteCliente);
+                    if (d.formMotivoGenerale) setFormMotivoGenerale(d.formMotivoGenerale);
+                    if (d.formSelectedCommessaId) setFormSelectedCommessaId(d.formSelectedCommessaId);
+                    if (d.formSelectedOrdineId) setFormSelectedOrdineId(d.formSelectedOrdineId);
+                    if (d.formDescrizioneGenerale) setFormDescrizioneGenerale(d.formDescrizioneGenerale);
+                    if (d.formOsservazioniGenerali) setFormOsservazioniGenerali(d.formOsservazioniGenerali);
+                    if (d.formMaterialiForniti) setFormMaterialiForniti(d.formMaterialiForniti);
+                    if (d.formStatoFoglio) setFormStatoFoglio(d.formStatoFoglio);
+                } catch (e) {
+                    console.error('Errore caricamento draft form:', e);
+                }
+            }
+        }
+    }, [draftKey, pageLoading]);
+
+    useEffect(() => {
+        if (!pageLoading) {
+            const draft = {
+                formDataApertura,
+                formSelectedClienteId,
+                formSelectedIndirizzoId,
+                formReferenteCliente,
+                formMotivoGenerale,
+                formSelectedCommessaId,
+                formSelectedOrdineId,
+                formDescrizioneGenerale,
+                formOsservazioniGenerali,
+                formMaterialiForniti,
+                formStatoFoglio,
+            };
+            localStorage.setItem(draftKey, JSON.stringify(draft));
+        }
+    }, [draftKey, pageLoading, formDataApertura, formSelectedClienteId, formSelectedIndirizzoId, formReferenteCliente, formMotivoGenerale, formSelectedCommessaId, formSelectedOrdineId, formDescrizioneGenerale, formOsservazioniGenerali, formMaterialiForniti, formStatoFoglio]);
 
     useEffect(() => {
         if (formSelectedClienteId) {
@@ -167,11 +212,12 @@ function FoglioAssistenzaFormPage({ session, clienti, commesse, ordini }) {
                 resultData = data; resultError = error;
             }
 
-            if (resultError) { throw resultError; } 
-            
-            if (resultData) { 
-                alert(isEditMode ? 'Foglio aggiornato!' : 'Foglio creato!'); 
-                navigate(`/fogli-assistenza/${resultData.id}`); 
+            if (resultError) { throw resultError; }
+
+            if (resultData) {
+                localStorage.removeItem(draftKey);
+                alert(isEditMode ? 'Foglio aggiornato!' : 'Foglio creato!');
+                navigate(`/fogli-assistenza/${resultData.id}`);
             } else { throw new Error("Operazione completata ma nessun dato restituito."); }
         } catch (opError) {
             setError("Operazione fallita: " + opError.message); 
