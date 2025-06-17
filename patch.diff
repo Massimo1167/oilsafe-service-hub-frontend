@@ -1,61 +1,59 @@
  (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
-diff --git a/src/components/anagrafiche/OrdiniClienteManager.jsx b/src/components/anagrafiche/OrdiniClienteManager.jsx
-index f4e25cbe971c3153ee0ef490df9aba2fba41d823..8a7214eebb494fa3ab54eeefd0a4fa0ed97d43cb 100644
---- a/src/components/anagrafiche/OrdiniClienteManager.jsx
-+++ b/src/components/anagrafiche/OrdiniClienteManager.jsx
-@@ -342,50 +342,52 @@ function OrdiniClienteManager({ session, clienti, commesse }) {
-                 if (ordiniPerUpsert.length > 0) {
-                     console.log("Ordini pronti per upsert finale:", ordiniPerUpsert);
-                     const { data, error: upsertError } = await supabase.from('ordini_cliente').upsert(ordiniPerUpsert, { onConflict: 'numero_ordine_cliente' }).select();
-                     if (upsertError) { errorsDetail.push(`Errore generale durante l'upsert degli ordini: ${upsertError.message}`); errorCount += ordiniPerUpsert.length - (data ? data.length : 0); console.error("Err upsert ordini:", upsertError); }
-                     successCount = data ? data.length : 0;
-                 }
-                 
-                 let finalMessage = `${successCount} ordini importati/aggiornati.`;
-                 if (errorCount > 0) { finalMessage += ` ${errorCount} righe con errori o avvisi.`; setError(`Errori/Avvisi durante l'importazione: ${errorsDetail.slice(0,3).join('; ')}... Vedi console.`); console.error("Dettaglio errori/avvisi importazione ordini:", errorsDetail); }
-                 setSuccessMessage(finalMessage); setTimeout(()=> { setSuccessMessage(''); setError(null); }, 10000);
-                 setCurrentPage(1); // Torna alla prima pagina dopo l'importazione
-                 await fetchOrdini();
-             } catch (parseOrProcessError) { 
-                 setError("Errore critico durante l'importazione: " + parseOrProcessError.message); 
-                 console.error("Errore critico importazione ordini:", parseOrProcessError);
-             } finally { 
-                 setLoadingActions(false); setImportProgress('');
-                 if(fileInputRef.current) fileInputRef.current.value = ""; 
-             }
-         };
-         if (file.name.endsWith('.csv')) reader.readAsText(file); 
-         else if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) reader.readAsBinaryString(file);
-         else { setError("Formato non supportato."); setLoadingActions(false); }
-     };
+diff --git a/src/components/anagrafiche/CommesseManager.jsx b/src/components/anagrafiche/CommesseManager.jsx
+index f4283894e38ec2ec588aec19062d4c11485ad7db..85b1dee77acdae19046fef6b77ef4dab562fcfed 100644
+--- a/src/components/anagrafiche/CommesseManager.jsx
++++ b/src/components/anagrafiche/CommesseManager.jsx
+@@ -352,38 +352,46 @@ function CommesseManager({ session, clienti }) { // `clienti` prop è usato per
+                     <button type="submit" disabled={loadingActions}>{loadingActions ? 'Salvataggio...' : (editingCommessa ? 'Salva Modifiche' : 'Aggiungi Commessa')}</button>
+                     {editingCommessa && ( <button type="button" className="secondary" onClick={resetForm} disabled={loadingActions} style={{marginLeft:'10px'}}> Annulla Modifica </button> )}
+                 </form>
+             )}
  
-+    const triggerFileInput = () => fileInputRef.current?.click();
-+
-     // Filtra le commesse disponibili per il cliente selezionato nel form manuale
-     const commesseFiltratePerClienteForm = formSelectedClienteIdOrdine && commesse
-         ? commesse.filter(c => c.cliente_id === formSelectedClienteIdOrdine || !c.cliente_id)
-         : (commesse || []);
-     
-     // Calcola il numero totale di pagine
-     const totalPages = Math.ceil(totalOrdini / RIGHE_PER_PAGINA_ORDINI);
- 
-     if (pageLoading && ordini.length === 0 && currentPage === 1) return <p>Caricamento anagrafica ordini cliente...</p>; // Mostra solo al primo caricamento
-     if (!canManage && session && !pageLoading) return <p>Non hai i permessi per gestire questa anagrafica.</p>;
-     if (!session && !pageLoading) return <Navigate to="/login" replace />;
- 
-     return (
-         <div>
-             <h2>Anagrafica Ordini Cliente</h2>
-             {canManage && (
-                 <div style={{ marginBottom: '20px', display: 'flex', gap: '10px', flexWrap:'wrap', alignItems:'center' }}>
-                     <input type="file" accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" onChange={handleFileSelected} style={{ display: 'none' }} ref={fileInputRef} />
-                     <button onClick={triggerFileInput} className="button secondary" disabled={loadingActions}> 
-                         {loadingActions && importProgress ? importProgress : (loadingActions ? 'Attendere...' : 'Importa/Aggiorna Ordini')} 
-                     </button>
-                     <div style={{display:'flex', gap: '5px'}}>
-                         <button onClick={() => handleExport('csv')} className="button secondary small" disabled={loadingActions || ordini.length === 0}> Esporta CSV (Pag. Corr.) </button>
-                         <button onClick={() => handleExport('xlsx')} className="button secondary small" disabled={loadingActions || ordini.length === 0}> Esporta XLSX (Pag. Corr.) </button>
+             <h3>Elenco Commesse ({pageLoading ? '...' : totalCommesse} totali)</h3>
+             {pageLoading && commesse.length === 0 ? <p>Caricamento commesse...</p> : null}
+             {!pageLoading && commesse.length === 0 ? (<p>Nessuna commessa trovata con i filtri applicati.</p>) : (
+                 <>
+                 <table>
+                     <thead><tr><th>Codice</th><th>Descrizione</th><th>Cliente</th><th>Stato</th>{canManage && <th>Azioni</th>}</tr></thead>
+                     <tbody>
+                         {commesse.map(c => (
+                             <tr key={c.id} style={editingCommessa && editingCommessa.id === c.id ? {backgroundColor: '#e6f7ff'} : {}}>
+                                 <td>{c.codice_commessa}</td><td>{c.descrizione_commessa || '-'}</td><td>{c.clienti?.nome_azienda || (c.cliente_id ? `ID: ${c.cliente_id.substring(0,8)}...` : 'N/D')}</td><td>{c.stato}</td>
+                                 {canManage && (<td className="actions">
+                                         <button className="button secondary small" onClick={() => handleEditCommessa(c)} disabled={loadingActions}>Mod.</button>
+                                         <button className="button danger small" onClick={() => handleDeleteCommessa(c.id)} disabled={loadingActions} style={{marginLeft:'5px'}}>Elim.</button>
+                                     </td>)}
+                             </tr>
+                         ))}
+                     </tbody>
+                 </table>
+                 {totalPages > 1 && (
+                     <div className="pagination-controls">
+-                        <button onClick={() => goToPage(1)} disabled={currentPage === 1 || loadingActions || pageLoading}>« Inizio</button>
+-                        <button onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1 || loadingActions || pageLoading}>‹ Prec.</button>
++                        <button
++                            onClick={() => goToPage(currentPage - 1)}
++                            disabled={currentPage === 1 || loadingActions || pageLoading}
++                        >
++                            ‹ Indietro
++                        </button>
+                         <span> Pagina {currentPage} di {totalPages} </span>
+-                        <button onClick={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages || loadingActions || pageLoading}>Succ. ›</button>
+-                        <button onClick={() => goToPage(totalPages)} disabled={currentPage === totalPages || loadingActions || pageLoading}>Fine »</button>
++                        <button
++                            onClick={() => goToPage(currentPage + 1)}
++                            disabled={currentPage === totalPages || loadingActions || pageLoading}
++                        >
++                            Avanti ›
++                        </button>
                      </div>
+                 )}
+                 </>
+             )}
+         </div>
+     );
+ }
+ export default CommesseManager;
  
 EOF
 )
