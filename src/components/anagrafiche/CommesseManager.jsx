@@ -31,6 +31,7 @@ function CommesseManager({ session, clienti }) { // `clienti` prop è usato per 
     const [filtroServerCodice, setFiltroServerCodice] = useState('');
     const [filtroServerDescrizione, setFiltroServerDescrizione] = useState('');
     const [filtroServerClienteNome, setFiltroServerClienteNome] = useState('');
+    const [ricercaSbloccata, setRicercaSbloccata] = useState(false);
 
     // Ruolo utente e permessi
     const userRole = session?.user?.role;
@@ -53,6 +54,21 @@ function CommesseManager({ session, clienti }) { // `clienti` prop è usato per 
         }
 
         setPageLoading(true); setError(null);
+
+        if (
+            !ricercaSbloccata &&
+            ![
+                filtroServerCodice,
+                filtroServerDescrizione,
+                filtroServerClienteNome,
+            ].some((f) => f && f.trim().length >= 3)
+        ) {
+            setCommesse([]);
+            setTotalCommesse(0);
+            setError('Inserire almeno 3 caratteri in uno dei filtri o sbloccare la ricerca.');
+            setPageLoading(false);
+            return;
+        }
 
         const from = (currentPage - 1) * RIGHE_PER_PAGINA;
         const to = currentPage * RIGHE_PER_PAGINA - 1;
@@ -85,7 +101,7 @@ function CommesseManager({ session, clienti }) { // `clienti` prop è usato per 
             setTotalCommesse(count || 0); 
         }
         setPageLoading(false);
-    }, [session, canManage, currentPage, filtroServerCodice, filtroServerDescrizione, filtroServerClienteNome]); // Dipendenze dell'hook useCallback
+    }, [session, canManage, currentPage, filtroServerCodice, filtroServerDescrizione, filtroServerClienteNome, ricercaSbloccata]); // Dipendenze dell'hook useCallback
 
     // useEffect per caricare le commesse quando cambiano i filtri o la pagina, con debounce.
     useEffect(() => {
@@ -111,6 +127,7 @@ function CommesseManager({ session, clienti }) { // `clienti` prop è usato per 
     const resetFilters = () => {
         setFiltroServerCodice(''); setFiltroServerDescrizione(''); setFiltroServerClienteNome('');
         setCurrentPage(1); // fetchCommesse verrà triggerato
+        setRicercaSbloccata(false);
     };
 
     // Resetta i campi del form.
@@ -331,6 +348,9 @@ function CommesseManager({ session, clienti }) { // `clienti` prop è usato per 
                     <div> <label htmlFor="filtroClienteNomeCommessa">Nome Cliente:</label> <input type="text" id="filtroClienteNomeCommessa" value={filtroServerClienteNome} onChange={handleFiltroClienteChange} placeholder="Filtra per nome cliente..."/> </div>
                 </div>
                 <button onClick={resetFilters} className="button secondary" style={{marginTop:'10px'}} disabled={loadingActions || pageLoading}>Azzera Filtri</button>
+                {!ricercaSbloccata && (
+                    <button onClick={() => setRicercaSbloccata(true)} className="button warning" style={{marginLeft:'10px', marginTop:'10px'}} disabled={loadingActions || pageLoading}>Sblocca Ricerca</button>
+                )}
             </div>
 
             {importProgress && !loadingActions && <p style={{fontStyle:'italic'}}>{importProgress}</p>}
@@ -374,11 +394,19 @@ function CommesseManager({ session, clienti }) { // `clienti` prop è usato per 
                 </table>
                 {totalPages > 1 && (
                     <div className="pagination-controls">
-                        <button onClick={() => goToPage(1)} disabled={currentPage === 1 || loadingActions || pageLoading}>« Inizio</button>
-                        <button onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1 || loadingActions || pageLoading}>‹ Prec.</button>
+                        <button
+                            onClick={() => goToPage(currentPage - 1)}
+                            disabled={currentPage === 1 || loadingActions || pageLoading}
+                        >
+                            ‹ Indietro
+                        </button>
                         <span> Pagina {currentPage} di {totalPages} </span>
-                        <button onClick={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages || loadingActions || pageLoading}>Succ. ›</button>
-                        <button onClick={() => goToPage(totalPages)} disabled={currentPage === totalPages || loadingActions || pageLoading}>Fine »</button>
+                        <button
+                            onClick={() => goToPage(currentPage + 1)}
+                            disabled={currentPage === totalPages || loadingActions || pageLoading}
+                        >
+                            Avanti ›
+                        </button>
                     </div>
                 )}
                 </>
