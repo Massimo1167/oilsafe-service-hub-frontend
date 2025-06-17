@@ -5,6 +5,8 @@ import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import { Navigate } from 'react-router-dom';
 
+const RIGHE_PER_PAGINA_CLIENTI = 15;
+
 function ClientiManager({ session }) {
     const [clienti, setClienti] = useState([]);
     const [loadingActions, setLoadingActions] = useState(false); 
@@ -14,6 +16,8 @@ function ClientiManager({ session }) {
     const [importProgress, setImportProgress] = useState('');
     const [filtroNomeAzienda, setFiltroNomeAzienda] = useState('');
     const [ricercaSbloccata, setRicercaSbloccata] = useState(false);
+
+    const [currentPage, setCurrentPage] = useState(1);
 
     const [formNuovoNomeAzienda, setFormNuovoNomeAzienda] = useState('');
     const [selectedCliente, setSelectedCliente] = useState(null); 
@@ -55,7 +59,8 @@ function ClientiManager({ session }) {
                 const defaultAddr = c.indirizzi_clienti.find(addr => addr.is_default);
                 return { ...c, indirizzo_default_visualizzato: defaultAddr?.indirizzo_completo || (c.indirizzi_clienti.length > 0 ? c.indirizzi_clienti[0].indirizzo_completo : '') };
             });
-            setClienti(clientiMappati); 
+            setClienti(clientiMappati);
+            setCurrentPage(1);
         }
         setPageLoading(false);
     };
@@ -81,16 +86,230 @@ function ClientiManager({ session }) {
         if (selectedCliente?.id === cliente.id) { setSelectedCliente(null); setFormEditNomeAzienda(''); resetFormIndirizzi(); }
         else { setSelectedCliente(cliente); setFormEditNomeAzienda(cliente.nome_azienda); resetFormIndirizzi(); }
     };
-    const handleAddNuovoCliente = async (e) => { /* ...come prima... */ };
-    const handleUpdateNomeClienteSelezionato = async (e) => { /* ...come prima... */ };
-    const handleAddIndirizzoCliente = async () => { /* ...come prima... */ };
-    const handleDeleteIndirizzoCliente = async (indirizzoId) => { /* ...come prima... */ };
-    const handleSetDefaultIndirizzoCliente = async (idDefault) => { /* ...come prima... */ };
-    const handleStartEditIndirizzo = (indirizzo) => { /* ...come prima... */ };
-    const handleCancelEditIndirizzo = () => { /* ...come prima... */ };
-    const handleSaveEditIndirizzo = async () => { /* ...come prima... */ };
-    const handleDeleteCliente = async (clienteId) => { /* ...come prima... */ };
-    const handleExport = (format = 'csv') => { /* ... (Logica di esportazione completa come l'ultima versione corretta) ... */ };
+    const reloadIndirizziCliente = async (clienteId) => {
+        setLoadingIndirizzi(true);
+        const { data, error: err } = await supabase
+            .from('indirizzi_clienti')
+            .select('*')
+            .eq('cliente_id', clienteId)
+            .order('is_default', { ascending: false })
+            .order('descrizione');
+        if (err) {
+            setError('Errore indirizzi: ' + err.message);
+            setIndirizziClienteCorrente([]);
+        } else {
+            setIndirizziClienteCorrente(data || []);
+        }
+        setLoadingIndirizzi(false);
+    };
+
+    const handleAddNuovoCliente = async (e) => {
+        e.preventDefault();
+        if (!canManage) { alert('Non hai i permessi.'); return; }
+        if (!formNuovoNomeAzienda.trim()) { alert('Nome azienda obbligatorio.'); return; }
+        setLoadingActions(true); setError(null); setSuccessMessage('');
+        const { error } = await supabase
+            .from('clienti')
+            .insert([{ nome_azienda: formNuovoNomeAzienda.trim() }]);
+        if (error) {
+            setError(error.message);
+            alert('Inserimento cliente fallito: ' + error.message);
+        } else {
+            resetFormNuovoCliente();
+            await fetchClienti(filtroNomeAzienda.trim());
+            setSuccessMessage('Cliente aggiunto con successo!');
+            setTimeout(() => setSuccessMessage(''), 3000);
+        }
+        setLoadingActions(false);
+    };
+
+    const handleUpdateNomeClienteSelezionato = async (e) => {
+        e.preventDefault();
+        if (!canManage || !selectedCliente) return;
+        if (!formEditNomeAzienda.trim()) { alert('Nome azienda obbligatorio.'); return; }
+        setLoadingActions(true); setError(null); setSuccessMessage('');
+        const { error } = await supabase
+            .from('clienti')
+            .update({ nome_azienda: formEditNomeAzienda.trim() })
+            .eq('id', selectedCliente.id);
+        if (error) {
+            setError(error.message);
+            alert('Modifica fallita: ' + error.message);
+        } else {
+            await fetchClienti(filtroNomeAzienda.trim());
+            setSelectedCliente(prev => prev ? { ...prev, nome_azienda: formEditNomeAzienda.trim() } : null);
+            setSuccessMessage('Nome cliente aggiornato!');
+            setTimeout(() => setSuccessMessage(''), 3000);
+        }
+        setLoadingActions(false);
+    };
+
+    const handleAddIndirizzoCliente = async () => {
+        if (!canManage || !selectedCliente) return;
+        if (!formNuovoIndirizzoCompleto.trim()) { alert('Indirizzo obbligatorio.'); return; }
+        setLoadingActions(true); setError(null); setSuccessMessage('');
+        const nuovoIndirizzo = {
+            cliente_id: selectedCliente.id,
+            indirizzo_completo: formNuovoIndirizzoCompleto.trim(),
+            descrizione: formNuovaDescrizioneIndirizzo.trim() || null,
+            is_default: indirizziClienteCorrente.length === 0,
+        };
+        const { error } = await supabase.from('indirizzi_clienti').insert([nuovoIndirizzo]);
+        if (error) {
+            setError(error.message);
+            alert('Inserimento indirizzo fallito: ' + error.message);
+        } else {
+            resetFormIndirizzi();
+            await reloadIndirizziCliente(selectedCliente.id);
+            await fetchClienti(filtroNomeAzienda.trim());
+            setSuccessMessage('Indirizzo aggiunto con successo!');
+            setTimeout(() => setSuccessMessage(''), 3000);
+        }
+        setLoadingActions(false);
+    };
+
+    const handleDeleteIndirizzoCliente = async (indirizzoId) => {
+        if (!canManage || !selectedCliente) return;
+        if (!window.confirm('Eliminare questo indirizzo?')) return;
+        setLoadingActions(true); setError(null); setSuccessMessage('');
+        const { error } = await supabase.from('indirizzi_clienti').delete().eq('id', indirizzoId);
+        if (error) {
+            setError(error.message);
+            alert('Eliminazione indirizzo fallita: ' + error.message);
+        } else {
+            if (editingIndirizzo && editingIndirizzo.id === indirizzoId) handleCancelEditIndirizzo();
+            await reloadIndirizziCliente(selectedCliente.id);
+            await fetchClienti(filtroNomeAzienda.trim());
+            setSuccessMessage('Indirizzo eliminato con successo!');
+            setTimeout(() => setSuccessMessage(''), 3000);
+        }
+        setLoadingActions(false);
+    };
+
+    const handleSetDefaultIndirizzoCliente = async (idDefault) => {
+        if (!canManage || !selectedCliente) return;
+        setLoadingActions(true); setError(null); setSuccessMessage('');
+        const clienteId = selectedCliente.id;
+        const { error: unsetErr } = await supabase
+            .from('indirizzi_clienti')
+            .update({ is_default: false })
+            .eq('cliente_id', clienteId)
+            .eq('is_default', true);
+        const { error: setErr } = await supabase
+            .from('indirizzi_clienti')
+            .update({ is_default: true })
+            .eq('id', idDefault);
+        const combinedError = unsetErr || setErr;
+        if (combinedError) {
+            setError(combinedError.message);
+            alert('Impostazione default fallita: ' + combinedError.message);
+        } else {
+            await reloadIndirizziCliente(clienteId);
+            await fetchClienti(filtroNomeAzienda.trim());
+            setSuccessMessage('Indirizzo impostato come predefinito!');
+            setTimeout(() => setSuccessMessage(''), 3000);
+        }
+        setLoadingActions(false);
+    };
+
+    const handleStartEditIndirizzo = (indirizzo) => {
+        if (!canManage) return;
+        setEditingIndirizzo(indirizzo);
+        setFormEditIndirizzoCompleto(indirizzo.indirizzo_completo);
+        setFormEditIndirizzoDescrizione(indirizzo.descrizione || '');
+    };
+
+    const handleCancelEditIndirizzo = () => {
+        setEditingIndirizzo(null);
+        setFormEditIndirizzoCompleto('');
+        setFormEditIndirizzoDescrizione('');
+    };
+
+    const handleSaveEditIndirizzo = async () => {
+        if (!canManage || !editingIndirizzo) return;
+        if (!formEditIndirizzoCompleto.trim()) { alert('Indirizzo obbligatorio.'); return; }
+        setLoadingActions(true); setError(null); setSuccessMessage('');
+        const { error } = await supabase
+            .from('indirizzi_clienti')
+            .update({
+                indirizzo_completo: formEditIndirizzoCompleto.trim(),
+                descrizione: formEditIndirizzoDescrizione.trim() || null,
+            })
+            .eq('id', editingIndirizzo.id);
+        if (error) {
+            setError(error.message);
+            alert('Modifica indirizzo fallita: ' + error.message);
+        } else {
+            handleCancelEditIndirizzo();
+            await reloadIndirizziCliente(selectedCliente.id);
+            await fetchClienti(filtroNomeAzienda.trim());
+            setSuccessMessage('Indirizzo modificato con successo!');
+            setTimeout(() => setSuccessMessage(''), 3000);
+        }
+        setLoadingActions(false);
+    };
+
+    const handleDeleteCliente = async (clienteId) => {
+        if (!canManage) return;
+        if (!window.confirm('Eliminare questo cliente?')) return;
+        setLoadingActions(true); setError(null); setSuccessMessage('');
+        const { error } = await supabase.from('clienti').delete().eq('id', clienteId);
+        if (error) {
+            setError(error.message);
+            alert('Eliminazione cliente fallita: ' + error.message);
+        } else {
+            if (selectedCliente && selectedCliente.id === clienteId) {
+                setSelectedCliente(null);
+                resetFormIndirizzi();
+            }
+            await fetchClienti(filtroNomeAzienda.trim());
+            setSuccessMessage('Cliente eliminato con successo!');
+            setTimeout(() => setSuccessMessage(''), 3000);
+        }
+        setLoadingActions(false);
+    };
+
+    const handleExport = (format = 'csv') => {
+        if (!clienti || clienti.length === 0) { alert('Nessun dato da esportare.'); return; }
+        setLoadingActions(true); setError(null); setSuccessMessage('');
+        const headers = ['id', 'nome_azienda', 'indirizzo_default'];
+        const dataToExport = clienti.map(c => ({
+            id: c.id,
+            nome_azienda: c.nome_azienda,
+            indirizzo_default: c.indirizzo_default_visualizzato || '',
+        }));
+        try {
+            if (format === 'xlsx') {
+                const worksheet = XLSX.utils.json_to_sheet(dataToExport, { header: headers });
+                const workbook = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(workbook, worksheet, 'Clienti');
+                XLSX.writeFile(workbook, 'esportazione_clienti.xlsx');
+                setSuccessMessage('Clienti esportati in XLSX!');
+            } else {
+                const csvRows = [headers.join(',')];
+                for (const row of dataToExport) {
+                    const values = headers.map(h => `"${(('' + (row[h] ?? '')).replace(/"/g, '""'))}"`);
+                    csvRows.push(values.join(','));
+                }
+                const csvString = csvRows.join('\n');
+                const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                const url = URL.createObjectURL(blob);
+                link.setAttribute('href', url);
+                link.setAttribute('download', 'esportazione_clienti.csv');
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+                setSuccessMessage('Clienti esportati in CSV!');
+            }
+            setTimeout(() => setSuccessMessage(''), 3000);
+        } catch (expError) {
+            setError('Esportazione fallita: ' + expError.message);
+            console.error('Errore esportazione clienti:', expError);
+        }
+        setLoadingActions(false);
+    };
     const normalizeHeader = (header) => String(header || '').trim().toLowerCase().replace(/\s+/g, '_');
     const triggerFileInput = () => fileInputRef.current?.click();
 
@@ -104,6 +323,7 @@ function ClientiManager({ session }) {
         setClienti([]);
         setError(null);
         setRicercaSbloccata(false);
+        setCurrentPage(1);
     };
 
     // --- NUOVA LOGICA DI IMPORTAZIONE CON FEEDBACK DETTAGLIATO ---
@@ -280,6 +500,12 @@ function ClientiManager({ session }) {
     if (!canManage && session) return <p>Non hai i permessi per gestire questa anagrafica.</p>;
     if (!session && !pageLoading) return <Navigate to="/login" replace />;
 
+    const totalPages = Math.ceil(clienti.length / RIGHE_PER_PAGINA_CLIENTI) || 1;
+    const displayedClienti = clienti.slice(
+        (currentPage - 1) * RIGHE_PER_PAGINA_CLIENTI,
+        currentPage * RIGHE_PER_PAGINA_CLIENTI
+    );
+
     return (
         <div>
             <h2>Anagrafica Clienti</h2>
@@ -354,7 +580,7 @@ function ClientiManager({ session }) {
                         </tr>
                     </thead>
                     <tbody>
-                        {clienti.map(cliente => (
+                        {displayedClienti.map(cliente => (
                             <React.Fragment key={cliente.id}>
                                 <tr style={selectedCliente && selectedCliente.id === cliente.id ? {backgroundColor: '#e6f7ff', fontWeight:'bold'} : {}}>
                                     <td>{cliente.nome_azienda}</td>
@@ -449,6 +675,41 @@ function ClientiManager({ session }) {
                         ))}
                     </tbody>
                 </table>
+            )}
+            {totalPages > 1 && (
+                <div className="pagination-controls" style={{ marginTop: '20px', textAlign: 'center' }}>
+                    <button
+                        onClick={() => setCurrentPage(1)}
+                        disabled={currentPage === 1 || loadingActions || pageLoading}
+                        className="button small"
+                    >
+                        Inizio
+                    </button>
+                    <button
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1 || loadingActions || pageLoading}
+                        className="button small"
+                        style={{ marginLeft: '5px' }}
+                    >
+                        Indietro
+                    </button>
+                    <span style={{ margin: '0 10px' }}>Pagina {currentPage} di {totalPages}</span>
+                    <button
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages || loadingActions || pageLoading}
+                        className="button small"
+                    >
+                        Avanti
+                    </button>
+                    <button
+                        onClick={() => setCurrentPage(totalPages)}
+                        disabled={currentPage === totalPages || loadingActions || pageLoading}
+                        className="button small"
+                        style={{ marginLeft: '5px' }}
+                    >
+                        Fine
+                    </button>
+                </div>
             )}
         </div>
     );
