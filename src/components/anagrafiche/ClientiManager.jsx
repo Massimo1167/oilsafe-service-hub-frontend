@@ -12,6 +12,7 @@ function ClientiManager({ session }) {
     const [error, setError] = useState(null);
     const [successMessage, setSuccessMessage] = useState('');
     const [importProgress, setImportProgress] = useState('');
+    const [filtroNomeAzienda, setFiltroNomeAzienda] = useState('');
 
     const [formNuovoNomeAzienda, setFormNuovoNomeAzienda] = useState('');
     const [selectedCliente, setSelectedCliente] = useState(null); 
@@ -31,10 +32,21 @@ function ClientiManager({ session }) {
     const fileInputRef = useRef(null);
 
     // --- FUNZIONI CRUD E FETCH (come l'ultima versione completa e corretta) ---
-    const fetchClienti = async () => {
-        setPageLoading(true); setError(null);
-        const { data, error: fetchError } = await supabase.from('clienti')
-            .select(`id, nome_azienda, created_at, indirizzi_clienti (id, indirizzo_completo, is_default, descrizione)`)
+    const fetchClienti = async (nomeFiltro) => {
+        if (!nomeFiltro || nomeFiltro.trim().length < 3) {
+            setClienti([]);
+            setError('Inserire almeno 3 caratteri per la ricerca.');
+            setPageLoading(false);
+            return;
+        }
+        setPageLoading(true);
+        setError(null);
+        const { data, error: fetchError } = await supabase
+            .from('clienti')
+            .select(
+                `id, nome_azienda, created_at, indirizzi_clienti (id, indirizzo_completo, is_default, descrizione)`
+            )
+            .ilike('nome_azienda', `%${nomeFiltro}%`)
             .order('nome_azienda');
         if (fetchError) { setError(fetchError.message); console.error('Errore fetch clienti:', fetchError); } 
         else { 
@@ -46,7 +58,10 @@ function ClientiManager({ session }) {
         }
         setPageLoading(false);
     };
-    useEffect(() => { if (session && canManage) fetchClienti(); else { setClienti([]); setPageLoading(false); }}, [session, canManage]);
+    useEffect(() => {
+        setClienti([]);
+        setPageLoading(false);
+    }, [session, canManage]);
     useEffect(() => {
         const fetchIndirizzi = async () => {
             if (selectedCliente?.id) {
@@ -77,6 +92,17 @@ function ClientiManager({ session }) {
     const handleExport = (format = 'csv') => { /* ... (Logica di esportazione completa come l'ultima versione corretta) ... */ };
     const normalizeHeader = (header) => String(header || '').trim().toLowerCase().replace(/\s+/g, '_');
     const triggerFileInput = () => fileInputRef.current?.click();
+
+    const handleSearchClienti = () => {
+        setError(null);
+        fetchClienti(filtroNomeAzienda.trim());
+    };
+
+    const resetFiltro = () => {
+        setFiltroNomeAzienda('');
+        setClienti([]);
+        setError(null);
+    };
 
     // --- NUOVA LOGICA DI IMPORTAZIONE CON FEEDBACK DETTAGLIATO ---
     const handleFileSelected = (event) => {
@@ -230,7 +256,7 @@ function ClientiManager({ session }) {
                 }
                 setSuccessMessage(finalMessage);
                 setTimeout(()=> { setSuccessMessage(''); setError(null); }, 15000); // Più tempo per leggere
-                await fetchClienti(); // Ricarica tutto
+                await fetchClienti(filtroNomeAzienda.trim());
 
             } catch (err) { 
                 setError("Errore critico durante l'importazione: " + err.message); 
@@ -280,6 +306,24 @@ function ClientiManager({ session }) {
             
             {successMessage && <p style={{ color: 'green', fontWeight:'bold', border: '1px solid green', padding: '10px', borderRadius:'5px' }}>{successMessage}</p>}
             {error && <p style={{ color: 'red', fontWeight:'bold', border: '1px solid red', padding: '10px', borderRadius:'5px', whiteSpace:'pre-wrap' }}>ERRORE: {error}</p>}
+
+            <div className="filtri-container" style={{ marginBottom: '20px', padding: '15px', border: '1px solid #ddd', borderRadius: '5px', background: '#f9f9f9' }}>
+                <h4>Filtro Clienti</h4>
+                <div className="filtri-grid" style={{display:'flex', gap:'10px', alignItems:'flex-end'}}>
+                    <div>
+                        <label htmlFor="filtroNomeCliente">Nome Azienda:</label>
+                        <input
+                            type="text"
+                            id="filtroNomeCliente"
+                            value={filtroNomeAzienda}
+                            onChange={e => setFiltroNomeAzienda(e.target.value)}
+                            placeholder="Min 3 caratteri"
+                        />
+                    </div>
+                    <button onClick={handleSearchClienti} className="button secondary" disabled={loadingActions || pageLoading}>Cerca</button>
+                    <button onClick={resetFiltro} className="button secondary" disabled={loadingActions || pageLoading}>Azzera</button>
+                </div>
+            </div>
 
             {canManage && !selectedCliente && (
                 <form onSubmit={handleAddNuovoCliente} style={{ marginBottom: '20px', padding: '15px', border: '1px solid #eee', borderRadius: '5px', background:'#f9f9f9' }}>
