@@ -442,11 +442,21 @@ function OrdiniClienteManager({ session, clienti, commesse }) {
                 </table>
                 {totalPages > 1 && (
                     <div className="pagination-controls" style={{ marginTop: '20px', textAlign: 'center' }}>
-                        <button onClick={() => goToPage(1)} disabled={currentPage === 1 || loadingActions || pageLoading} className="button small">« Inizio</button>
-                        <button onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1 || loadingActions || pageLoading} className="button small">‹ Prec.</button>
+                        <button
+                            onClick={() => goToPage(currentPage - 1)}
+                            disabled={currentPage === 1 || loadingActions || pageLoading}
+                            className="button small"
+                        >
+                            ‹ Indietro
+                        </button>
                         <span style={{ margin: '0 10px' }}> Pagina {currentPage} di {totalPages} </span>
-                        <button onClick={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages || loadingActions || pageLoading} className="button small">Succ. ›</button>
-                        <button onClick={() => goToPage(totalPages)} disabled={currentPage === totalPages || loadingActions || pageLoading} className="button small">Fine »</button>
+                        <button
+                            onClick={() => goToPage(currentPage + 1)}
+                            disabled={currentPage === totalPages || loadingActions || pageLoading}
+                            className="button small"
+                        >
+                            Avanti ›
+                        </button>
                     </div>
                 )}
                 </>
