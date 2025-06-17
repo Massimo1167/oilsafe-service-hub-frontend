@@ -374,11 +374,19 @@ function CommesseManager({ session, clienti }) { // `clienti` prop è usato per 
                 </table>
                 {totalPages > 1 && (
                     <div className="pagination-controls">
-                        <button onClick={() => goToPage(1)} disabled={currentPage === 1 || loadingActions || pageLoading}>« Inizio</button>
-                        <button onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1 || loadingActions || pageLoading}>‹ Prec.</button>
+                        <button
+                            onClick={() => goToPage(currentPage - 1)}
+                            disabled={currentPage === 1 || loadingActions || pageLoading}
+                        >
+                            ‹ Indietro
+                        </button>
                         <span> Pagina {currentPage} di {totalPages} </span>
-                        <button onClick={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages || loadingActions || pageLoading}>Succ. ›</button>
-                        <button onClick={() => goToPage(totalPages)} disabled={currentPage === totalPages || loadingActions || pageLoading}>Fine »</button>
+                        <button
+                            onClick={() => goToPage(currentPage + 1)}
+                            disabled={currentPage === totalPages || loadingActions || pageLoading}
+                        >
+                            Avanti ›
+                        </button>
                     </div>
                 )}
                 </>
