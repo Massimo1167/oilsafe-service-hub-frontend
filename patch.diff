@@ -1,50 +1,48 @@
  (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
-diff --git a/src/components/anagrafiche/OrdiniClienteManager.jsx b/src/components/anagrafiche/OrdiniClienteManager.jsx
-index 8a7214eebb494fa3ab54eeefd0a4fa0ed97d43cb..4c59d853e77aace02067ae7e3e6b17ed8c03955e 100644
---- a/src/components/anagrafiche/OrdiniClienteManager.jsx
-+++ b/src/components/anagrafiche/OrdiniClienteManager.jsx
-@@ -420,38 +420,48 @@ function OrdiniClienteManager({ session, clienti, commesse }) {
-                     <div> <label htmlFor="formCommessaOrdine">Commessa Oilsafe Associata (Opzionale):</label> <select id="formCommessaOrdine" value={formSelectedCommessaIdOrdine} onChange={e => setFormSelectedCommessaIdOrdine(e.target.value)} disabled={!formSelectedClienteIdOrdine}> <option value="">Nessuna Commessa</option> {commesseFiltratePerClienteForm.map(c => <option key={c.id} value={c.id}>{c.codice_commessa} - {c.descrizione_commessa}</option>)} </select> </div>
-                     <button type="submit" disabled={loadingActions}>{loadingActions ? 'Salvataggio...' : (editingOrdine ? 'Salva Modifiche' : 'Aggiungi Ordine')}</button>
-                     {editingOrdine && ( <button type="button" className="secondary" onClick={resetForm} disabled={loadingActions} style={{marginLeft:'10px'}}> Annulla Modifica </button> )}
+diff --git a/src/components/anagrafiche/CommesseManager.jsx b/src/components/anagrafiche/CommesseManager.jsx
+index f4283894e38ec2ec588aec19062d4c11485ad7db..85b1dee77acdae19046fef6b77ef4dab562fcfed 100644
+--- a/src/components/anagrafiche/CommesseManager.jsx
++++ b/src/components/anagrafiche/CommesseManager.jsx
+@@ -352,38 +352,46 @@ function CommesseManager({ session, clienti }) { // `clienti` prop è usato per
+                     <button type="submit" disabled={loadingActions}>{loadingActions ? 'Salvataggio...' : (editingCommessa ? 'Salva Modifiche' : 'Aggiungi Commessa')}</button>
+                     {editingCommessa && ( <button type="button" className="secondary" onClick={resetForm} disabled={loadingActions} style={{marginLeft:'10px'}}> Annulla Modifica </button> )}
                  </form>
              )}
-             <h3>Elenco Ordini Cliente ({pageLoading ? '...' : totalOrdini} totali)</h3>
-             {pageLoading && ordini.length === 0 ? <p>Caricamento ordini...</p> : null}
-             {!pageLoading && ordini.length === 0 ? (<p>Nessun ordine cliente trovato con i filtri applicati.</p>) : (
+ 
+             <h3>Elenco Commesse ({pageLoading ? '...' : totalCommesse} totali)</h3>
+             {pageLoading && commesse.length === 0 ? <p>Caricamento commesse...</p> : null}
+             {!pageLoading && commesse.length === 0 ? (<p>Nessuna commessa trovata con i filtri applicati.</p>) : (
                  <>
                  <table>
-                     <thead><tr><th>Numero Ordine</th><th>Data</th><th>Cliente</th><th>Commessa</th><th>Descrizione</th>{canManage && <th>Azioni</th>}</tr></thead>
+                     <thead><tr><th>Codice</th><th>Descrizione</th><th>Cliente</th><th>Stato</th>{canManage && <th>Azioni</th>}</tr></thead>
                      <tbody>
-                         {ordini.map(o => (
-                             <tr key={o.id} style={editingOrdine && editingOrdine.id === o.id ? {backgroundColor: '#e6f7ff'} : {}}>
-                                 <td>{o.numero_ordine_cliente}</td><td>{o.data_ordine ? new Date(o.data_ordine).toLocaleDateString() : '-'}</td><td>{o.clienti?.nome_azienda || 'N/D'}</td><td>{o.commesse?.codice_commessa || '-'}</td><td>{o.descrizione_ordine || '-'}</td>
+                         {commesse.map(c => (
+                             <tr key={c.id} style={editingCommessa && editingCommessa.id === c.id ? {backgroundColor: '#e6f7ff'} : {}}>
+                                 <td>{c.codice_commessa}</td><td>{c.descrizione_commessa || '-'}</td><td>{c.clienti?.nome_azienda || (c.cliente_id ? `ID: ${c.cliente_id.substring(0,8)}...` : 'N/D')}</td><td>{c.stato}</td>
                                  {canManage && (<td className="actions">
-                                         <button className="button secondary small" onClick={() => handleEditOrdine(o)} disabled={loadingActions}>Mod.</button>
-                                         <button className="button danger small" onClick={() => handleDeleteOrdine(o.id)} disabled={loadingActions} style={{marginLeft:'5px'}}>Elim.</button>
+                                         <button className="button secondary small" onClick={() => handleEditCommessa(c)} disabled={loadingActions}>Mod.</button>
+                                         <button className="button danger small" onClick={() => handleDeleteCommessa(c.id)} disabled={loadingActions} style={{marginLeft:'5px'}}>Elim.</button>
                                      </td>)}
                              </tr>
                          ))}
                      </tbody>
                  </table>
                  {totalPages > 1 && (
-                     <div className="pagination-controls" style={{ marginTop: '20px', textAlign: 'center' }}>
--                        <button onClick={() => goToPage(1)} disabled={currentPage === 1 || loadingActions || pageLoading} className="button small">« Inizio</button>
--                        <button onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1 || loadingActions || pageLoading} className="button small">‹ Prec.</button>
+                     <div className="pagination-controls">
+-                        <button onClick={() => goToPage(1)} disabled={currentPage === 1 || loadingActions || pageLoading}>« Inizio</button>
+-                        <button onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1 || loadingActions || pageLoading}>‹ Prec.</button>
 +                        <button
 +                            onClick={() => goToPage(currentPage - 1)}
 +                            disabled={currentPage === 1 || loadingActions || pageLoading}
-+                            className="button small"
 +                        >
 +                            ‹ Indietro
 +                        </button>
-                         <span style={{ margin: '0 10px' }}> Pagina {currentPage} di {totalPages} </span>
--                        <button onClick={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages || loadingActions || pageLoading} className="button small">Succ. ›</button>
--                        <button onClick={() => goToPage(totalPages)} disabled={currentPage === totalPages || loadingActions || pageLoading} className="button small">Fine »</button>
+                         <span> Pagina {currentPage} di {totalPages} </span>
+-                        <button onClick={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages || loadingActions || pageLoading}>Succ. ›</button>
+-                        <button onClick={() => goToPage(totalPages)} disabled={currentPage === totalPages || loadingActions || pageLoading}>Fine »</button>
 +                        <button
 +                            onClick={() => goToPage(currentPage + 1)}
 +                            disabled={currentPage === totalPages || loadingActions || pageLoading}
-+                            className="button small"
 +                        >
 +                            Avanti ›
 +                        </button>
@@ -55,7 +53,7 @@ index 8a7214eebb494fa3ab54eeefd0a4fa0ed97d43cb..4c59d853e77aace02067ae7e3e6b17ed
          </div>
      );
  }
- export default OrdiniClienteManager;
+ export default CommesseManager;
  
 EOF
 )
