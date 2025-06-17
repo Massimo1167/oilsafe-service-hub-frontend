@@ -14,6 +14,7 @@ function TecniciManager({ session }) {
     const [importProgress, setImportProgress] = useState('');
     const [filtroNome, setFiltroNome] = useState('');
     const [filtroCognome, setFiltroCognome] = useState('');
+    const [ricercaSbloccata, setRicercaSbloccata] = useState(false);
 
     const [formNome, setFormNome] = useState('');
     const [formCognome, setFormCognome] = useState('');
@@ -25,9 +26,13 @@ function TecniciManager({ session }) {
     const fileInputRef = useRef(null);
 
     const fetchTecnici = async (nomeFiltro, cognomeFiltro) => {
-        if ((!nomeFiltro || nomeFiltro.trim().length < 3) && (!cognomeFiltro || cognomeFiltro.trim().length < 3)) {
+        if (
+            !ricercaSbloccata &&
+            (!nomeFiltro || nomeFiltro.trim().length < 3) &&
+            (!cognomeFiltro || cognomeFiltro.trim().length < 3)
+        ) {
             setTecnici([]);
-            setError('Inserire almeno 3 caratteri in uno dei filtri.');
+            setError('Inserire almeno 3 caratteri in uno dei filtri o sbloccare la ricerca.');
             setPageLoading(false);
             return;
         }
@@ -226,6 +231,7 @@ function TecniciManager({ session }) {
         setFiltroCognome('');
         setTecnici([]);
         setError(null);
+        setRicercaSbloccata(false);
     };
 
     if (pageLoading) return <p>Caricamento anagrafica tecnici...</p>;
@@ -262,6 +268,9 @@ function TecniciManager({ session }) {
                     </div>
                     <button onClick={handleSearchTecnici} className="button secondary" disabled={loadingActions || pageLoading}>Cerca</button>
                     <button onClick={resetFiltri} className="button secondary" disabled={loadingActions || pageLoading}>Azzera</button>
+                    {!ricercaSbloccata && (
+                        <button onClick={() => setRicercaSbloccata(true)} className="button warning" disabled={loadingActions || pageLoading}>Sblocca Ricerca</button>
+                    )}
                 </div>
             </div>
 

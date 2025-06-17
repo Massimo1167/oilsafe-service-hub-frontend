@@ -13,6 +13,7 @@ function ClientiManager({ session }) {
     const [successMessage, setSuccessMessage] = useState('');
     const [importProgress, setImportProgress] = useState('');
     const [filtroNomeAzienda, setFiltroNomeAzienda] = useState('');
+    const [ricercaSbloccata, setRicercaSbloccata] = useState(false);
 
     const [formNuovoNomeAzienda, setFormNuovoNomeAzienda] = useState('');
     const [selectedCliente, setSelectedCliente] = useState(null); 
@@ -33,9 +34,9 @@ function ClientiManager({ session }) {
 
     // --- FUNZIONI CRUD E FETCH (come l'ultima versione completa e corretta) ---
     const fetchClienti = async (nomeFiltro) => {
-        if (!nomeFiltro || nomeFiltro.trim().length < 3) {
+        if (!ricercaSbloccata && (!nomeFiltro || nomeFiltro.trim().length < 3)) {
             setClienti([]);
-            setError('Inserire almeno 3 caratteri per la ricerca.');
+            setError('Inserire almeno 3 caratteri o sbloccare la ricerca.');
             setPageLoading(false);
             return;
         }
@@ -102,6 +103,7 @@ function ClientiManager({ session }) {
         setFiltroNomeAzienda('');
         setClienti([]);
         setError(null);
+        setRicercaSbloccata(false);
     };
 
     // --- NUOVA LOGICA DI IMPORTAZIONE CON FEEDBACK DETTAGLIATO ---
@@ -322,6 +324,9 @@ function ClientiManager({ session }) {
                     </div>
                     <button onClick={handleSearchClienti} className="button secondary" disabled={loadingActions || pageLoading}>Cerca</button>
                     <button onClick={resetFiltro} className="button secondary" disabled={loadingActions || pageLoading}>Azzera</button>
+                    {!ricercaSbloccata && (
+                        <button onClick={() => setRicercaSbloccata(true)} className="button warning" disabled={loadingActions || pageLoading}>Sblocca Ricerca</button>
+                    )}
                 </div>
             </div>
 
