@@ -1,61 +1,61 @@
  (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
 diff --git a/src/components/anagrafiche/OrdiniClienteManager.jsx b/src/components/anagrafiche/OrdiniClienteManager.jsx
-index f4e25cbe971c3153ee0ef490df9aba2fba41d823..8a7214eebb494fa3ab54eeefd0a4fa0ed97d43cb 100644
+index 8a7214eebb494fa3ab54eeefd0a4fa0ed97d43cb..4c59d853e77aace02067ae7e3e6b17ed8c03955e 100644
 --- a/src/components/anagrafiche/OrdiniClienteManager.jsx
 +++ b/src/components/anagrafiche/OrdiniClienteManager.jsx
-@@ -342,50 +342,52 @@ function OrdiniClienteManager({ session, clienti, commesse }) {
-                 if (ordiniPerUpsert.length > 0) {
-                     console.log("Ordini pronti per upsert finale:", ordiniPerUpsert);
-                     const { data, error: upsertError } = await supabase.from('ordini_cliente').upsert(ordiniPerUpsert, { onConflict: 'numero_ordine_cliente' }).select();
-                     if (upsertError) { errorsDetail.push(`Errore generale durante l'upsert degli ordini: ${upsertError.message}`); errorCount += ordiniPerUpsert.length - (data ? data.length : 0); console.error("Err upsert ordini:", upsertError); }
-                     successCount = data ? data.length : 0;
-                 }
-                 
-                 let finalMessage = `${successCount} ordini importati/aggiornati.`;
-                 if (errorCount > 0) { finalMessage += ` ${errorCount} righe con errori o avvisi.`; setError(`Errori/Avvisi durante l'importazione: ${errorsDetail.slice(0,3).join('; ')}... Vedi console.`); console.error("Dettaglio errori/avvisi importazione ordini:", errorsDetail); }
-                 setSuccessMessage(finalMessage); setTimeout(()=> { setSuccessMessage(''); setError(null); }, 10000);
-                 setCurrentPage(1); // Torna alla prima pagina dopo l'importazione
-                 await fetchOrdini();
-             } catch (parseOrProcessError) { 
-                 setError("Errore critico durante l'importazione: " + parseOrProcessError.message); 
-                 console.error("Errore critico importazione ordini:", parseOrProcessError);
-             } finally { 
-                 setLoadingActions(false); setImportProgress('');
-                 if(fileInputRef.current) fileInputRef.current.value = ""; 
-             }
-         };
-         if (file.name.endsWith('.csv')) reader.readAsText(file); 
-         else if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) reader.readAsBinaryString(file);
-         else { setError("Formato non supportato."); setLoadingActions(false); }
-     };
- 
-+    const triggerFileInput = () => fileInputRef.current?.click();
-+
-     // Filtra le commesse disponibili per il cliente selezionato nel form manuale
-     const commesseFiltratePerClienteForm = formSelectedClienteIdOrdine && commesse
-         ? commesse.filter(c => c.cliente_id === formSelectedClienteIdOrdine || !c.cliente_id)
-         : (commesse || []);
-     
-     // Calcola il numero totale di pagine
-     const totalPages = Math.ceil(totalOrdini / RIGHE_PER_PAGINA_ORDINI);
- 
-     if (pageLoading && ordini.length === 0 && currentPage === 1) return <p>Caricamento anagrafica ordini cliente...</p>; // Mostra solo al primo caricamento
-     if (!canManage && session && !pageLoading) return <p>Non hai i permessi per gestire questa anagrafica.</p>;
-     if (!session && !pageLoading) return <Navigate to="/login" replace />;
- 
-     return (
-         <div>
-             <h2>Anagrafica Ordini Cliente</h2>
-             {canManage && (
-                 <div style={{ marginBottom: '20px', display: 'flex', gap: '10px', flexWrap:'wrap', alignItems:'center' }}>
-                     <input type="file" accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" onChange={handleFileSelected} style={{ display: 'none' }} ref={fileInputRef} />
-                     <button onClick={triggerFileInput} className="button secondary" disabled={loadingActions}> 
-                         {loadingActions && importProgress ? importProgress : (loadingActions ? 'Attendere...' : 'Importa/Aggiorna Ordini')} 
-                     </button>
-                     <div style={{display:'flex', gap: '5px'}}>
-                         <button onClick={() => handleExport('csv')} className="button secondary small" disabled={loadingActions || ordini.length === 0}> Esporta CSV (Pag. Corr.) </button>
-                         <button onClick={() => handleExport('xlsx')} className="button secondary small" disabled={loadingActions || ordini.length === 0}> Esporta XLSX (Pag. Corr.) </button>
+@@ -420,38 +420,48 @@ function OrdiniClienteManager({ session, clienti, commesse }) {
+                     <div> <label htmlFor="formCommessaOrdine">Commessa Oilsafe Associata (Opzionale):</label> <select id="formCommessaOrdine" value={formSelectedCommessaIdOrdine} onChange={e => setFormSelectedCommessaIdOrdine(e.target.value)} disabled={!formSelectedClienteIdOrdine}> <option value="">Nessuna Commessa</option> {commesseFiltratePerClienteForm.map(c => <option key={c.id} value={c.id}>{c.codice_commessa} - {c.descrizione_commessa}</option>)} </select> </div>
+                     <button type="submit" disabled={loadingActions}>{loadingActions ? 'Salvataggio...' : (editingOrdine ? 'Salva Modifiche' : 'Aggiungi Ordine')}</button>
+                     {editingOrdine && ( <button type="button" className="secondary" onClick={resetForm} disabled={loadingActions} style={{marginLeft:'10px'}}> Annulla Modifica </button> )}
+                 </form>
+             )}
+             <h3>Elenco Ordini Cliente ({pageLoading ? '...' : totalOrdini} totali)</h3>
+             {pageLoading && ordini.length === 0 ? <p>Caricamento ordini...</p> : null}
+             {!pageLoading && ordini.length === 0 ? (<p>Nessun ordine cliente trovato con i filtri applicati.</p>) : (
+                 <>
+                 <table>
+                     <thead><tr><th>Numero Ordine</th><th>Data</th><th>Cliente</th><th>Commessa</th><th>Descrizione</th>{canManage && <th>Azioni</th>}</tr></thead>
+                     <tbody>
+                         {ordini.map(o => (
+                             <tr key={o.id} style={editingOrdine && editingOrdine.id === o.id ? {backgroundColor: '#e6f7ff'} : {}}>
+                                 <td>{o.numero_ordine_cliente}</td><td>{o.data_ordine ? new Date(o.data_ordine).toLocaleDateString() : '-'}</td><td>{o.clienti?.nome_azienda || 'N/D'}</td><td>{o.commesse?.codice_commessa || '-'}</td><td>{o.descrizione_ordine || '-'}</td>
+                                 {canManage && (<td className="actions">
+                                         <button className="button secondary small" onClick={() => handleEditOrdine(o)} disabled={loadingActions}>Mod.</button>
+                                         <button className="button danger small" onClick={() => handleDeleteOrdine(o.id)} disabled={loadingActions} style={{marginLeft:'5px'}}>Elim.</button>
+                                     </td>)}
+                             </tr>
+                         ))}
+                     </tbody>
+                 </table>
+                 {totalPages > 1 && (
+                     <div className="pagination-controls" style={{ marginTop: '20px', textAlign: 'center' }}>
+-                        <button onClick={() => goToPage(1)} disabled={currentPage === 1 || loadingActions || pageLoading} className="button small">« Inizio</button>
+-                        <button onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1 || loadingActions || pageLoading} className="button small">‹ Prec.</button>
++                        <button
++                            onClick={() => goToPage(currentPage - 1)}
++                            disabled={currentPage === 1 || loadingActions || pageLoading}
++                            className="button small"
++                        >
++                            ‹ Indietro
++                        </button>
+                         <span style={{ margin: '0 10px' }}> Pagina {currentPage} di {totalPages} </span>
+-                        <button onClick={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages || loadingActions || pageLoading} className="button small">Succ. ›</button>
+-                        <button onClick={() => goToPage(totalPages)} disabled={currentPage === totalPages || loadingActions || pageLoading} className="button small">Fine »</button>
++                        <button
++                            onClick={() => goToPage(currentPage + 1)}
++                            disabled={currentPage === totalPages || loadingActions || pageLoading}
++                            className="button small"
++                        >
++                            Avanti ›
++                        </button>
                      </div>
+                 )}
+                 </>
+             )}
+         </div>
+     );
+ }
+ export default OrdiniClienteManager;
  
 EOF
 )
