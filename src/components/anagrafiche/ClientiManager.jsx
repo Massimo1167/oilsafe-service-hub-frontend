@@ -5,6 +5,8 @@ import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import { Navigate } from 'react-router-dom';
 
+const RIGHE_PER_PAGINA_CLIENTI = 15; // Numero di clienti per pagina
+
 function ClientiManager({ session }) {
     const [clienti, setClienti] = useState([]);
     const [loadingActions, setLoadingActions] = useState(false); 
@@ -14,6 +16,10 @@ function ClientiManager({ session }) {
     const [importProgress, setImportProgress] = useState('');
     const [filtroNomeAzienda, setFiltroNomeAzienda] = useState('');
     const [ricercaSbloccata, setRicercaSbloccata] = useState(false);
+
+    // Stati per la paginazione
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalClienti, setTotalClienti] = useState(0);
 
     const [formNuovoNomeAzienda, setFormNuovoNomeAzienda] = useState('');
     const [selectedCliente, setSelectedCliente] = useState(null); 
@@ -36,27 +42,47 @@ function ClientiManager({ session }) {
     const fetchClienti = async (nomeFiltro) => {
         if (!ricercaSbloccata && (!nomeFiltro || nomeFiltro.trim().length < 3)) {
             setClienti([]);
+            setTotalClienti(0);
             setError('Inserire almeno 3 caratteri o sbloccare la ricerca.');
             setPageLoading(false);
             return;
         }
+
         setPageLoading(true);
         setError(null);
-        const { data, error: fetchError } = await supabase
+
+        const from = (currentPage - 1) * RIGHE_PER_PAGINA_CLIENTI;
+        const to = currentPage * RIGHE_PER_PAGINA_CLIENTI - 1;
+
+        const { data, error: fetchError, count } = await supabase
             .from('clienti')
             .select(
-                `id, nome_azienda, created_at, indirizzi_clienti (id, indirizzo_completo, is_default, descrizione)`
+                `id, nome_azienda, created_at, indirizzi_clienti (id, indirizzo_completo, is_default, descrizione)`,
+                { count: 'exact' }
             )
             .ilike('nome_azienda', `%${nomeFiltro}%`)
-            .order('nome_azienda');
-        if (fetchError) { setError(fetchError.message); console.error('Errore fetch clienti:', fetchError); } 
-        else { 
-            const clientiMappati = (data || []).map(c => {
-                const defaultAddr = c.indirizzi_clienti.find(addr => addr.is_default);
-                return { ...c, indirizzo_default_visualizzato: defaultAddr?.indirizzo_completo || (c.indirizzi_clienti.length > 0 ? c.indirizzi_clienti[0].indirizzo_completo : '') };
+            .order('nome_azienda')
+            .range(from, to);
+
+        if (fetchError) {
+            setError(fetchError.message);
+            console.error('Errore fetch clienti:', fetchError);
+            setClienti([]);
+            setTotalClienti(0);
+        } else {
+            const clientiMappati = (data || []).map((c) => {
+                const defaultAddr = c.indirizzi_clienti.find((addr) => addr.is_default);
+                return {
+                    ...c,
+                    indirizzo_default_visualizzato:
+                        defaultAddr?.indirizzo_completo ||
+                        (c.indirizzi_clienti.length > 0 ? c.indirizzi_clienti[0].indirizzo_completo : ''),
+                };
             });
-            setClienti(clientiMappati); 
+            setClienti(clientiMappati);
+            setTotalClienti(count || 0);
         }
+
         setPageLoading(false);
     };
     useEffect(() => {
@@ -94,8 +120,11 @@ function ClientiManager({ session }) {
     const normalizeHeader = (header) => String(header || '').trim().toLowerCase().replace(/\s+/g, '_');
     const triggerFileInput = () => fileInputRef.current?.click();
 
+    const totalPages = Math.ceil(totalClienti / RIGHE_PER_PAGINA_CLIENTI);
+
     const handleSearchClienti = () => {
         setError(null);
+        setCurrentPage(1);
         fetchClienti(filtroNomeAzienda.trim());
     };
 
@@ -103,7 +132,16 @@ function ClientiManager({ session }) {
         setFiltroNomeAzienda('');
         setClienti([]);
         setError(null);
+        setCurrentPage(1);
         setRicercaSbloccata(false);
+    };
+
+    const goToPage = (page) => {
+        const totalPagesCalculated = Math.ceil(totalClienti / RIGHE_PER_PAGINA_CLIENTI);
+        if (page >= 1 && page <= totalPagesCalculated) {
+            setCurrentPage(page);
+            fetchClienti(filtroNomeAzienda.trim());
+        }
     };
 
     // --- NUOVA LOGICA DI IMPORTAZIONE CON FEEDBACK DETTAGLIATO ---
@@ -318,7 +356,7 @@ function ClientiManager({ session }) {
                             type="text"
                             id="filtroNomeCliente"
                             value={filtroNomeAzienda}
-                            onChange={e => setFiltroNomeAzienda(e.target.value)}
+                            onChange={e => { setFiltroNomeAzienda(e.target.value); setCurrentPage(1); }}
                             placeholder="Min 3 caratteri"
                         />
                     </div>
@@ -449,6 +487,23 @@ function ClientiManager({ session }) {
                         ))}
                     </tbody>
                 </table>
+                {totalPages > 1 && (
+                    <div className="pagination-controls">
+                        <button
+                            onClick={() => goToPage(currentPage - 1)}
+                            disabled={currentPage === 1 || loadingActions || pageLoading}
+                        >
+                            ‹ Indietro
+                        </button>
+                        <span>Pagina {currentPage} di {totalPages}</span>
+                        <button
+                            onClick={() => goToPage(currentPage + 1)}
+                            disabled={currentPage === totalPages || loadingActions || pageLoading}
+                        >
+                            Avanti ›
+                        </button>
+                    </div>
+                )}
             )}
         </div>
     );
