@@ -32,6 +32,7 @@ function OrdiniClienteManager({ session, clienti, commesse }) {
     const [filtroServerNumeroOrdine, setFiltroServerNumeroOrdine] = useState('');
     const [filtroServerClienteNomeOrdine, setFiltroServerClienteNomeOrdine] = useState('');
     const [filtroServerCommessaCodice, setFiltroServerCommessaCodice] = useState('');
+    const [ricercaSbloccata, setRicercaSbloccata] = useState(false);
 
     // Ruolo utente e permessi
     const userRole = session?.user?.role;
@@ -56,8 +57,23 @@ function OrdiniClienteManager({ session, clienti, commesse }) {
             return;
         }
 
-        setPageLoading(true); 
+        setPageLoading(true);
         setError(null);
+
+        if (
+            !ricercaSbloccata &&
+            ![
+                filtroServerNumeroOrdine,
+                filtroServerClienteNomeOrdine,
+                filtroServerCommessaCodice,
+            ].some((f) => f && f.trim().length >= 3)
+        ) {
+            setOrdini([]);
+            setTotalOrdini(0);
+            setError('Inserire almeno 3 caratteri in uno dei filtri o sbloccare la ricerca.');
+            setPageLoading(false);
+            return;
+        }
 
         const from = (currentPage - 1) * RIGHE_PER_PAGINA_ORDINI;
         const to = currentPage * RIGHE_PER_PAGINA_ORDINI - 1;
@@ -101,7 +117,7 @@ function OrdiniClienteManager({ session, clienti, commesse }) {
             setTotalOrdini(count || 0); // Imposta il conteggio totale restituito da Supabase
         }
         setPageLoading(false);
-    }, [session, canManage, currentPage, filtroServerNumeroOrdine, filtroServerClienteNomeOrdine, filtroServerCommessaCodice]); // Dipendenze del useCallback
+    }, [session, canManage, currentPage, filtroServerNumeroOrdine, filtroServerClienteNomeOrdine, filtroServerCommessaCodice, ricercaSbloccata]); // Dipendenze del useCallback
 
     // useEffect per caricare gli ordini quando cambiano i filtri o la pagina, con debounce.
     useEffect(() => {
@@ -137,7 +153,8 @@ function OrdiniClienteManager({ session, clienti, commesse }) {
         setFiltroServerNumeroOrdine('');
         setFiltroServerClienteNomeOrdine('');
         setFiltroServerCommessaCodice('');
-        setCurrentPage(1); 
+        setCurrentPage(1);
+        setRicercaSbloccata(false);
         // fetchOrdini verrà triggerato dall'useEffect a causa del cambio di stato dei filtri (e currentPage)
     };
 
@@ -364,6 +381,8 @@ function OrdiniClienteManager({ session, clienti, commesse }) {
         else { setError("Formato non supportato."); setLoadingActions(false); }
     };
 
+    const triggerFileInput = () => fileInputRef.current?.click();
+
     // Filtra le commesse disponibili per il cliente selezionato nel form manuale
     const commesseFiltratePerClienteForm = formSelectedClienteIdOrdine && commesse
         ? commesse.filter(c => c.cliente_id === formSelectedClienteIdOrdine || !c.cliente_id)
@@ -401,6 +420,9 @@ function OrdiniClienteManager({ session, clienti, commesse }) {
                     <div><label htmlFor="filtroCodCommessaOrdine">Codice Commessa:</label><input type="text" id="filtroCodCommessaOrdine" value={filtroServerCommessaCodice} onChange={handleFiltroCommessaCodiceChange} placeholder="Filtra per commessa..."/></div>
                 </div>
                 <button onClick={resetFilters} className="button secondary" style={{marginTop:'10px'}} disabled={loadingActions || pageLoading}>Azzera Filtri</button>
+                {!ricercaSbloccata && (
+                    <button onClick={() => setRicercaSbloccata(true)} className="button warning" style={{marginLeft:'10px', marginTop:'10px'}} disabled={loadingActions || pageLoading}>Sblocca Ricerca</button>
+                )}
             </div>
 
 
@@ -440,11 +462,21 @@ function OrdiniClienteManager({ session, clienti, commesse }) {
                 </table>
                 {totalPages > 1 && (
                     <div className="pagination-controls" style={{ marginTop: '20px', textAlign: 'center' }}>
-                        <button onClick={() => goToPage(1)} disabled={currentPage === 1 || loadingActions || pageLoading} className="button small">« Inizio</button>
-                        <button onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1 || loadingActions || pageLoading} className="button small">‹ Prec.</button>
+                        <button
+                            onClick={() => goToPage(currentPage - 1)}
+                            disabled={currentPage === 1 || loadingActions || pageLoading}
+                            className="button small"
+                        >
+                            ‹ Indietro
+                        </button>
                         <span style={{ margin: '0 10px' }}> Pagina {currentPage} di {totalPages} </span>
-                        <button onClick={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages || loadingActions || pageLoading} className="button small">Succ. ›</button>
-                        <button onClick={() => goToPage(totalPages)} disabled={currentPage === totalPages || loadingActions || pageLoading} className="button small">Fine »</button>
+                        <button
+                            onClick={() => goToPage(currentPage + 1)}
+                            disabled={currentPage === totalPages || loadingActions || pageLoading}
+                            className="button small"
+                        >
+                            Avanti ›
+                        </button>
                     </div>
                 )}
                 </>

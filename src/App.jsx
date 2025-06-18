@@ -199,7 +199,7 @@ function App() {
   return ( 
     <div className="app-container">
       <header>
-        <h1>Oilsafe Service Hub</h1>
+        <h1>Oilsafe Service Hub CODEX-v1</h1>
         {session && session.user && (
           <nav>
             <Link to="/">Dashboard</Link>

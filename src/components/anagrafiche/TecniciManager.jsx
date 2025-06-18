@@ -12,6 +12,9 @@ function TecniciManager({ session }) {
     const [error, setError] = useState(null);
     const [successMessage, setSuccessMessage] = useState('');
     const [importProgress, setImportProgress] = useState('');
+    const [filtroNome, setFiltroNome] = useState('');
+    const [filtroCognome, setFiltroCognome] = useState('');
+    const [ricercaSbloccata, setRicercaSbloccata] = useState(false);
 
     const [formNome, setFormNome] = useState('');
     const [formCognome, setFormCognome] = useState('');
@@ -22,17 +25,40 @@ function TecniciManager({ session }) {
     const canManage = userRole === 'admin' || userRole === 'manager';
     const fileInputRef = useRef(null);
 
-    const fetchTecnici = async () => {
-        setPageLoading(true); setError(null);
-        const { data, error: fetchError } = await supabase.from('tecnici').select('*').order('cognome').order('nome');
-        if (fetchError) { setError(fetchError.message); console.error('Errore fetch tecnici:', fetchError); }
-        else { setTecnici(data || []); }
+    const fetchTecnici = async (nomeFiltro, cognomeFiltro) => {
+        if (
+            !ricercaSbloccata &&
+            (!nomeFiltro || nomeFiltro.trim().length < 3) &&
+            (!cognomeFiltro || cognomeFiltro.trim().length < 3)
+        ) {
+            setTecnici([]);
+            setError('Inserire almeno 3 caratteri in uno dei filtri o sbloccare la ricerca.');
+            setPageLoading(false);
+            return;
+        }
+        setPageLoading(true);
+        setError(null);
+        let query = supabase.from('tecnici').select('*').order('cognome').order('nome');
+        if (nomeFiltro && nomeFiltro.trim().length >= 3) {
+            query = query.ilike('nome', `%${nomeFiltro}%`);
+        }
+        if (cognomeFiltro && cognomeFiltro.trim().length >= 3) {
+            query = query.ilike('cognome', `%${cognomeFiltro}%`);
+        }
+        const { data, error: fetchError } = await query;
+        if (fetchError) {
+            setError(fetchError.message);
+            console.error('Errore fetch tecnici:', fetchError);
+            setTecnici([]);
+        } else {
+            setTecnici(data || []);
+        }
         setPageLoading(false);
     };
 
     useEffect(() => {
-        if (session && canManage) { fetchTecnici(); }
-        else { setTecnici([]); setPageLoading(false); }
+        setTecnici([]);
+        setPageLoading(false);
     }, [session, canManage]);
 
     const resetForm = () => { setFormNome(''); setFormCognome(''); setFormEmail(''); setEditingTecnico(null); };
@@ -68,9 +94,9 @@ function TecniciManager({ session }) {
             setError(opError.message); 
             alert((editingTecnico ? 'Modifica tecnico fallita: ' : 'Inserimento tecnico fallito: ') + opError.message); 
         } else { 
-            resetForm(); 
-            await fetchTecnici(); 
-            setSuccessMessage(editingTecnico ? 'Tecnico modificato con successo!' : 'Tecnico aggiunto con successo!'); 
+            resetForm();
+            await fetchTecnici(filtroNome.trim(), filtroCognome.trim());
+            setSuccessMessage(editingTecnico ? 'Tecnico modificato con successo!' : 'Tecnico aggiunto con successo!');
             setTimeout(()=> setSuccessMessage(''), 3000); 
         }
         setLoadingActions(false);
@@ -85,8 +111,8 @@ function TecniciManager({ session }) {
                 setError(delError.message); 
                 alert("Eliminazione fallita: " + delError.message); 
             } else { 
-                await fetchTecnici(); 
-                if (editingTecnico && editingTecnico.id === tecnicoId) resetForm(); 
+                await fetchTecnici(filtroNome.trim(), filtroCognome.trim());
+                if (editingTecnico && editingTecnico.id === tecnicoId) resetForm();
                 setSuccessMessage('Tecnico eliminato con successo!'); 
                 setTimeout(()=> setSuccessMessage(''), 3000);
             }
@@ -185,7 +211,7 @@ function TecniciManager({ session }) {
                 let finalMessage = `${successCount} tecnici importati/aggiornati.`;
                 if (errorCount > 0) { finalMessage += ` ${errorCount} errori.`; setError(`Errori import. ${errorsDetail.slice(0,3).join('; ')}... Vedi console.`); console.error("Err import tecnici:", errorsDetail); }
                 setSuccessMessage(finalMessage); setTimeout(()=> { setSuccessMessage(''); setError(null); }, 10000);
-                await fetchTecnici();
+                await fetchTecnici(filtroNome.trim(), filtroCognome.trim());
             } catch (parseOrProcessError) { setError("Errore critico import: " + parseOrProcessError.message); console.error("Err critico import tecnici:", parseOrProcessError); }
             finally { setLoadingActions(false); setImportProgress(''); if(fileInputRef.current) fileInputRef.current.value = ""; }
         };
@@ -194,6 +220,19 @@ function TecniciManager({ session }) {
         else { setError("Formato non supportato."); setLoadingActions(false); }
     };
     const triggerFileInput = () => fileInputRef.current?.click();
+
+    const handleSearchTecnici = () => {
+        setError(null);
+        fetchTecnici(filtroNome.trim(), filtroCognome.trim());
+    };
+
+    const resetFiltri = () => {
+        setFiltroNome('');
+        setFiltroCognome('');
+        setTecnici([]);
+        setError(null);
+        setRicercaSbloccata(false);
+    };
 
     if (pageLoading) return <p>Caricamento anagrafica tecnici...</p>;
     if (!canManage && session) return <p>Non hai i permessi per gestire questa anagrafica.</p>;
@@ -215,6 +254,25 @@ function TecniciManager({ session }) {
             {importProgress && !loadingActions && <p>{importProgress}</p> }
             {successMessage && <p style={{ color: 'green', fontWeight:'bold' }}>{successMessage}</p>}
             {error && <p style={{ color: 'red', fontWeight:'bold' }}>ERRORE: {error}</p>}
+
+            <div className="filtri-container" style={{ marginBottom: '20px', padding: '15px', border: '1px solid #ddd', borderRadius: '5px', background: '#f9f9f9' }}>
+                <h4>Filtra Tecnici</h4>
+                <div style={{display:'flex', gap:'10px', alignItems:'flex-end', flexWrap:'wrap'}}>
+                    <div>
+                        <label htmlFor="filtroNomeTecnico">Nome:</label>
+                        <input type="text" id="filtroNomeTecnico" value={filtroNome} onChange={e => setFiltroNome(e.target.value)} placeholder="Min 3 caratteri" />
+                    </div>
+                    <div>
+                        <label htmlFor="filtroCognomeTecnico">Cognome:</label>
+                        <input type="text" id="filtroCognomeTecnico" value={filtroCognome} onChange={e => setFiltroCognome(e.target.value)} placeholder="Min 3 caratteri" />
+                    </div>
+                    <button onClick={handleSearchTecnici} className="button secondary" disabled={loadingActions || pageLoading}>Cerca</button>
+                    <button onClick={resetFiltri} className="button secondary" disabled={loadingActions || pageLoading}>Azzera</button>
+                    {!ricercaSbloccata && (
+                        <button onClick={() => setRicercaSbloccata(true)} className="button warning" disabled={loadingActions || pageLoading}>Sblocca Ricerca</button>
+                    )}
+                </div>
+            </div>
 
             {canManage && (
                 <form onSubmit={handleSubmitForm} style={{ marginBottom: '20px', padding: '15px', border: '1px solid #eee', borderRadius: '5px' }}>
