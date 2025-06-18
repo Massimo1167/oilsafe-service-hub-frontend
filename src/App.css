@@ -18,10 +18,8 @@ footer { background-color: #333; color: white; text-align: center; padding: 1rem
 form div { margin-bottom: 1rem; }
 form label { display: block; margin-bottom: 0.3rem; font-weight: bold; }
 form input[type="text"],
-form input[type="date"],
-form input[type="time"],
-form input[type="number"],
-form select,
+form input[type="email"],
+form input[type="password"],
 form textarea {
     width: 100%;
     padding: 0.6rem;
@@ -29,6 +27,8 @@ form textarea {
     border-radius: 4px;
     box-sizing: border-box;
     font-size: 1rem;
+    background-color: #f7f1b5; /* giallo paglierino */
+    color: #003366; /* testo blu scuro */
 }
 form textarea { min-height: 100px; }
 button {
