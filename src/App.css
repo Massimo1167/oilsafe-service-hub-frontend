@@ -3,7 +3,8 @@ html, body {
     font-family: sans-serif;
     background-color: #f0f2f5;
     color: #333;
-    overflow-x: hidden;
+    /* Allow horizontal scrolling on small screens */
+    overflow-x: auto;
 }
 .app-container { display: flex; flex-direction: column; min-height: 100vh; }
 header { background-color: #003366; color: white; padding: 1rem; }
