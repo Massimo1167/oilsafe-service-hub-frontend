@@ -28,6 +28,7 @@ form textarea {
     box-sizing: border-box;
     font-size: 1rem;
     background-color: #f7f1b5; /* giallo paglierino */
+    color: #003366; /* testo blu scuro */
 }
 form textarea { min-height: 100px; }
 button {
