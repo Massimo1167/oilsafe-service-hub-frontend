@@ -10,6 +10,8 @@ function SignupPage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(''); // Per messaggi di successo
   const [error, setError] = useState('');     // Per messaggi di errore
+
+  const isGmail = email.toLowerCase().endsWith('@gmail.com');
   const navigate = useNavigate();
 
   const handleSignup = async (e) => {
@@ -33,6 +35,12 @@ function SignupPage() {
 
     if (password.length < 6) {
         setError("La password deve essere di almeno 6 caratteri.");
+        setLoading(false);
+        return;
+    }
+
+    if (!trimmedEmail.toLowerCase().endsWith('@gmail.com')) {
+        setError("L'autoregistrazione è disponibile solo per indirizzi Gmail. Per ottenere le credenziali contatta ufficio.ced@oilsafe.it.");
         setLoading(false);
         return;
     }
@@ -135,7 +143,12 @@ function SignupPage() {
         </div>
         {message && <p style={{ color: 'green', marginTop:'10px', fontSize:'0.9em', textAlign: 'center' }}>{message}</p>}
         {error && <p style={{ color: 'red', marginTop:'10px', fontSize:'0.9em', textAlign: 'center' }}>{error}</p>}
-        <button type="submit" disabled={loading} style={{marginTop:'15px', width:'100%'}}>
+        {!isGmail && email && (
+          <p style={{ color: 'red', marginTop:'10px', fontSize:'0.9em', textAlign:'center' }}>
+            L'autoregistrazione è disponibile solo per indirizzi Gmail. Per ottenere le credenziali contatta ufficio.ced@oilsafe.it.
+          </p>
+        )}
+        <button type="submit" disabled={loading || !isGmail} style={{marginTop:'15px', width:'100%'}}>
           {loading ? 'Registrazione in corso...' : 'Registrati'}
         </button>
       </form>
