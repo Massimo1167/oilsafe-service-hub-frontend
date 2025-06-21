@@ -19,6 +19,8 @@ function ClientiManager({ session }) {
 
     const [currentPage, setCurrentPage] = useState(1);
 
+    const [exportScope, setExportScope] = useState('page');
+
     const [formNuovoNomeAzienda, setFormNuovoNomeAzienda] = useState('');
     const [selectedCliente, setSelectedCliente] = useState(null); 
     const [formEditNomeAzienda, setFormEditNomeAzienda] = useState('');
@@ -269,25 +271,47 @@ function ClientiManager({ session }) {
         setLoadingActions(false);
     };
 
-    const handleExport = (format = 'csv') => {
-        if (!clienti || clienti.length === 0) { alert('Nessun dato da esportare.'); return; }
+    const handleExport = async (format = 'csv', scope = exportScope) => {
+        const dataSource = scope === 'page' ? displayedClienti : clienti;
+        let clientiToUse = dataSource;
+
+        if (scope === 'all') {
+            const { data, error: fetchError } = await supabase
+                .from('clienti')
+                .select(`id, nome_azienda, indirizzi_clienti (id, indirizzo_completo, descrizione, is_default)`) 
+                .order('nome_azienda');
+            if (fetchError) { setError(fetchError.message); return; }
+            clientiToUse = data || [];
+        }
+
+        if (!clientiToUse || clientiToUse.length === 0) { alert('Nessun dato da esportare.'); return; }
+
         setLoadingActions(true); setError(null); setSuccessMessage('');
-        const headers = ['id', 'nome_azienda', 'indirizzo_default'];
-        const dataToExport = clienti.map(c => ({
-            id: c.id,
-            nome_azienda: c.nome_azienda,
-            indirizzo_default: c.indirizzo_default_visualizzato || '',
-        }));
+        const headers = ['cliente_id', 'nome_azienda', 'indirizzo_completo', 'descrizione', 'is_default'];
+        const rows = [];
+        clientiToUse.forEach(c => {
+            const addresses = c.indirizzi_clienti && c.indirizzi_clienti.length > 0 ? c.indirizzi_clienti : [{ indirizzo_completo: '', descrizione: '', is_default: false }];
+            addresses.forEach(addr => {
+                rows.push({
+                    cliente_id: c.id,
+                    nome_azienda: c.nome_azienda,
+                    indirizzo_completo: addr.indirizzo_completo || '',
+                    descrizione: addr.descrizione || '',
+                    is_default: addr.is_default ? 'Sì' : ''
+                });
+            });
+        });
+
         try {
             if (format === 'xlsx') {
-                const worksheet = XLSX.utils.json_to_sheet(dataToExport, { header: headers });
+                const worksheet = XLSX.utils.json_to_sheet(rows, { header: headers });
                 const workbook = XLSX.utils.book_new();
                 XLSX.utils.book_append_sheet(workbook, worksheet, 'Clienti');
                 XLSX.writeFile(workbook, 'esportazione_clienti.xlsx');
                 setSuccessMessage('Clienti esportati in XLSX!');
             } else {
                 const csvRows = [headers.join(',')];
-                for (const row of dataToExport) {
+                for (const row of rows) {
                     const values = headers.map(h => `"${(('' + (row[h] ?? '')).replace(/"/g, '""'))}"`);
                     csvRows.push(values.join(','));
                 }
@@ -331,18 +355,20 @@ function ClientiManager({ session }) {
         const file = event.target.files[0];
         if (!file) return;
 
-        setLoadingActions(true); 
-        setError(null); 
-        setSuccessMessage(''); 
+        setLoadingActions(true);
+        setError(null);
+        setSuccessMessage('');
         setImportProgress('Inizio elaborazione file...');
 
         const reader = new FileReader();
         reader.onload = async (e) => {
             let parsedData = [];
             const errorsDetail = [];
+            const importLog = [];
             let processedCount = 0;
-            let successfullyUpsertedClienti = 0;
-            let successfullyManagedIndirizzi = 0;
+            let uniqueClienti = 0;
+            let managedIndirizzi = 0;
+            const clientiCache = new Map();
             let fileReadError = null;
 
             try {
@@ -378,104 +404,126 @@ function ClientiManager({ session }) {
                     const row = parsedData[i];
                     processedCount++;
                     setImportProgress(`Processo riga ${processedCount} di ${parsedData.length}...`);
-                    
+
                     const nomeAzienda = String(row.nome_azienda || '').trim();
-                    const indirizzoCompleto = String(row.indirizzo_default || row.indirizzo || '').trim(); // Cerca 'indirizzo_default' o 'indirizzo'
-                    const descIndirizzo = String(row.descrizione_default || row.descrizione_indirizzo || row.descrizione || 'Sede Principale (da import)').trim(); // Cerca più varianti per descrizione
+                    const indirizzoCompleto = String(row.indirizzo_completo || row.indirizzo_default || row.indirizzo || '').trim();
+                    const descIndirizzo = String(row.descrizione || row.descrizione_indirizzo || row.descrizione_default || '').trim();
+                    const isDefaultRaw = String(row.is_default || '').trim().toLowerCase();
+                    const isDefault = ['s', 'si', 'sì', 'true', '1', 'yes', 'y'].includes(isDefaultRaw);
 
                     if (!nomeAzienda) {
-                        errorsDetail.push(`Riga ${i+1}: nome_azienda mancante. Riga saltata.`);
-                        continue; 
-                    }
-
-                    // 1. Upsert del Cliente
-                    const { data: clienteUpserted, error: clienteErr } = await supabase
-                        .from('clienti')
-                        .upsert({ nome_azienda: nomeAzienda }, { onConflict: 'nome_azienda' })
-                        .select('id')
-                        .single();
-                    
-                    if (clienteErr) {
-                        errorsDetail.push(`Riga ${i+1} (Cliente "${nomeAzienda}"): Errore DB: ${clienteErr.message}`);
-                        console.error(`Errore upsert cliente ${nomeAzienda}:`, clienteErr);
-                        continue; // Salta alla prossima riga se l'upsert del cliente fallisce
-                    }
-                    
-                    if (!clienteUpserted) {
-                        errorsDetail.push(`Riga ${i+1} (Cliente "${nomeAzienda}"): Upsert cliente non ha restituito un ID.`);
+                        const msg = `Riga ${i+1}: nome_azienda mancante. Riga saltata.`;
+                        errorsDetail.push(msg);
+                        importLog.push(msg);
                         continue;
                     }
-                    successfullyUpsertedClienti++;
-                    
-                    // 2. Gestione Indirizzo di Default (se fornito)
-                    if (indirizzoCompleto) {
-                        // A. Rimuovi il flag is_default da tutti gli altri indirizzi per questo cliente
-                        const { error: updateOldDefaultsError } = await supabase
+
+                    let clienteId = clientiCache.get(nomeAzienda);
+                    if (!clienteId) {
+                        const { data: clienteUpserted, error: clienteErr } = await supabase
+                            .from('clienti')
+                            .upsert({ nome_azienda: nomeAzienda }, { onConflict: 'nome_azienda' })
+                            .select('id')
+                            .single();
+
+                        if (clienteErr) {
+                            const msg = `Riga ${i+1} (Cliente "${nomeAzienda}"): Errore DB: ${clienteErr.message}`;
+                            errorsDetail.push(msg);
+                            importLog.push(msg);
+                            console.error(`Errore upsert cliente ${nomeAzienda}:`, clienteErr);
+                            continue;
+                        }
+
+                        if (!clienteUpserted) {
+                            const msg = `Riga ${i+1} (Cliente "${nomeAzienda}"): Upsert cliente non ha restituito un ID.`;
+                            errorsDetail.push(msg);
+                            importLog.push(msg);
+                            continue;
+                        }
+                        clienteId = clienteUpserted.id;
+                        clientiCache.set(nomeAzienda, clienteId);
+                        uniqueClienti++;
+                        importLog.push(`Riga ${i+1}: cliente '${nomeAzienda}' creato/aggiornato (ID ${clienteId})`);
+                    } else {
+                        importLog.push(`Riga ${i+1}: cliente '${nomeAzienda}' già noto (ID ${clienteId})`);
+                    }
+
+                    if (!indirizzoCompleto) {
+                        importLog.push(`Riga ${i+1}: nessun indirizzo specificato, nessuna operazione`);
+                        continue;
+                    }
+
+                    if (isDefault) {
+                        const { error: unsetErr } = await supabase
                             .from('indirizzi_clienti')
                             .update({ is_default: false })
-                            .eq('cliente_id', clienteUpserted.id)
+                            .eq('cliente_id', clienteId)
                             .eq('is_default', true);
-
-                        if (updateOldDefaultsError) {
-                            console.warn(`Attenzione per cliente ${nomeAzienda}: Errore nel resettare vecchi indirizzi default - ${updateOldDefaultsError.message}`);
-                            // Non blocchiamo per questo, ma lo segnaliamo
-                        }
-
-                        // B. Upsert del nuovo (o esistente) indirizzo di default
-                        // Per fare un upsert efficace sull'indirizzo, idealmente avremmo un constraint UNIQUE su (cliente_id, indirizzo_completo)
-                        // o (cliente_id, descrizione) se la descrizione è univoca per cliente.
-                        // Altrimenti, se non c'è un modo univoco per identificare l'indirizzo da aggiornare (oltre al suo ID, che non abbiamo nel CSV),
-                        // l'operazione più sicura è cancellare il vecchio default (se diverso) e inserirne uno nuovo.
-                        // Qui, proviamo un upsert sull'indirizzo completo, assumendo che sia univoco per cliente.
-                        // Se non lo è, potresti avere indirizzi duplicati.
-                        // Un'alternativa è: se c'è un indirizzo default, lo si aggiorna, altrimenti si inserisce.
-                        const { data: existingDefaultAddr, error: findDefaultErr } = await supabase
-                            .from('indirizzi_clienti')
-                            .select('id')
-                            .eq('cliente_id', clienteUpserted.id)
-                            .eq('is_default', true) // Cerchiamo un indirizzo già default
-                            .maybeSingle(); // Può restituire null se non trovato
-
-                        if (findDefaultErr && findDefaultErr.code !== 'PGRST116') {
-                            console.error(`Errore ricerca indirizzo default esistente per ${nomeAzienda}: ${findDefaultErr.message}`);
-                        }
-
-                        let indirizzoOpError;
-                        if (existingDefaultAddr) {
-                            // Aggiorna l'indirizzo default esistente
-                           const { error } = await supabase
-                                .from('indirizzi_clienti')
-                                .update({ indirizzo_completo: indirizzoCompleto, descrizione: descIndirizzo, is_default: true })
-                                .eq('id', existingDefaultAddr.id);
-                            indirizzoOpError = error;
+                        if (unsetErr) {
+                            console.warn(`Attenzione per cliente ${nomeAzienda}: Errore nel resettare vecchi indirizzi default - ${unsetErr.message}`);
                         } else {
-                            // Inserisci come nuovo indirizzo default
+                            importLog.push(`Riga ${i+1}: reset vecchi indirizzi default per cliente ID ${clienteId}`);
+                        }
+                    }
+
+                    const { data: existingAddr, error: findErr } = await supabase
+                        .from('indirizzi_clienti')
+                        .select('id, descrizione, is_default')
+                        .eq('cliente_id', clienteId)
+                        .eq('indirizzo_completo', indirizzoCompleto)
+                        .maybeSingle();
+
+                    if (findErr && findErr.code !== 'PGRST116') {
+                        const msg = `Riga ${i+1} (Cliente ${nomeAzienda}): Errore lookup indirizzo - ${findErr.message}`;
+                        errorsDetail.push(msg);
+                        importLog.push(msg);
+                        console.error(`Errore lookup indirizzo per cliente ${nomeAzienda}:`, findErr);
+                        continue;
+                    }
+
+                    let indirizzoOpError;
+                    if (existingAddr) {
+                        const updateNeeded = (existingAddr.descrizione || '') !== (descIndirizzo || '') || existingAddr.is_default !== isDefault;
+                        if (updateNeeded) {
                             const { error } = await supabase
                                 .from('indirizzi_clienti')
-                                .insert({
-                                    cliente_id: clienteUpserted.id,
-                                    indirizzo_completo: indirizzoCompleto,
-                                    descrizione: descIndirizzo,
-                                    is_default: true
-                                });
+                                .update({ descrizione: descIndirizzo || null, is_default: isDefault })
+                                .eq('id', existingAddr.id);
                             indirizzoOpError = error;
-                        }
-
-                        if (indirizzoOpError) {
-                            errorsDetail.push(`Riga ${i+1} (Cliente ${nomeAzienda}): Errore gestione indirizzo default - ${indirizzoOpError.message}`);
-                            console.warn(`Attenzione per cliente ${nomeAzienda}: Errore gestione indirizzo default - ${indirizzoOpError.message}`);
+                            if (!error) importLog.push(`Riga ${i+1}: indirizzo aggiornato (ID ${existingAddr.id})`);
                         } else {
-                            successfullyManagedIndirizzi++;
+                            importLog.push(`Riga ${i+1}: indirizzo invariato, nessuna modifica (ID ${existingAddr.id})`);
                         }
+                    } else {
+                        const { error } = await supabase
+                            .from('indirizzi_clienti')
+                            .insert({
+                                cliente_id: clienteId,
+                                indirizzo_completo: indirizzoCompleto,
+                                descrizione: descIndirizzo || null,
+                                is_default: isDefault,
+                            });
+                        indirizzoOpError = error;
+                        if (!error) importLog.push(`Riga ${i+1}: indirizzo inserito per cliente ID ${clienteId}`);
+                    }
+
+                    if (indirizzoOpError) {
+                        const msg = `Riga ${i+1} (Cliente ${nomeAzienda}): Errore gestione indirizzo - ${indirizzoOpError.message}`;
+                        errorsDetail.push(msg);
+                        importLog.push(msg);
+                        console.warn(`Attenzione per cliente ${nomeAzienda}: Errore gestione indirizzo - ${indirizzoOpError.message}`);
+                    } else {
+                        managedIndirizzi++;
                     }
                 } // Fine ciclo for
 
-                let finalMessage = `${successfullyUpsertedClienti} clienti processati. ${successfullyManagedIndirizzi} indirizzi di default gestiti.`;
+                let finalMessage = `${uniqueClienti} clienti processati. ${managedIndirizzi} indirizzi gestiti.`;
                 if (errorsDetail.length > 0) {
                     finalMessage += ` ${errorsDetail.length} righe con errori o avvisi.`;
                     setError(`Errori/Avvisi durante l'importazione: ${errorsDetail.slice(0,3).join('; ')}... Vedi console per tutti i dettagli.`);
                     console.error("Dettaglio errori/avvisi importazione clienti:", errorsDetail);
                 }
+                finalMessage += ' Controlla la console per il log.';
                 setSuccessMessage(finalMessage);
                 setTimeout(()=> { setSuccessMessage(''); setError(null); }, 15000); // Più tempo per leggere
                 await fetchClienti(filtroNomeAzienda.trim());
@@ -483,10 +531,11 @@ function ClientiManager({ session }) {
             } catch (err) { 
                 setError("Errore critico durante l'importazione: " + err.message); 
                 console.error("Errore critico importazione clienti:", err); 
-            } finally { 
-                setLoadingActions(false); 
+            } finally {
+                setLoadingActions(false);
                 setImportProgress('');
-                if(fileInputRef.current) fileInputRef.current.value = ""; 
+                if(fileInputRef.current) fileInputRef.current.value = "";
+                if (importLog.length > 0) console.info('Dettaglio importazione:', importLog);
             }
         };
         if (file.name.endsWith('.csv')) reader.readAsText(file); 
@@ -521,12 +570,17 @@ function ClientiManager({ session }) {
                     <button onClick={triggerFileInput} className="button secondary" disabled={loadingActions}>
                         {loadingActions && importProgress ? importProgress : (loadingActions ? 'Attendere...' : 'Importa/Aggiorna Clienti')}
                     </button>
-                    <div style={{display:'flex', gap: '5px'}}>
-                        <button onClick={() => handleExport('csv')} className="button secondary small" disabled={loadingActions || clienti.length === 0}> 
-                            Esporta CSV 
+                    <div style={{display:'flex', gap: '5px', alignItems:'center'}}>
+                        <select value={exportScope} onChange={e => setExportScope(e.target.value)} disabled={loadingActions || clienti.length === 0}>
+                            <option value="page">Pag. Corrente</option>
+                            <option value="filter">Con Filtri</option>
+                            <option value="all">Tutto</option>
+                        </select>
+                        <button onClick={() => handleExport('csv')} className="button secondary small" disabled={loadingActions || clienti.length === 0}>
+                            Esporta CSV
                         </button>
-                        <button onClick={() => handleExport('xlsx')} className="button secondary small" disabled={loadingActions || clienti.length === 0}> 
-                            Esporta XLSX 
+                        <button onClick={() => handleExport('xlsx')} className="button secondary small" disabled={loadingActions || clienti.length === 0}>
+                            Esporta XLSX
                         </button>
                     </div>
                 </div>
