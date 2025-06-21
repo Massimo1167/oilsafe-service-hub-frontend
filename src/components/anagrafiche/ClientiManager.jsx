@@ -355,9 +355,9 @@ function ClientiManager({ session }) {
         const file = event.target.files[0];
         if (!file) return;
 
-        setLoadingActions(true); 
-        setError(null); 
-        setSuccessMessage(''); 
+        setLoadingActions(true);
+        setError(null);
+        setSuccessMessage('');
         setImportProgress('Inizio elaborazione file...');
 
         const reader = new FileReader();
@@ -365,8 +365,9 @@ function ClientiManager({ session }) {
             let parsedData = [];
             const errorsDetail = [];
             let processedCount = 0;
-            let successfullyUpsertedClienti = 0;
-            let successfullyManagedIndirizzi = 0;
+            let uniqueClienti = 0;
+            let managedIndirizzi = 0;
+            const clientiCache = new Map();
             let fileReadError = null;
 
             try {
@@ -402,99 +403,95 @@ function ClientiManager({ session }) {
                     const row = parsedData[i];
                     processedCount++;
                     setImportProgress(`Processo riga ${processedCount} di ${parsedData.length}...`);
-                    
+
                     const nomeAzienda = String(row.nome_azienda || '').trim();
-                    const indirizzoCompleto = String(row.indirizzo_default || row.indirizzo || '').trim(); // Cerca 'indirizzo_default' o 'indirizzo'
-                    const descIndirizzo = String(row.descrizione_default || row.descrizione_indirizzo || row.descrizione || 'Sede Principale (da import)').trim(); // Cerca più varianti per descrizione
+                    const indirizzoCompleto = String(row.indirizzo_completo || row.indirizzo_default || row.indirizzo || '').trim();
+                    const descIndirizzo = String(row.descrizione || row.descrizione_indirizzo || row.descrizione_default || '').trim();
+                    const isDefaultRaw = String(row.is_default || '').trim().toLowerCase();
+                    const isDefault = ['s', 'si', 'sì', 'true', '1', 'yes', 'y'].includes(isDefaultRaw);
 
                     if (!nomeAzienda) {
                         errorsDetail.push(`Riga ${i+1}: nome_azienda mancante. Riga saltata.`);
-                        continue; 
-                    }
-
-                    // 1. Upsert del Cliente
-                    const { data: clienteUpserted, error: clienteErr } = await supabase
-                        .from('clienti')
-                        .upsert({ nome_azienda: nomeAzienda }, { onConflict: 'nome_azienda' })
-                        .select('id')
-                        .single();
-                    
-                    if (clienteErr) {
-                        errorsDetail.push(`Riga ${i+1} (Cliente "${nomeAzienda}"): Errore DB: ${clienteErr.message}`);
-                        console.error(`Errore upsert cliente ${nomeAzienda}:`, clienteErr);
-                        continue; // Salta alla prossima riga se l'upsert del cliente fallisce
-                    }
-                    
-                    if (!clienteUpserted) {
-                        errorsDetail.push(`Riga ${i+1} (Cliente "${nomeAzienda}"): Upsert cliente non ha restituito un ID.`);
                         continue;
                     }
-                    successfullyUpsertedClienti++;
-                    
-                    // 2. Gestione Indirizzo di Default (se fornito)
-                    if (indirizzoCompleto) {
-                        // A. Rimuovi il flag is_default da tutti gli altri indirizzi per questo cliente
-                        const { error: updateOldDefaultsError } = await supabase
+
+                    let clienteId = clientiCache.get(nomeAzienda);
+                    if (!clienteId) {
+                        const { data: clienteUpserted, error: clienteErr } = await supabase
+                            .from('clienti')
+                            .upsert({ nome_azienda: nomeAzienda }, { onConflict: 'nome_azienda' })
+                            .select('id')
+                            .single();
+
+                        if (clienteErr) {
+                            errorsDetail.push(`Riga ${i+1} (Cliente "${nomeAzienda}"): Errore DB: ${clienteErr.message}`);
+                            console.error(`Errore upsert cliente ${nomeAzienda}:`, clienteErr);
+                            continue;
+                        }
+
+                        if (!clienteUpserted) {
+                            errorsDetail.push(`Riga ${i+1} (Cliente "${nomeAzienda}"): Upsert cliente non ha restituito un ID.`);
+                            continue;
+                        }
+                        clienteId = clienteUpserted.id;
+                        clientiCache.set(nomeAzienda, clienteId);
+                        uniqueClienti++;
+                    }
+
+                    if (!indirizzoCompleto) continue;
+
+                    if (isDefault) {
+                        const { error: unsetErr } = await supabase
                             .from('indirizzi_clienti')
                             .update({ is_default: false })
-                            .eq('cliente_id', clienteUpserted.id)
+                            .eq('cliente_id', clienteId)
                             .eq('is_default', true);
-
-                        if (updateOldDefaultsError) {
-                            console.warn(`Attenzione per cliente ${nomeAzienda}: Errore nel resettare vecchi indirizzi default - ${updateOldDefaultsError.message}`);
-                            // Non blocchiamo per questo, ma lo segnaliamo
+                        if (unsetErr) {
+                            console.warn(`Attenzione per cliente ${nomeAzienda}: Errore nel resettare vecchi indirizzi default - ${unsetErr.message}`);
                         }
+                    }
 
-                        // B. Upsert del nuovo (o esistente) indirizzo di default
-                        // Per fare un upsert efficace sull'indirizzo, idealmente avremmo un constraint UNIQUE su (cliente_id, indirizzo_completo)
-                        // o (cliente_id, descrizione) se la descrizione è univoca per cliente.
-                        // Altrimenti, se non c'è un modo univoco per identificare l'indirizzo da aggiornare (oltre al suo ID, che non abbiamo nel CSV),
-                        // l'operazione più sicura è cancellare il vecchio default (se diverso) e inserirne uno nuovo.
-                        // Qui, proviamo un upsert sull'indirizzo completo, assumendo che sia univoco per cliente.
-                        // Se non lo è, potresti avere indirizzi duplicati.
-                        // Un'alternativa è: se c'è un indirizzo default, lo si aggiorna, altrimenti si inserisce.
-                        const { data: existingDefaultAddr, error: findDefaultErr } = await supabase
+                    const { data: existingAddr, error: findErr } = await supabase
+                        .from('indirizzi_clienti')
+                        .select('id')
+                        .eq('cliente_id', clienteId)
+                        .eq('indirizzo_completo', indirizzoCompleto)
+                        .maybeSingle();
+
+                    if (findErr && findErr.code !== 'PGRST116') {
+                        errorsDetail.push(`Riga ${i+1} (Cliente ${nomeAzienda}): Errore lookup indirizzo - ${findErr.message}`);
+                        console.error(`Errore lookup indirizzo per cliente ${nomeAzienda}:`, findErr);
+                        continue;
+                    }
+
+                    let indirizzoOpError;
+                    if (existingAddr) {
+                        const { error } = await supabase
                             .from('indirizzi_clienti')
-                            .select('id')
-                            .eq('cliente_id', clienteUpserted.id)
-                            .eq('is_default', true) // Cerchiamo un indirizzo già default
-                            .maybeSingle(); // Può restituire null se non trovato
+                            .update({ descrizione: descIndirizzo || null, is_default: isDefault })
+                            .eq('id', existingAddr.id);
+                        indirizzoOpError = error;
+                    } else {
+                        const { error } = await supabase
+                            .from('indirizzi_clienti')
+                            .insert({
+                                cliente_id: clienteId,
+                                indirizzo_completo: indirizzoCompleto,
+                                descrizione: descIndirizzo || null,
+                                is_default: isDefault,
+                            });
+                        indirizzoOpError = error;
+                    }
 
-                        if (findDefaultErr && findDefaultErr.code !== 'PGRST116') {
-                            console.error(`Errore ricerca indirizzo default esistente per ${nomeAzienda}: ${findDefaultErr.message}`);
-                        }
-
-                        let indirizzoOpError;
-                        if (existingDefaultAddr) {
-                            // Aggiorna l'indirizzo default esistente
-                           const { error } = await supabase
-                                .from('indirizzi_clienti')
-                                .update({ indirizzo_completo: indirizzoCompleto, descrizione: descIndirizzo, is_default: true })
-                                .eq('id', existingDefaultAddr.id);
-                            indirizzoOpError = error;
-                        } else {
-                            // Inserisci come nuovo indirizzo default
-                            const { error } = await supabase
-                                .from('indirizzi_clienti')
-                                .insert({
-                                    cliente_id: clienteUpserted.id,
-                                    indirizzo_completo: indirizzoCompleto,
-                                    descrizione: descIndirizzo,
-                                    is_default: true
-                                });
-                            indirizzoOpError = error;
-                        }
-
-                        if (indirizzoOpError) {
-                            errorsDetail.push(`Riga ${i+1} (Cliente ${nomeAzienda}): Errore gestione indirizzo default - ${indirizzoOpError.message}`);
-                            console.warn(`Attenzione per cliente ${nomeAzienda}: Errore gestione indirizzo default - ${indirizzoOpError.message}`);
-                        } else {
-                            successfullyManagedIndirizzi++;
-                        }
+                    if (indirizzoOpError) {
+                        errorsDetail.push(`Riga ${i+1} (Cliente ${nomeAzienda}): Errore gestione indirizzo - ${indirizzoOpError.message}`);
+                        console.warn(`Attenzione per cliente ${nomeAzienda}: Errore gestione indirizzo - ${indirizzoOpError.message}`);
+                    } else {
+                        managedIndirizzi++;
                     }
                 } // Fine ciclo for
 
-                let finalMessage = `${successfullyUpsertedClienti} clienti processati. ${successfullyManagedIndirizzi} indirizzi di default gestiti.`;
+                let finalMessage = `${uniqueClienti} clienti processati. ${managedIndirizzi} indirizzi gestiti.`;
                 if (errorsDetail.length > 0) {
                     finalMessage += ` ${errorsDetail.length} righe con errori o avvisi.`;
                     setError(`Errori/Avvisi durante l'importazione: ${errorsDetail.slice(0,3).join('; ')}... Vedi console per tutti i dettagli.`);
