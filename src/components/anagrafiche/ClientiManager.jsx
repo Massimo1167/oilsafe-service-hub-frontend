@@ -516,6 +516,12 @@ function ClientiManager({ session }) {
                         managedIndirizzi++;
                     }
                 } // Fine ciclo for
+                
+                if (importLog.length > 0) {
+                    console.log('Dettaglio importazione:', importLog);
+                } else { 
+                    console.log('Importazione terminata senza dettagli di rilievo');
+                }
 
                 let finalMessage = `${uniqueClienti} clienti processati. ${managedIndirizzi} indirizzi gestiti.`;
                 if (errorsDetail.length > 0) {
@@ -535,7 +541,6 @@ function ClientiManager({ session }) {
                 setLoadingActions(false);
                 setImportProgress('');
                 if(fileInputRef.current) fileInputRef.current.value = "";
-                if (importLog.length > 0) console.info('Dettaglio importazione:', importLog);
             }
         };
         if (file.name.endsWith('.csv')) reader.readAsText(file); 
