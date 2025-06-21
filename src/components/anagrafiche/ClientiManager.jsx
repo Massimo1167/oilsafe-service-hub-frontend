@@ -19,6 +19,8 @@ function ClientiManager({ session }) {
 
     const [currentPage, setCurrentPage] = useState(1);
 
+    const [exportScope, setExportScope] = useState('page');
+
     const [formNuovoNomeAzienda, setFormNuovoNomeAzienda] = useState('');
     const [selectedCliente, setSelectedCliente] = useState(null); 
     const [formEditNomeAzienda, setFormEditNomeAzienda] = useState('');
@@ -269,25 +271,47 @@ function ClientiManager({ session }) {
         setLoadingActions(false);
     };
 
-    const handleExport = (format = 'csv') => {
-        if (!clienti || clienti.length === 0) { alert('Nessun dato da esportare.'); return; }
+    const handleExport = async (format = 'csv', scope = exportScope) => {
+        const dataSource = scope === 'page' ? displayedClienti : clienti;
+        let clientiToUse = dataSource;
+
+        if (scope === 'all') {
+            const { data, error: fetchError } = await supabase
+                .from('clienti')
+                .select(`id, nome_azienda, indirizzi_clienti (id, indirizzo_completo, descrizione, is_default)`) 
+                .order('nome_azienda');
+            if (fetchError) { setError(fetchError.message); return; }
+            clientiToUse = data || [];
+        }
+
+        if (!clientiToUse || clientiToUse.length === 0) { alert('Nessun dato da esportare.'); return; }
+
         setLoadingActions(true); setError(null); setSuccessMessage('');
-        const headers = ['id', 'nome_azienda', 'indirizzo_default'];
-        const dataToExport = clienti.map(c => ({
-            id: c.id,
-            nome_azienda: c.nome_azienda,
-            indirizzo_default: c.indirizzo_default_visualizzato || '',
-        }));
+        const headers = ['cliente_id', 'nome_azienda', 'indirizzo_completo', 'descrizione', 'is_default'];
+        const rows = [];
+        clientiToUse.forEach(c => {
+            const addresses = c.indirizzi_clienti && c.indirizzi_clienti.length > 0 ? c.indirizzi_clienti : [{ indirizzo_completo: '', descrizione: '', is_default: false }];
+            addresses.forEach(addr => {
+                rows.push({
+                    cliente_id: c.id,
+                    nome_azienda: c.nome_azienda,
+                    indirizzo_completo: addr.indirizzo_completo || '',
+                    descrizione: addr.descrizione || '',
+                    is_default: addr.is_default ? 'Sì' : ''
+                });
+            });
+        });
+
         try {
             if (format === 'xlsx') {
-                const worksheet = XLSX.utils.json_to_sheet(dataToExport, { header: headers });
+                const worksheet = XLSX.utils.json_to_sheet(rows, { header: headers });
                 const workbook = XLSX.utils.book_new();
                 XLSX.utils.book_append_sheet(workbook, worksheet, 'Clienti');
                 XLSX.writeFile(workbook, 'esportazione_clienti.xlsx');
                 setSuccessMessage('Clienti esportati in XLSX!');
             } else {
                 const csvRows = [headers.join(',')];
-                for (const row of dataToExport) {
+                for (const row of rows) {
                     const values = headers.map(h => `"${(('' + (row[h] ?? '')).replace(/"/g, '""'))}"`);
                     csvRows.push(values.join(','));
                 }
@@ -521,12 +545,17 @@ function ClientiManager({ session }) {
                     <button onClick={triggerFileInput} className="button secondary" disabled={loadingActions}>
                         {loadingActions && importProgress ? importProgress : (loadingActions ? 'Attendere...' : 'Importa/Aggiorna Clienti')}
                     </button>
-                    <div style={{display:'flex', gap: '5px'}}>
-                        <button onClick={() => handleExport('csv')} className="button secondary small" disabled={loadingActions || clienti.length === 0}> 
-                            Esporta CSV 
+                    <div style={{display:'flex', gap: '5px', alignItems:'center'}}>
+                        <select value={exportScope} onChange={e => setExportScope(e.target.value)} disabled={loadingActions || clienti.length === 0}>
+                            <option value="page">Pag. Corrente</option>
+                            <option value="filter">Con Filtri</option>
+                            <option value="all">Tutto</option>
+                        </select>
+                        <button onClick={() => handleExport('csv')} className="button secondary small" disabled={loadingActions || clienti.length === 0}>
+                            Esporta CSV
                         </button>
-                        <button onClick={() => handleExport('xlsx')} className="button secondary small" disabled={loadingActions || clienti.length === 0}> 
-                            Esporta XLSX 
+                        <button onClick={() => handleExport('xlsx')} className="button secondary small" disabled={loadingActions || clienti.length === 0}>
+                            Esporta XLSX
                         </button>
                     </div>
                 </div>
