@@ -364,6 +364,7 @@ function ClientiManager({ session }) {
         reader.onload = async (e) => {
             let parsedData = [];
             const errorsDetail = [];
+            const importLog = [];
             let processedCount = 0;
             let uniqueClienti = 0;
             let managedIndirizzi = 0;
@@ -411,7 +412,9 @@ function ClientiManager({ session }) {
                     const isDefault = ['s', 'si', 'sì', 'true', '1', 'yes', 'y'].includes(isDefaultRaw);
 
                     if (!nomeAzienda) {
-                        errorsDetail.push(`Riga ${i+1}: nome_azienda mancante. Riga saltata.`);
+                        const msg = `Riga ${i+1}: nome_azienda mancante. Riga saltata.`;
+                        errorsDetail.push(msg);
+                        importLog.push(msg);
                         continue;
                     }
 
@@ -424,21 +427,31 @@ function ClientiManager({ session }) {
                             .single();
 
                         if (clienteErr) {
-                            errorsDetail.push(`Riga ${i+1} (Cliente "${nomeAzienda}"): Errore DB: ${clienteErr.message}`);
+                            const msg = `Riga ${i+1} (Cliente "${nomeAzienda}"): Errore DB: ${clienteErr.message}`;
+                            errorsDetail.push(msg);
+                            importLog.push(msg);
                             console.error(`Errore upsert cliente ${nomeAzienda}:`, clienteErr);
                             continue;
                         }
 
                         if (!clienteUpserted) {
-                            errorsDetail.push(`Riga ${i+1} (Cliente "${nomeAzienda}"): Upsert cliente non ha restituito un ID.`);
+                            const msg = `Riga ${i+1} (Cliente "${nomeAzienda}"): Upsert cliente non ha restituito un ID.`;
+                            errorsDetail.push(msg);
+                            importLog.push(msg);
                             continue;
                         }
                         clienteId = clienteUpserted.id;
                         clientiCache.set(nomeAzienda, clienteId);
                         uniqueClienti++;
+                        importLog.push(`Riga ${i+1}: cliente '${nomeAzienda}' creato/aggiornato (ID ${clienteId})`);
+                    } else {
+                        importLog.push(`Riga ${i+1}: cliente '${nomeAzienda}' già noto (ID ${clienteId})`);
                     }
 
-                    if (!indirizzoCompleto) continue;
+                    if (!indirizzoCompleto) {
+                        importLog.push(`Riga ${i+1}: nessun indirizzo specificato, nessuna operazione`);
+                        continue;
+                    }
 
                     if (isDefault) {
                         const { error: unsetErr } = await supabase
@@ -448,29 +461,39 @@ function ClientiManager({ session }) {
                             .eq('is_default', true);
                         if (unsetErr) {
                             console.warn(`Attenzione per cliente ${nomeAzienda}: Errore nel resettare vecchi indirizzi default - ${unsetErr.message}`);
+                        } else {
+                            importLog.push(`Riga ${i+1}: reset vecchi indirizzi default per cliente ID ${clienteId}`);
                         }
                     }
 
                     const { data: existingAddr, error: findErr } = await supabase
                         .from('indirizzi_clienti')
-                        .select('id')
+                        .select('id, descrizione, is_default')
                         .eq('cliente_id', clienteId)
                         .eq('indirizzo_completo', indirizzoCompleto)
                         .maybeSingle();
 
                     if (findErr && findErr.code !== 'PGRST116') {
-                        errorsDetail.push(`Riga ${i+1} (Cliente ${nomeAzienda}): Errore lookup indirizzo - ${findErr.message}`);
+                        const msg = `Riga ${i+1} (Cliente ${nomeAzienda}): Errore lookup indirizzo - ${findErr.message}`;
+                        errorsDetail.push(msg);
+                        importLog.push(msg);
                         console.error(`Errore lookup indirizzo per cliente ${nomeAzienda}:`, findErr);
                         continue;
                     }
 
                     let indirizzoOpError;
                     if (existingAddr) {
-                        const { error } = await supabase
-                            .from('indirizzi_clienti')
-                            .update({ descrizione: descIndirizzo || null, is_default: isDefault })
-                            .eq('id', existingAddr.id);
-                        indirizzoOpError = error;
+                        const updateNeeded = (existingAddr.descrizione || '') !== (descIndirizzo || '') || existingAddr.is_default !== isDefault;
+                        if (updateNeeded) {
+                            const { error } = await supabase
+                                .from('indirizzi_clienti')
+                                .update({ descrizione: descIndirizzo || null, is_default: isDefault })
+                                .eq('id', existingAddr.id);
+                            indirizzoOpError = error;
+                            if (!error) importLog.push(`Riga ${i+1}: indirizzo aggiornato (ID ${existingAddr.id})`);
+                        } else {
+                            importLog.push(`Riga ${i+1}: indirizzo invariato, nessuna modifica (ID ${existingAddr.id})`);
+                        }
                     } else {
                         const { error } = await supabase
                             .from('indirizzi_clienti')
@@ -481,10 +504,13 @@ function ClientiManager({ session }) {
                                 is_default: isDefault,
                             });
                         indirizzoOpError = error;
+                        if (!error) importLog.push(`Riga ${i+1}: indirizzo inserito per cliente ID ${clienteId}`);
                     }
 
                     if (indirizzoOpError) {
-                        errorsDetail.push(`Riga ${i+1} (Cliente ${nomeAzienda}): Errore gestione indirizzo - ${indirizzoOpError.message}`);
+                        const msg = `Riga ${i+1} (Cliente ${nomeAzienda}): Errore gestione indirizzo - ${indirizzoOpError.message}`;
+                        errorsDetail.push(msg);
+                        importLog.push(msg);
                         console.warn(`Attenzione per cliente ${nomeAzienda}: Errore gestione indirizzo - ${indirizzoOpError.message}`);
                     } else {
                         managedIndirizzi++;
@@ -497,6 +523,7 @@ function ClientiManager({ session }) {
                     setError(`Errori/Avvisi durante l'importazione: ${errorsDetail.slice(0,3).join('; ')}... Vedi console per tutti i dettagli.`);
                     console.error("Dettaglio errori/avvisi importazione clienti:", errorsDetail);
                 }
+                finalMessage += ' Controlla la console per il log.';
                 setSuccessMessage(finalMessage);
                 setTimeout(()=> { setSuccessMessage(''); setError(null); }, 15000); // Più tempo per leggere
                 await fetchClienti(filtroNomeAzienda.trim());
@@ -504,10 +531,11 @@ function ClientiManager({ session }) {
             } catch (err) { 
                 setError("Errore critico durante l'importazione: " + err.message); 
                 console.error("Errore critico importazione clienti:", err); 
-            } finally { 
-                setLoadingActions(false); 
+            } finally {
+                setLoadingActions(false);
                 setImportProgress('');
-                if(fileInputRef.current) fileInputRef.current.value = ""; 
+                if(fileInputRef.current) fileInputRef.current.value = "";
+                if (importLog.length > 0) console.info('Dettaglio importazione:', importLog);
             }
         };
         if (file.name.endsWith('.csv')) reader.readAsText(file); 
