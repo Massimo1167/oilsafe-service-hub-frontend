@@ -517,7 +517,11 @@ function ClientiManager({ session }) {
                     }
                 } // Fine ciclo for
                 
-                if (importLog.length > 0) console.log('Dettaglio importazione:', importLog);
+                if (importLog.length > 0) {
+                    console.log('Dettaglio importazione:', importLog);
+                } else { 
+                    console.log('Importazione terminata senza dettagli di rilievo');
+                }
 
                 let finalMessage = `${uniqueClienti} clienti processati. ${managedIndirizzi} indirizzi gestiti.`;
                 if (errorsDetail.length > 0) {
