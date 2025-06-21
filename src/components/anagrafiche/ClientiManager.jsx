@@ -516,6 +516,8 @@ function ClientiManager({ session }) {
                         managedIndirizzi++;
                     }
                 } // Fine ciclo for
+                
+                if (importLog.length > 0) console.log('Dettaglio importazione:', importLog);
 
                 let finalMessage = `${uniqueClienti} clienti processati. ${managedIndirizzi} indirizzi gestiti.`;
                 if (errorsDetail.length > 0) {
@@ -535,7 +537,6 @@ function ClientiManager({ session }) {
                 setLoadingActions(false);
                 setImportProgress('');
                 if(fileInputRef.current) fileInputRef.current.value = "";
-                if (importLog.length > 0) console.log('Dettaglio importazione:', importLog);
             }
         };
         if (file.name.endsWith('.csv')) reader.readAsText(file); 
