@@ -535,7 +535,7 @@ function ClientiManager({ session }) {
                 setLoadingActions(false);
                 setImportProgress('');
                 if(fileInputRef.current) fileInputRef.current.value = "";
-                if (importLog.length > 0) console.info('Dettaglio importazione:', importLog);
+                if (importLog.length > 0) console.log('Dettaglio importazione:', importLog);
             }
         };
         if (file.name.endsWith('.csv')) reader.readAsText(file); 
