@@ -17,6 +17,7 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
     const [selectedFogli, setSelectedFogli] = useState(new Set());
     const [stampaLoading, setStampaLoading] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
+    const [sendingEmailId, setSendingEmailId] = useState(null);
 
     // Stati per i campi di filtro
     const [filtroDataDa, setFiltroDataDa] = useState('');
@@ -46,6 +47,7 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
             .select(`
                 id, numero_foglio, data_apertura_foglio, stato_foglio, creato_da_user_id,
                 cliente_id, commessa_id, ordine_cliente_id,
+                email_report_cliente, email_report_interno,
                 interventi_assistenza!left(tecnico_id)
             `)
             .order('data_apertura_foglio', { ascending: false });
@@ -146,7 +148,7 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
         else { setSelectedFogli(new Set()); }
     };
 
-    const handlePrintSelected = async () => { 
+    const handlePrintSelected = async () => {
         if (selectedFogli.size === 0) { alert("Seleziona almeno un foglio di assistenza da stampare."); return; }
         setStampaLoading(true); setError(null); setSuccessMessage('');
         let printErrors = [];
@@ -166,7 +168,22 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
         }
         if (printErrors.length > 0) { setError(`Si sono verificati errori durante la stampa:\n${printErrors.join('\n')}`); }
         else { setSuccessMessage(`Operazione di stampa PDF completata per ${selectedFogli.size} fogli.`); setTimeout(() => setSuccessMessage(''), 3000); }
-        setStampaLoading(false); setSelectedFogli(new Set()); 
+        setStampaLoading(false); setSelectedFogli(new Set());
+    };
+
+    const handleSendEmail = async (foglioId) => {
+        if (!window.confirm('Inviare il report di questo foglio via email?')) return;
+        setSendingEmailId(foglioId);
+        setError(null); setSuccessMessage('');
+        const { error: fnError } = await supabase.functions.invoke('invia-report-foglio', { body: { foglio_id: foglioId } });
+        if (fnError) {
+            console.error('Errore invio email:', fnError);
+            setError(fnError.message || 'Errore invio email');
+        } else {
+            setSuccessMessage('Email inviata.');
+            setTimeout(() => setSuccessMessage(''), 3000);
+        }
+        setSendingEmailId(null);
     };
 
     const resetAllFilters = () => {
@@ -278,6 +295,14 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                                 <td><span className={`status-badge status-${foglio.stato_foglio?.toLowerCase().replace(/\s+/g, '-')}`}>{foglio.stato_foglio}</span></td>
                                 <td className="actions">
                                     <Link to={`/fogli-assistenza/${foglio.id}`} className="button small">Dettaglio</Link>
+                                    <button
+                                        className="button secondary small"
+                                        onClick={() => handleSendEmail(foglio.id)}
+                                        disabled={sendingEmailId === foglio.id}
+                                        style={{marginLeft:'5px'}}
+                                    >
+                                        {sendingEmailId === foglio.id ? 'Invio...' : 'Invia Email'}
+                                    </button>
                                 </td>
                             </tr>
                         ))}
