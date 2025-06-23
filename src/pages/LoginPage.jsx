@@ -1,4 +1,8 @@
-// src/pages/LoginPage.jsx
+/**
+ * Login form that authenticates the user with Supabase.
+ * On successful sign in the global session (managed in App.jsx)
+ * redirects the user to the dashboard.
+ */
 import React, { useState } from 'react';
 import { supabase } from '../supabaseClient';
 import { useNavigate, Link } from 'react-router-dom';

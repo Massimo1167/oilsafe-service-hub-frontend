@@ -1,4 +1,9 @@
-// src/App.jsx
+/**
+ * Root component that defines application routes and global state.
+ * Manages user session via Supabase and shares common data (clienti,
+ * tecnici, commesse, ordini) with the pages. Uses React Router for
+ * navigation and shows different pages based on authentication.
+ */
 import React, { useState, useEffect, useRef } from 'react';
 import { Routes, Route, Link, useNavigate, Navigate, Outlet } from 'react-router-dom';
 import { supabase } from './supabaseClient';

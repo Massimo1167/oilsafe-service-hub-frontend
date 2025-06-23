@@ -1,4 +1,7 @@
-// src/pages/DashboardPage.jsx
+/**
+ * Simple landing page shown after login. Displays a welcome message
+ * using session data provided by `App.jsx`.
+ */
 import React from 'react';
 
 // Componente per la pagina Dashboard.

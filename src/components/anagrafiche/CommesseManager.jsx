@@ -1,4 +1,8 @@
-// src/components/Anagrafiche/CommesseManager.jsx
+/**
+ * Handles listing and editing of job orders ("commesse") linked to clients.
+ * Uses Supabase for CRUD operations and supports import/export through
+ * CSV/XLSX files. Requires the list of clients as prop for forms.
+ */
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../../supabaseClient';
 import Papa from 'papaparse';

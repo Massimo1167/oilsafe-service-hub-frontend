@@ -1,4 +1,7 @@
-// src/utils/pdfGenerator.js
+/**
+ * Copy of `pdfGenerator.js` kept for reference/testing.
+ * Contains the same PDF generation logic based on jspdf libraries.
+ */
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 // Importa l'immagine del logo dal percorso assets. Assicurati che il logo sia in 'src/assets/'.
