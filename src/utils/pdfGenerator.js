@@ -1,4 +1,8 @@
-// src/utils/pdfGenerator.js
+/**
+ * Utility functions to generate a PDF representation of a service sheet.
+ * Uses jspdf and jspdf-autotable and embeds the Oilsafe logo.
+ * Called from detail and list pages to produce printable documents.
+ */
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 // Importa l'immagine del logo dal percorso assets. Assicurati che il logo sia in 'src/assets/'.

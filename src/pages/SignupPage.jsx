@@ -1,4 +1,8 @@
-// src/pages/SignupPage.jsx
+/**
+ * Registration page to create a new user via Supabase auth.
+ * After a successful signup a confirmation email is sent and the
+ * user can proceed to login. Used mainly by administrators.
+ */
 import React, { useState } from 'react';
 import { supabase } from '../supabaseClient'; // Assicurati che il percorso sia corretto
 import { useNavigate, Link } from 'react-router-dom';

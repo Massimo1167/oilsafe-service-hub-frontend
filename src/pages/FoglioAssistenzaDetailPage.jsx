@@ -1,4 +1,8 @@
-// src/pages/FoglioAssistenzaDetailPage.jsx
+/**
+ * Shows the details of a single service sheet and its interventions.
+ * Allows editing, deletion and PDF export using `pdfGenerator.js`.
+ * Uses InterventoAssistenzaForm for adding interventions.
+ */
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient'; // Assicurati che il percorso sia corretto

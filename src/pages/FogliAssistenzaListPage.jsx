@@ -1,4 +1,8 @@
-// src/pages/FogliAssistenzaListPage.jsx
+/**
+ * Lists service sheets ("fogli assistenza") with filters and bulk actions.
+ * Fetches data via Supabase and uses pdfGenerator.js for printing.
+ * Receives anagrafiche (clients, technicians, etc.) as props from App.jsx.
+ */
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient'; // Assicurati che il percorso sia corretto

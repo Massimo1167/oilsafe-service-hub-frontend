@@ -1,4 +1,8 @@
-// src/pages/FoglioAssistenzaFormPage.jsx
+/**
+ * Page with a form to create or edit a service sheet. Manages draft
+ * persistence, signature capture and relations to clients, orders and
+ * job orders. Uses Supabase for storage and navigation via React Router.
+ */
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { supabase } from '../supabaseClient';

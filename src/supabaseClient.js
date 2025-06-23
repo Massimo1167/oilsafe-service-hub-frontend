@@ -1,4 +1,9 @@
-// src/supabaseClient.js
+/**
+ * Initializes and exports the Supabase client used across the app.
+ * Reads credentials from environment variables `VITE_SUPABASE_URL` and
+ * `VITE_SUPABASE_ANON_KEY`.
+ * Other modules import `supabase` to perform database and auth operations.
+ */
 import { createClient } from '@supabase/supabase-js'
 
 // Recupera le variabili d'ambiente definite nel tuo file .env (per lo sviluppo locale)

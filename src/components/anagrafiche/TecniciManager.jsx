@@ -1,4 +1,8 @@
-// src/components/Anagrafiche/TecniciManager.jsx
+/**
+ * Management component for technicians ("tecnici").
+ * Provides CRUD operations with CSV/XLSX import-export via Supabase.
+ * It is protected by user role checks coming from `App.jsx`.
+ */
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../supabaseClient';
 import Papa from 'papaparse';

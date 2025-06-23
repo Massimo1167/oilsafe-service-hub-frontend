@@ -1,4 +1,8 @@
-// src/components/Anagrafiche/OrdiniClienteManager.jsx
+/**
+ * Component to manage customer orders and their relation to clients
+ * and job orders. Includes pagination, import/export and CRUD features
+ * via Supabase. Visibility depends on user role.
+ */
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../../supabaseClient';
 import Papa from 'papaparse';

@@ -1,4 +1,10 @@
-// src/components/InterventoAssistenzaForm.jsx
+/**
+ * Form component used within a service report to add or edit a single
+ * "intervento" (service intervention).
+ * Depends on `supabaseClient.js` for database operations and expects
+ * a list of technicians as props. Parent components provide callbacks
+ * to handle save/cancel events.
+ */
 import React, { useState, useEffect, useMemo } from 'react'; // Aggiunto useMemo
 import { supabase } from '../supabaseClient'; // Assicurati che il percorso sia corretto
 
