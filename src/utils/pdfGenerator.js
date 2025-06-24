@@ -45,7 +45,8 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, op
     }
 
     const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
-    const layoutType = options.layout || 'table';
+    // Se non specificato, usa il layout dettagliato come predefinito
+    const layoutType = options.layout || 'detailed';
     let yPosition = 15; // Posizione Y corrente, parte dal margine superiore
     const pageHeight = doc.internal.pageSize.getHeight();
     const pageWidth = doc.internal.pageSize.getWidth();

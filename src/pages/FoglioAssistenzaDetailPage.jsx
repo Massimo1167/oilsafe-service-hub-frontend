@@ -20,7 +20,8 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
     const [showInterventoForm, setShowInterventoForm] = useState(false);
     const [editingIntervento, setEditingIntervento] = useState(null);
     const [stampaSingolaLoading, setStampaSingolaLoading] = useState(false);
-    const [layoutStampa, setLayoutStampa] = useState('table');
+    // Il layout di stampa predefinito diventa quello dettagliato
+    const [layoutStampa, setLayoutStampa] = useState('detailed');
 
     const userRole = session?.user?.role;
     const currentUserId = session?.user?.id;
@@ -207,7 +208,7 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
                 <Link to="/fogli-assistenza" className="button secondary">← Lista Fogli</Link>
                 <div style={{display: 'flex', alignItems: 'center', flexWrap:'wrap', gap:'10px'}}>
                     <select value={layoutStampa} onChange={e => setLayoutStampa(e.target.value)}>
-                        <option value="table">Layout Standard</option>
+                        <option value="table">Layout Compatto</option>
                         <option value="detailed">Layout Dettagliato</option>
                     </select>
                     {canViewThisFoglio && (
