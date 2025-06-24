@@ -20,6 +20,7 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
     const [error, setError] = useState(null);
     const [showInterventoForm, setShowInterventoForm] = useState(false);
     const [editingIntervento, setEditingIntervento] = useState(null);
+    const [interventoFormReadOnly, setInterventoFormReadOnly] = useState(false);
     const [stampaSingolaLoading, setStampaSingolaLoading] = useState(false);
     // Il layout di stampa predefinito diventa quello dettagliato
     const [layoutStampa, setLayoutStampa] = useState('detailed');
@@ -109,12 +110,13 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
     }, []);
 
 
-    const handleOpenInterventoForm = (interventoToEdit = null) => {
-        if (!canModifyInterventi) {
+    const handleOpenInterventoForm = (interventoToEdit = null, readOnly = false) => {
+        if (!canModifyInterventi && !readOnly) {
             alert("Interventi non modificabili per questo foglio.");
             return;
         }
         setEditingIntervento(interventoToEdit);
+        setInterventoFormReadOnly(readOnly);
         setShowInterventoForm(true);
         const formElement = document.getElementById('intervento-form-section');
         if (formElement) formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -122,7 +124,8 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
 
     const handleCloseInterventoForm = () => {
         setShowInterventoForm(false);
-        setEditingIntervento(null); 
+        setEditingIntervento(null);
+        setInterventoFormReadOnly(false);
     };
 
     const handleInterventoSaved = () => { 
@@ -311,14 +314,15 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
                 </button>
             )}
 
-            {showInterventoForm && canModifyInterventi && (
+            {showInterventoForm && (
                 <InterventoAssistenzaForm
                     session={session}
                     foglioAssistenzaId={foglioId}
                     tecniciList={tecnici || []}
                     interventoToEdit={editingIntervento}
-                    onInterventoSaved={handleInterventoSaved} 
-                    onCancel={handleCloseInterventoForm}    
+                    readOnly={interventoFormReadOnly}
+                    onInterventoSaved={handleInterventoSaved}
+                    onCancel={handleCloseInterventoForm}
                 />
             )}
 
@@ -335,6 +339,7 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
                                 canModify={canModifyInterventi}
                                 onEdit={() => handleOpenInterventoForm(intervento)}
                                 onDelete={() => handleDeleteIntervento(intervento.id)}
+                                onView={() => handleOpenInterventoForm(intervento, true)}
                             />
                         ))}
                     </div>
@@ -352,7 +357,7 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
                             <th style={{minWidth:'200px'}}>Descrizione Attività</th>
                             <th style={{minWidth:'150px'}}>Osservazioni Intervento</th>
                             <th>Spese</th>
-                            {canModifyInterventi && <th>Azioni</th>}
+                            <th>Azioni</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -372,25 +377,35 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
                                 {intervento.alloggio && "Alloggio"}
                                 {(!intervento.vitto && !intervento.autostrada && !intervento.alloggio) && "-"}
                             </td>
-                            {canModifyInterventi && (
-                                <td className="actions">
+                            <td className="actions">
+                                {canModifyInterventi ? (
+                                    <>
+                                        <button
+                                            className="button secondary small"
+                                            onClick={() => handleOpenInterventoForm(intervento)}
+                                            disabled={actionLoading || showInterventoForm}
+                                            style={{marginRight:'5px'}}
+                                        >
+                                            Modifica
+                                        </button>
+                                        <button
+                                            className="button danger small"
+                                            onClick={() => handleDeleteIntervento(intervento.id)}
+                                            disabled={actionLoading}
+                                        >
+                                            Elimina
+                                        </button>
+                                    </>
+                                ) : (
                                     <button
                                         className="button secondary small"
-                                        onClick={() => handleOpenInterventoForm(intervento)}
+                                        onClick={() => handleOpenInterventoForm(intervento, true)}
                                         disabled={actionLoading || showInterventoForm}
-                                        style={{marginRight:'5px'}}
                                     >
-                                        Modifica
+                                        Visualizza
                                     </button>
-                                    <button
-                                        className="button danger small"
-                                        onClick={() => handleDeleteIntervento(intervento.id)}
-                                        disabled={actionLoading}
-                                    >
-                                        Elimina
-                                    </button>
-                                </td>
-                            )}
+                                )}
+                            </td>
                         </tr>
                         ))}
                     </tbody>

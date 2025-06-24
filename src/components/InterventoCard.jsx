@@ -1,6 +1,6 @@
 import React from 'react';
 
-function InterventoCard({ intervento, canModify, onEdit, onDelete }) {
+function InterventoCard({ intervento, canModify, onEdit, onDelete, onView }) {
     if (!intervento) return null;
     const formatDate = (d) => d ? new Date(d).toLocaleDateString() : '-';
     const tecnicoNome = intervento.tecnici
@@ -49,7 +49,7 @@ function InterventoCard({ intervento, canModify, onEdit, onDelete }) {
             <p>{intervento.descrizione_attivita_svolta_intervento || '-'}</p>
             <p><strong>Osservazioni:</strong></p>
             <p>{intervento.osservazioni_intervento || '-'}</p>
-            {canModify && (
+            {canModify ? (
                 <div className="actions" style={{ marginTop: '0.5rem' }}>
                     <button
                         className="button secondary small"
@@ -65,6 +65,17 @@ function InterventoCard({ intervento, canModify, onEdit, onDelete }) {
                         Elimina
                     </button>
                 </div>
+            ) : (
+                onView && (
+                    <div className="actions" style={{ marginTop: '0.5rem' }}>
+                        <button
+                            className="button secondary small"
+                            onClick={() => onView(intervento)}
+                        >
+                            Visualizza
+                        </button>
+                    </div>
+                )
             )}
         </div>
     );
