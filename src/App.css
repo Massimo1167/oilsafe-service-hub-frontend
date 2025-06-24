@@ -182,3 +182,26 @@ header nav { /* Aggiunto per allineare il bottone a destra */
 .button.success.small:hover {
     background-color: #218838;
 }
+
+
+.intervento-card {
+    border: 1px solid #ddd;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    background-color: #fff;
+}
+.intervento-card table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 0.5rem;
+}
+.intervento-card td {
+    padding: 0.3rem;
+}
+.intervento-card p {
+    margin: 0.2rem 0;
+    white-space: pre-wrap;
+}
+.intervento-card .actions {
+    margin-top: 0.5rem;
+}
