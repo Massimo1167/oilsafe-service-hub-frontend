@@ -16,7 +16,8 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
     const [error, setError] = useState(null);
     const [selectedFogli, setSelectedFogli] = useState(new Set());
     const [stampaLoading, setStampaLoading] = useState(false);
-    const [layoutStampa, setLayoutStampa] = useState('table');
+    // Imposta il layout di stampa predefinito su quello dettagliato
+    const [layoutStampa, setLayoutStampa] = useState('detailed');
     const [successMessage, setSuccessMessage] = useState('');
     const [sendingEmailId, setSendingEmailId] = useState(null);
 
@@ -238,7 +239,7 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                 )}
 
                 <select value={layoutStampa} onChange={e => setLayoutStampa(e.target.value)}>
-                    <option value="table">Layout Standard</option>
+                    <option value="table">Layout Compatto</option>
                     <option value="detailed">Layout Dettagliato</option>
                 </select>
 
