@@ -134,17 +134,38 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
             return;
         }
         if (window.confirm("Sei sicuro di voler eliminare questo intervento specifico?")) {
-            setActionLoading(true); 
+            setActionLoading(true);
             const { error: deleteError } = await supabase.from('interventi_assistenza').delete().eq('id', interventoId);
             if (deleteError) {
                 setError("Errore eliminazione intervento: " + deleteError.message);
                 alert("Errore eliminazione intervento: " + deleteError.message);
             } else {
-                await fetchFoglioData(); 
+                await fetchFoglioData();
                 alert("Intervento eliminato.");
             }
             setActionLoading(false);
         }
+    };
+
+    // Permette la rimozione della firma cliente già salvata.
+    // Aggiorna il record su Supabase impostando `firma_cliente_url` a null
+    // e ricarica i dati del foglio dopo l'operazione.
+    const handleRemoveFirmaCliente = async () => {
+        if (!canEditThisFoglioOverall || !foglio?.firma_cliente_url) return;
+        if (!window.confirm("Rimuovere la firma cliente?")) return;
+        setActionLoading(true);
+        const { error } = await supabase
+            .from('fogli_assistenza')
+            .update({ firma_cliente_url: null })
+            .eq('id', foglioId);
+        if (error) {
+            setError("Errore rimozione firma cliente: " + error.message);
+            alert("Errore rimozione firma cliente: " + error.message);
+        } else {
+            await fetchFoglioData();
+            alert("Firma cliente rimossa.");
+        }
+        setActionLoading(false);
     };
 
     const handlePrintSingleFoglio = async () => {
@@ -238,7 +259,14 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
                 <div style={{textAlign:'center', padding:'10px', border:'1px solid #eee', borderRadius:'4px', minWidth:'320px', background:'white'}}>
                     <p>Firma Cliente:</p>
                     {foglio.firma_cliente_url ? (
+                    <>
                     <img src={foglio.firma_cliente_url} alt="Firma Cliente" style={{border:'1px solid #ccc', maxWidth: '300px', maxHeight: '150px', display:'block', margin:'auto'}}/>
+                    {canEditThisFoglioOverall && (
+                        <button onClick={handleRemoveFirmaCliente} className="button danger small" style={{marginTop:'8px'}}>
+                            Rimuovi firma cliente
+                        </button>
+                    )}
+                    </>
                     ) : <p>Non presente</p>}
                 </div>
                 <div style={{textAlign:'center', padding:'10px', border:'1px solid #eee', borderRadius:'4px', minWidth:'320px', background:'white'}}>
