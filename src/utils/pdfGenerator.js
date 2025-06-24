@@ -280,19 +280,24 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, op
                     body: [row],
                     theme: 'plain',
                     margin: { left: marginLeft, right: marginRight },
+                    tableWidth: contentWidth,
                     headStyles: { fillColor: [0, 123, 255], textColor: 255, fontStyle: 'bold', halign: 'center', fontSize: 8 },
                     columnStyles: {
-                        0: { cellWidth: 16, halign: 'center' },
-                        1: { cellWidth: 25 },
-                        2: { cellWidth: 13, halign: 'center' },
-                        3: { cellWidth: 10, halign: 'right' },
-                        4: { cellWidth: 10, halign: 'right' },
-                        5: { cellWidth: 10, halign: 'right' },
-                        6: { cellWidth: 12, halign: 'center' },
+                        0: { cellWidth: 22, halign: 'center' },
+                        1: { cellWidth: 40 },
+                        2: { cellWidth: 22, halign: 'center' },
+                        3: { cellWidth: 20, halign: 'right' },
+                        4: { cellWidth: 20, halign: 'right' },
+                        5: { cellWidth: 20, halign: 'right' },
+                        6: { cellWidth: 42, halign: 'center' },
                     },
                     didDrawPage: (data) => { if (data.pageNumber > 1) { addPageHeader(doc); } },
                 });
-                yPosition = doc.autoTable.previous.finalY ? doc.autoTable.previous.finalY + 1 : yPosition;
+                const rowHeightSpace =
+                    doc.autoTable?.previous?.table?.body?.[0]?.height || 5;
+                yPosition = doc.autoTable.previous.finalY
+                    ? doc.autoTable.previous.finalY + rowHeightSpace
+                    : yPosition;
 
                 addLabelAndValue(doc, 'Descrizione Attività:', int.descrizione_attivita_svolta_intervento || '-', marginLeft + 2);
                 addLabelAndValue(doc, 'Osservazioni:', int.osservazioni_intervento || '-', marginLeft + 2);
