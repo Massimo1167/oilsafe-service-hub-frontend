@@ -20,6 +20,7 @@ function DashboardPage({ session }) { // Riceve la sessione per personalizzare i
       }
       <p style={{ fontStyle: 'italic', marginTop: '1em' }}>
         Versione applicazione: {__APP_VERSION__}
+        Sviluppata da: Massimo Centrella ( Oilsafe S.r.l. Modena)
       </p>
       <hr style={{margin: "20px 0"}} />
       <p>Utilizza il menu di navigazione in alto per accedere alle diverse sezioni dell'applicazione.</p>
