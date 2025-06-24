@@ -28,6 +28,14 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
     const canViewThisFoglio = foglio && (userRole === 'admin' || userRole === 'manager' || userRole === 'head' || (userRole === 'user' && foglio.creato_da_user_id === currentUserId));
     const canEditThisFoglioOverall = foglio && (userRole === 'admin' || userRole === 'manager' || (userRole === 'user' && foglio.creato_da_user_id === currentUserId));
     const canDeleteThisFoglio = foglio && (userRole === 'admin' || (userRole === 'user' && foglio.creato_da_user_id === currentUserId));
+    // Gli interventi possono essere modificati solo se il foglio è ancora aperto
+    // (stato diverso da "Completato" o "Chiuso") e se la firma cliente non è stata
+    // ancora acquisita. Si basa comunque sui permessi di modifica globali del foglio.
+    const canModifyInterventi =
+        canEditThisFoglioOverall &&
+        foglio &&
+        !['Completato', 'Chiuso'].includes(foglio.stato_foglio) &&
+        !foglio.firma_cliente_url;
 
     const fetchFoglioData = useCallback(async () => {
         if (!session || !foglioId) { 
@@ -80,7 +88,11 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
 
 
     const handleOpenInterventoForm = (interventoToEdit = null) => {
-        setEditingIntervento(interventoToEdit); 
+        if (!canModifyInterventi) {
+            alert("Interventi non modificabili per questo foglio.");
+            return;
+        }
+        setEditingIntervento(interventoToEdit);
         setShowInterventoForm(true);
         const formElement = document.getElementById('intervento-form-section');
         if (formElement) formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -117,8 +129,8 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
     };
 
     const handleDeleteIntervento = async (interventoId) => {
-        if (!canEditThisFoglioOverall) { 
-            alert("Non hai i permessi per eliminare interventi su questo foglio.");
+        if (!canModifyInterventi) {
+            alert("Non è possibile modificare gli interventi di questo foglio.");
             return;
         }
         if (window.confirm("Sei sicuro di voler eliminare questo intervento specifico?")) {
@@ -239,18 +251,18 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
 
             <hr style={{margin:'30px 0'}}/>
             <h3 id="intervento-form-section">Interventi di Assistenza Associati</h3>
-            {canEditThisFoglioOverall && (
+            {canModifyInterventi && (
                 <button onClick={() => handleOpenInterventoForm(null)} disabled={actionLoading || showInterventoForm} style={{marginBottom:'1rem'}}>
                     Aggiungi Nuovo Intervento
                 </button>
             )}
 
-            {showInterventoForm && canEditThisFoglioOverall && (
+            {showInterventoForm && canModifyInterventi && (
                 <InterventoAssistenzaForm
                     session={session}
                     foglioAssistenzaId={foglioId}
                     tecniciList={tecnici || []}
-                    interventoToEdit={editingIntervento} 
+                    interventoToEdit={editingIntervento}
                     onInterventoSaved={handleInterventoSaved} 
                     onCancel={handleCloseInterventoForm}    
                 />
@@ -273,7 +285,7 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
                             <th style={{minWidth:'200px'}}>Descrizione Attività</th>
                             <th style={{minWidth:'150px'}}>Osservazioni Intervento</th>
                             <th>Spese</th>
-                            {canEditThisFoglioOverall && <th>Azioni</th>}
+                            {canModifyInterventi && <th>Azioni</th>}
                         </tr>
                     </thead>
                     <tbody>
@@ -293,19 +305,19 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
                                 {intervento.alloggio && "Alloggio"}
                                 {(!intervento.vitto && !intervento.autostrada && !intervento.alloggio) && "-"}
                             </td>
-                            {canEditThisFoglioOverall && (
+                            {canModifyInterventi && (
                                 <td className="actions">
-                                    <button 
-                                        className="button secondary small" 
+                                    <button
+                                        className="button secondary small"
                                         onClick={() => handleOpenInterventoForm(intervento)}
                                         disabled={actionLoading || showInterventoForm}
                                         style={{marginRight:'5px'}}
                                     >
                                         Modifica
                                     </button>
-                                    <button 
-                                        className="button danger small" 
-                                        onClick={() => handleDeleteIntervento(intervento.id)} 
+                                    <button
+                                        className="button danger small"
+                                        onClick={() => handleDeleteIntervento(intervento.id)}
                                         disabled={actionLoading}
                                     >
                                         Elimina
