@@ -4,7 +4,7 @@
  * job orders. Uses Supabase for storage and navigation via React Router.
  */
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { useNavigate, useParams, Link } from 'react-router-dom';
+import { useNavigate, useParams, Link, Navigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import SignatureCanvas from 'react-signature-canvas';
 
