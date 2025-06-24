@@ -60,7 +60,14 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
 
     const userRole = session?.user?.role;
     const currentUserId = session?.user?.id;
-    const canSubmitForm = userRole === 'admin' || (!isEditMode && userRole === 'user') || (isEditMode && (userRole === 'manager' || (userRole === 'user' && formCreatoDaUserIdOriginal === currentUserId)));
+    const baseFormPermission =
+        userRole === 'admin' ||
+        (!isEditMode && userRole === 'user') ||
+        (isEditMode && (userRole === 'manager' || (userRole === 'user' && formCreatoDaUserIdOriginal === currentUserId)));
+    const formEditingAllowed =
+        formStatoFoglio !== 'Chiuso' &&
+        !(formStatoFoglio === 'Completato' && !!firmaClientePreview);
+    const canSubmitForm = baseFormPermission && formEditingAllowed;
 
     useEffect(() => {
         if (!pageLoading) {
