@@ -49,8 +49,9 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, op
     let yPosition = 15; // Posizione Y corrente, parte dal margine superiore
     const pageHeight = doc.internal.pageSize.getHeight();
     const pageWidth = doc.internal.pageSize.getWidth();
-    const marginLeft = 15;
-    const marginRight = 15;
+    const margin = 12;
+    const marginLeft = margin;
+    const marginRight = margin;
     const contentWidth = pageWidth - marginLeft - marginRight;
     const marginBottom = 15; // Margine inferiore per il contenuto principale
 
@@ -251,11 +252,39 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, op
             interventiData.forEach((int, idx) => {
                 if (idx > 0) addLine(doc);
 
-                const infoLinea1 = `${new Date(int.data_intervento_effettivo).toLocaleDateString()} | ${int.tecnici ? `${int.tecnici.nome.substring(0,1)}. ${int.tecnici.cognome}` : 'N/D'} | ${int.tipo_intervento || '-'} | H Lav.: ${int.ore_lavoro_effettive || '-'} | H Via.: ${int.ore_viaggio || '-'} | Km: ${int.km_percorsi || '-'} | Spese: ${[(int.vitto ? 'V' : ''), (int.autostrada ? 'A' : ''), (int.alloggio ? 'H' : '')].filter(Boolean).join('/') || '-'}`;
-                addFormattedText(doc, infoLinea1, marginLeft, { fontSize: 9, marginBottom: 1, keepTogether: true });
+                const spese = [(int.vitto ? 'V' : ''), (int.autostrada ? 'A' : ''), (int.alloggio ? 'H' : '')].filter(Boolean).join('/') || '-';
 
-                addFormattedText(doc, `Descrizione Attività: ${int.descrizione_attivita_svolta_intervento || '-'}`, marginLeft + 2, { maxWidth: contentWidth - 2, marginBottom: 1 });
-                addFormattedText(doc, `Osservazioni: ${int.osservazioni_intervento || '-'}`, marginLeft + 2, { maxWidth: contentWidth - 2, marginBottom: 2 });
+                doc.autoTable({
+                    startY: yPosition,
+                    head: [['Data', 'Tecnico', 'Tipo', 'H Lav.', 'H Via.', 'Km', 'Spese']],
+                    body: [[
+                        new Date(int.data_intervento_effettivo).toLocaleDateString(),
+                        int.tecnici ? `${int.tecnici.nome.substring(0,1)}. ${int.tecnici.cognome}` : 'N/D',
+                        int.tipo_intervento || '-',
+                        int.ore_lavoro_effettive || '-',
+                        int.ore_viaggio || '-',
+                        int.km_percorsi || '-',
+                        spese,
+                    ]],
+                    theme: 'plain',
+                    margin: { left: marginLeft, right: marginRight },
+                    headStyles: { fillColor: [0, 123, 255], textColor: 255, fontStyle: 'bold', halign: 'center', fontSize: 8 },
+                    bodyStyles: { fontSize: 8 },
+                    columnStyles: {
+                        0: { cellWidth: 16, halign: 'center' },
+                        1: { cellWidth: 25 },
+                        2: { cellWidth: 13, halign: 'center' },
+                        3: { cellWidth: 10, halign: 'right' },
+                        4: { cellWidth: 10, halign: 'right' },
+                        5: { cellWidth: 10, halign: 'right' },
+                        6: { cellWidth: 12, halign: 'center' },
+                    },
+                    didDrawPage: (data) => { if (data.pageNumber > 1) { addPageHeader(doc); } },
+                });
+                yPosition = doc.autoTable.previous.finalY ? doc.autoTable.previous.finalY + 1 : yPosition;
+
+                addLabelAndValue(doc, 'Descrizione Attività:', int.descrizione_attivita_svolta_intervento || '-', marginLeft + 2);
+                addLabelAndValue(doc, 'Osservazioni:', int.osservazioni_intervento || '-', marginLeft + 2);
             });
             yPosition += 3;
         }
