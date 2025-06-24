@@ -320,7 +320,13 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
                 isSmallScreen ? (
                     <div>
                         {interventi.map(intervento => (
-                            <InterventoCard key={intervento.id} intervento={intervento} />
+                            <InterventoCard
+                                key={intervento.id}
+                                intervento={intervento}
+                                canModify={canModifyInterventi}
+                                onEdit={() => handleOpenInterventoForm(intervento)}
+                                onDelete={() => handleDeleteIntervento(intervento.id)}
+                            />
                         ))}
                     </div>
                 ) : (

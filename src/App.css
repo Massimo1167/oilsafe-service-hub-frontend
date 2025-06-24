@@ -202,3 +202,7 @@ header nav { /* Aggiunto per allineare il bottone a destra */
     margin: 0.2rem 0;
     white-space: pre-wrap;
 }
+.intervento-card .actions {
+    margin-top: 0.5rem;
+}
+
