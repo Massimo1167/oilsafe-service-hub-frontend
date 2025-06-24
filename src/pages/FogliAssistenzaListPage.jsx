@@ -16,6 +16,7 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
     const [error, setError] = useState(null);
     const [selectedFogli, setSelectedFogli] = useState(new Set());
     const [stampaLoading, setStampaLoading] = useState(false);
+    const [layoutStampa, setLayoutStampa] = useState('table');
     const [successMessage, setSuccessMessage] = useState('');
     const [sendingEmailId, setSendingEmailId] = useState(null);
 
@@ -160,7 +161,7 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                 const { data: interventiData, error: interventiError } = await supabase.from('interventi_assistenza').select(`*, tecnici (*)`) .eq('foglio_assistenza_id', foglioId).order('data_intervento_effettivo');
                 if (interventiError) console.warn(`Attenzione: Errore nel recuperare gli interventi per il foglio ${foglioId}: ${interventiError.message}`);
                 
-                await generateFoglioAssistenzaPDF(foglioData, interventiData || []);
+                await generateFoglioAssistenzaPDF(foglioData, interventiData || [], { layout: layoutStampa });
             } catch (err) { 
                 console.error(`Errore durante la generazione del PDF per il foglio ${foglioId}:`, err); 
                 printErrors.push(`Foglio ${foglioId.substring(0,8)}: ${err.message}`);
@@ -235,10 +236,15 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                         Nuovo Foglio Assistenza
                     </Link>
                 )}
-                
+
+                <select value={layoutStampa} onChange={e => setLayoutStampa(e.target.value)}>
+                    <option value="table">Layout Standard</option>
+                    <option value="detailed">Layout Dettagliato</option>
+                </select>
+
                 {fogliFiltrati.length > 0 && (
-                    <button 
-                        onClick={handlePrintSelected} 
+                    <button
+                        onClick={handlePrintSelected}
                         disabled={selectedFogli.size === 0 || stampaLoading || loadingFogli}
                         className="button primary"
                     >
