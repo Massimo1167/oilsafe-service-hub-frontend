@@ -252,10 +252,20 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, op
             interventiData.forEach((int, idx) => {
                 if (idx > 0) addLine(doc);
 
+                const row = [
+                    new Date(int.data_intervento_effettivo).toLocaleDateString(),
+                    int.tecnici ? `${int.tecnici.nome.substring(0,1)}. ${int.tecnici.cognome}` : 'N/D',
+                    int.tipo_intervento || '-',
+                    int.ore_lavoro_effettive || '-',
+                    int.ore_viaggio || '-',
+                    int.km_percorsi || '-',
+                    [(int.vitto ? 'V' : ''), (int.autostrada ? 'A' : ''), (int.alloggio ? 'H' : '')].filter(Boolean).join('/') || '-'
+                ];
+
                 doc.autoTable({
                     startY: yPosition,
                     head: [['Data', 'Tecnico', 'Tipo', 'H Lav.', 'H Via.', 'Km', 'Spese']],
-                    body: [],
+                    body: [row],
                     theme: 'plain',
                     margin: { left: marginLeft, right: marginRight },
                     headStyles: { fillColor: [0, 123, 255], textColor: 255, fontStyle: 'bold', halign: 'center', fontSize: 8 },
@@ -271,9 +281,6 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, op
                     didDrawPage: (data) => { if (data.pageNumber > 1) { addPageHeader(doc); } },
                 });
                 yPosition = doc.autoTable.previous.finalY ? doc.autoTable.previous.finalY + 1 : yPosition;
-
-                const infoLinea1 = `${new Date(int.data_intervento_effettivo).toLocaleDateString()} | ${int.tecnici ? `${int.tecnici.nome.substring(0,1)}. ${int.tecnici.cognome}` : 'N/D'} | ${int.tipo_intervento || '-'} | H Lav.: ${int.ore_lavoro_effettive || '-'} | H Via.: ${int.ore_viaggio || '-'} | Km: ${int.km_percorsi || '-'} | Spese: ${[(int.vitto ? 'V' : ''), (int.autostrada ? 'A' : ''), (int.alloggio ? 'H' : '')].filter(Boolean).join('/') || '-'}`;
-                addFormattedText(doc, infoLinea1, marginLeft, { fontSize: 9, marginBottom: 1, keepTogether: true });
 
                 addLabelAndValue(doc, 'Descrizione Attività:', int.descrizione_attivita_svolta_intervento || '-', marginLeft + 2);
                 addLabelAndValue(doc, 'Osservazioni:', int.osservazioni_intervento || '-', marginLeft + 2);
