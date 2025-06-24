@@ -293,7 +293,11 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, op
                     },
                     didDrawPage: (data) => { if (data.pageNumber > 1) { addPageHeader(doc); } },
                 });
-                yPosition = doc.autoTable.previous.finalY ? doc.autoTable.previous.finalY + 1 : yPosition;
+                const rowHeightSpace =
+                    doc.autoTable?.previous?.table?.body?.[0]?.height || 5;
+                yPosition = doc.autoTable.previous.finalY
+                    ? doc.autoTable.previous.finalY + rowHeightSpace
+                    : yPosition;
 
                 addLabelAndValue(doc, 'Descrizione Attività:', int.descrizione_attivita_svolta_intervento || '-', marginLeft + 2);
                 addLabelAndValue(doc, 'Osservazioni:', int.osservazioni_intervento || '-', marginLeft + 2);
