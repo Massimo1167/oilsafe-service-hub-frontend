@@ -338,7 +338,3 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, op
     doc.save(fileName);
 };
 
-// Wrapper che utilizza un layout più leggibile per la sezione interventi
-export const generateFoglioAssistenzaPDFDettagliato = async (foglioData, interventiData) => {
-    await generateFoglioAssistenzaPDF(foglioData, interventiData, { layout: 'detailed' });
-};
