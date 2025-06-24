@@ -238,13 +238,24 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, op
             ]);
 
             doc.autoTable({
-                startY: yPosition, head, body, theme: 'striped',
+                startY: yPosition,
+                head,
+                body,
+                theme: 'striped',
+                margin: { left: marginLeft, right: marginRight },
+                tableWidth: contentWidth,
                 headStyles: { fillColor: [0, 123, 255], textColor: 255, fontStyle: 'bold', fontSize: 7.5, halign: 'center' },
                 styles: { fontSize: 7, cellPadding: 1, overflow: 'linebreak' },
                 columnStyles: {
-                    0: { cellWidth: 16, halign: 'center' }, 1: { cellWidth: 25 }, 2: { cellWidth: 13, halign: 'center' },
-                    3: { cellWidth: 10, halign: 'right' }, 4: { cellWidth: 10, halign: 'right' }, 5: { cellWidth: 10, halign: 'right' },
-                    6: { cellWidth: 'auto' }, 7: { cellWidth: 35 }, 8: { cellWidth: 12, halign: 'center' },
+                    0: { cellWidth: 16, halign: 'center' },
+                    1: { cellWidth: 25 },
+                    2: { cellWidth: 13, halign: 'center' },
+                    3: { cellWidth: 10, halign: 'right' },
+                    4: { cellWidth: 10, halign: 'right' },
+                    5: { cellWidth: 10, halign: 'right' },
+                    6: { cellWidth: 55 },
+                    7: { cellWidth: 35 },
+                    8: { cellWidth: 12, halign: 'center' },
                 },
                 didDrawPage: (data) => { if (data.pageNumber > 1) { addPageHeader(doc); } },
             });
