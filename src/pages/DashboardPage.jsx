@@ -12,12 +12,15 @@ function DashboardPage({ session }) { // Riceve la sessione per personalizzare i
       <h2>Dashboard</h2>
       <p>Benvenuto in Oilsafe Service Hub!</p>
       {/* Mostra un messaggio di benvenuto personalizzato se la sessione utente è attiva */}
-      {session && 
+      {session &&
         <p>
-          Loggato come: <strong>{session.user.full_name || session.user.email}</strong> 
+          Loggato come: <strong>{session.user.full_name || session.user.email}</strong>
           (Ruolo: <strong>{session.user.role}</strong>)
         </p>
       }
+      <p style={{ fontStyle: 'italic', marginTop: '1em' }}>
+        Versione applicazione: {__APP_VERSION__}
+      </p>
       <hr style={{margin: "20px 0"}} />
       <p>Utilizza il menu di navigazione in alto per accedere alle diverse sezioni dell'applicazione.</p>
     </div>
