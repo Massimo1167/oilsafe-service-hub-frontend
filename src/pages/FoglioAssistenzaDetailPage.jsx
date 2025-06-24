@@ -18,8 +18,9 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
     const [actionLoading, setActionLoading] = useState(false); 
     const [error, setError] = useState(null);
     const [showInterventoForm, setShowInterventoForm] = useState(false);
-    const [editingIntervento, setEditingIntervento] = useState(null); 
+    const [editingIntervento, setEditingIntervento] = useState(null);
     const [stampaSingolaLoading, setStampaSingolaLoading] = useState(false);
+    const [layoutStampa, setLayoutStampa] = useState('table');
 
     const userRole = session?.user?.role;
     const currentUserId = session?.user?.id;
@@ -185,7 +186,7 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
                 if (fullErr || !fullData) throw new Error(fullErr?.message || "Impossibile ricaricare dati foglio per stampa.");
                 foglioCompletoPerStampa = fullData;
             }
-            await generateFoglioAssistenzaPDF(foglioCompletoPerStampa, interventi);
+            await generateFoglioAssistenzaPDF(foglioCompletoPerStampa, interventi, { layout: layoutStampa });
         } catch (err) { 
             console.error(`Errore durante la generazione del PDF per il foglio singolo ${foglioId}:`, err);
             setError(`Errore PDF: ${err.message}`);
@@ -205,10 +206,14 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
             <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom:'1rem', flexWrap:'wrap', gap:'10px'}}>
                 <Link to="/fogli-assistenza" className="button secondary">← Lista Fogli</Link>
                 <div style={{display: 'flex', alignItems: 'center', flexWrap:'wrap', gap:'10px'}}>
+                    <select value={layoutStampa} onChange={e => setLayoutStampa(e.target.value)}>
+                        <option value="table">Layout Standard</option>
+                        <option value="detailed">Layout Dettagliato</option>
+                    </select>
                     {canViewThisFoglio && (
-                         <button 
-                            onClick={handlePrintSingleFoglio} 
-                            className="button primary" 
+                         <button
+                            onClick={handlePrintSingleFoglio}
+                            className="button primary"
                             disabled={stampaSingolaLoading || !foglio || actionLoading}
                         >
                             {stampaSingolaLoading ? 'Stampa in corso...' : 'Stampa Foglio'}
