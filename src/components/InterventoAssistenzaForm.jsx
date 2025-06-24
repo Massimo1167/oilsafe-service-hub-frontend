@@ -3,18 +3,20 @@
  * "intervento" (service intervention).
  * Depends on `supabaseClient.js` for database operations and expects
  * a list of technicians as props. Parent components provide callbacks
- * to handle save/cancel events.
+ * to handle save/cancel events. When invoked with `readOnly` all
+ * form fields are disabled allowing inspection only.
  */
 import React, { useState, useEffect, useMemo } from 'react'; // Aggiunto useMemo
 import { supabase } from '../supabaseClient'; // Assicurati che il percorso sia corretto
 
-function InterventoAssistenzaForm({ 
-    session, 
-    foglioAssistenzaId, 
-    tecniciList, 
-    interventoToEdit, 
-    onInterventoSaved, 
-    onCancel 
+function InterventoAssistenzaForm({
+    session,
+    foglioAssistenzaId,
+    tecniciList,
+    interventoToEdit,
+    onInterventoSaved,
+    onCancel,
+    readOnly = false
 }) {
     const isEditMode = !!interventoToEdit;
 
@@ -75,6 +77,7 @@ function InterventoAssistenzaForm({
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (readOnly) return;
         setLoading(true);
         setError(null);
 
@@ -151,8 +154,9 @@ function InterventoAssistenzaForm({
 
     return (
         <div style={{ border: '1px solid #007bff', padding: '1rem', marginTop: '1rem', borderRadius: '5px', backgroundColor:'#f0f8ff' }}>
-          <h4>{isEditMode ? 'Modifica Intervento Selezionato' : 'Aggiungi Nuovo Intervento'}</h4>
+          <h4>{isEditMode ? (readOnly ? 'Visualizza Intervento' : 'Modifica Intervento Selezionato') : 'Aggiungi Nuovo Intervento'}</h4>
           <form onSubmit={handleSubmit}>
+            <fieldset disabled={readOnly} style={{border:0, padding:0, margin:0}}>
             <div>
               <label htmlFor="formDataIntervento">Data Intervento:</label>
               <input type="date" id="formDataIntervento" value={formDataIntervento} onChange={(e) => setFormDataIntervento(e.target.value)} required />
@@ -236,14 +240,15 @@ function InterventoAssistenzaForm({
                 </div>
               </>
             )}
-             <div>
+            <div>
               <label htmlFor="formOsservazioni">Osservazioni Intervento:</label>
               <textarea id="formOsservazioni" value={formOsservazioni} onChange={(e) => setFormOsservazioni(e.target.value)} />
             </div>
+            </fieldset>
 
             {error && <p style={{ color: 'red', fontWeight:'bold' }}>ERRORE: {error}</p>}
             <div style={{marginTop:'20px'}}>
-                <button type="submit" disabled={loading}>{loading ? "Salvataggio..." : (isEditMode ? "Salva Modifiche Intervento" : "Aggiungi Intervento")}</button>
+                <button type="submit" disabled={loading || readOnly}>{loading ? "Salvataggio..." : (isEditMode ? "Salva Modifiche Intervento" : "Aggiungi Intervento")}</button>
                 <button type="button" className="secondary" onClick={onCancel} disabled={loading} style={{marginLeft:'10px'}}>
                     Annulla
                 </button>
