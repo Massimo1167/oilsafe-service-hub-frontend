@@ -7,6 +7,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useNavigate, Navigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient'; // Assicurati che il percorso sia corretto
 import InterventoAssistenzaForm from '../components/InterventoAssistenzaForm'; // Assicurati che il percorso sia corretto
+import InterventoCard from '../components/InterventoCard';
 import { generateFoglioAssistenzaPDF } from '../utils/pdfGenerator'; // Assicurati che il percorso sia corretto
 
 function FoglioAssistenzaDetailPage({ session, tecnici }) {
@@ -22,6 +23,7 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
     const [stampaSingolaLoading, setStampaSingolaLoading] = useState(false);
     // Il layout di stampa predefinito diventa quello dettagliato
     const [layoutStampa, setLayoutStampa] = useState('detailed');
+    const [isSmallScreen, setIsSmallScreen] = useState(false);
 
     const userRole = session?.user?.role;
     const currentUserId = session?.user?.id;
@@ -87,6 +89,15 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
     useEffect(() => {
         fetchFoglioData();
     }, [fetchFoglioData]);
+
+    useEffect(() => {
+        const handleResize = () => {
+            setIsSmallScreen(window.innerWidth <= 768);
+        };
+        handleResize();
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
 
     const handleOpenInterventoForm = (interventoToEdit = null) => {
@@ -306,6 +317,13 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
                 <p>Nessun intervento registrato per questo foglio.</p>
             )}
             {interventi.length > 0 && (
+                isSmallScreen ? (
+                    <div>
+                        {interventi.map(intervento => (
+                            <InterventoCard key={intervento.id} intervento={intervento} />
+                        ))}
+                    </div>
+                ) : (
                 <div style={{overflowX: 'auto'}}>
                 <table>
                     <thead>
@@ -363,6 +381,7 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
                     </tbody>
                 </table>
                 </div>
+                )
             )}
         </div>
     );
