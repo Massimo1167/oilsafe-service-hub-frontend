@@ -30,13 +30,22 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
 
     // Calcola i permessi dopo che `foglio` è stato caricato
     const canViewThisFoglio = foglio && (userRole === 'admin' || userRole === 'manager' || userRole === 'head' || (userRole === 'user' && foglio.creato_da_user_id === currentUserId));
-    const canEditThisFoglioOverall = foglio && (userRole === 'admin' || userRole === 'manager' || (userRole === 'user' && foglio.creato_da_user_id === currentUserId));
+    const baseEditPermission = foglio && (userRole === 'admin' || userRole === 'manager' || (userRole === 'user' && foglio.creato_da_user_id === currentUserId));
+    const canEditThisFoglioOverall =
+        baseEditPermission &&
+        foglio &&
+        foglio.stato_foglio !== 'Chiuso' &&
+        !(foglio.stato_foglio === 'Completato' && foglio.firma_cliente_url);
+    const canRemoveFirmaCliente =
+        baseEditPermission &&
+        foglio &&
+        foglio.stato_foglio !== 'Chiuso';
     const canDeleteThisFoglio = foglio && (userRole === 'admin' || (userRole === 'user' && foglio.creato_da_user_id === currentUserId));
     // Gli interventi possono essere modificati solo se il foglio è ancora aperto
     // (stato diverso da "Completato" o "Chiuso") e se la firma cliente non è stata
     // ancora acquisita. Si basa comunque sui permessi di modifica globali del foglio.
     const canModifyInterventi =
-        canEditThisFoglioOverall &&
+        baseEditPermission &&
         foglio &&
         !['Completato', 'Chiuso'].includes(foglio.stato_foglio) &&
         !foglio.firma_cliente_url;
@@ -164,7 +173,7 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
     // Aggiorna il record su Supabase impostando `firma_cliente_url` a null
     // e ricarica i dati del foglio dopo l'operazione.
     const handleRemoveFirmaCliente = async () => {
-        if (!canEditThisFoglioOverall || !foglio?.firma_cliente_url) return;
+        if (!canRemoveFirmaCliente || !foglio?.firma_cliente_url) return;
         if (!window.confirm("Rimuovere la firma cliente?")) return;
         setActionLoading(true);
         const { error } = await supabase
@@ -278,7 +287,7 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
                     {foglio.firma_cliente_url ? (
                     <>
                     <img src={foglio.firma_cliente_url} alt="Firma Cliente" style={{border:'1px solid #ccc', maxWidth: '300px', maxHeight: '150px', display:'block', margin:'auto'}}/>
-                    {canEditThisFoglioOverall && (
+                    {canRemoveFirmaCliente && (
                         <button onClick={handleRemoveFirmaCliente} className="button danger small" style={{marginTop:'8px'}}>
                             Rimuovi firma cliente
                         </button>
