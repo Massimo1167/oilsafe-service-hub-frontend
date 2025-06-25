@@ -25,7 +25,7 @@ function TecniciManager({ session }) {
     const [formEmail, setFormEmail] = useState('');
     const [editingTecnico, setEditingTecnico] = useState(null);
 
-    const userRole = session?.user?.role;
+    const userRole = (session?.user?.role || '').trim().toLowerCase();
     const canManage = userRole === 'admin' || userRole === 'manager';
     const fileInputRef = useRef(null);
 

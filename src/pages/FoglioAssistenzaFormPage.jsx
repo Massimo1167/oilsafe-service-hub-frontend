@@ -58,7 +58,7 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
     const [firmaClientePreview, setFirmaClientePreview] = useState(null);
     const [firmaTecnicoPreview, setFirmaTecnicoPreview] = useState(null);
 
-    const userRole = session?.user?.role;
+    const userRole = (session?.user?.role || '').trim().toLowerCase();
     const currentUserId = session?.user?.id;
     const baseFormPermission =
         userRole === 'admin' ||
