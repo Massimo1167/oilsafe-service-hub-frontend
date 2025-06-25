@@ -38,7 +38,7 @@ function CommesseManager({ session, clienti }) { // `clienti` prop è usato per 
     const [ricercaSbloccata, setRicercaSbloccata] = useState(false);
 
     // Ruolo utente e permessi
-    const userRole = session?.user?.role;
+    const userRole = (session?.user?.role || '').trim().toLowerCase();
     const canManage = userRole === 'admin' || userRole === 'manager';
 
     // Ref per input file e debounce
