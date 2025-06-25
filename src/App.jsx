@@ -112,6 +112,9 @@ function App() {
                 console.debug('APP.JSX: setSession profile role', newSession.user.role);
             } else {
                 const newSession = {
+                });
+            } else {
+                setSession({
                     ...currentAuthSession,
                     user: {
                         ...currentAuthSession.user,
