@@ -37,6 +37,14 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
         foglio &&
         foglio.stato_foglio !== 'Chiuso' &&
         !(foglio.stato_foglio === 'Completato' && foglio.firma_cliente_url);
+    console.debug('FADetail perms', {
+        userRole,
+        currentUserId,
+        foglioCreator: foglio?.creato_da_user_id,
+        foglioStato: foglio?.stato_foglio,
+        baseEditPermission,
+        canEditThisFoglioOverall,
+    });
     const canRemoveFirmaCliente =
         baseEditPermission &&
         foglio &&

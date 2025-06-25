@@ -68,6 +68,16 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
         formStatoFoglio !== 'Chiuso' &&
         !(formStatoFoglio === 'Completato' && !!firmaClientePreview);
     const canSubmitForm = baseFormPermission && formEditingAllowed;
+    console.debug('FAPage perms', {
+        userRole,
+        currentUserId,
+        formCreatoDaUserIdOriginal,
+        isEditMode,
+        formStatoFoglio,
+        baseFormPermission,
+        formEditingAllowed,
+        canSubmitForm,
+    });
 
     useEffect(() => {
         if (!pageLoading) {

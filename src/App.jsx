@@ -76,69 +76,81 @@ function App() {
                     currentReactSessionForFallback?.user?.id === currentAuthSession.user.id &&
                     currentReactSessionForFallback.user.role
                 ) {
-                    setSession({
+                    const newSession = {
                         ...currentAuthSession,
                         user: {
                             ...currentAuthSession.user,
                             role: (currentReactSessionForFallback.user.role || 'user').trim().toLowerCase(),
                             full_name: currentReactSessionForFallback.user.full_name,
                         },
-                    });
+                    };
+                    setSession(newSession);
+                    console.debug('APP.JSX: setSession fallback role', newSession.user.role);
                 } else {
-                    setSession({
+                    const newSession = {
                         ...currentAuthSession,
                         user: {
                             ...currentAuthSession.user,
                             role: 'user',
                             full_name: currentAuthSession.user.email,
                         },
-                    });
+                    };
+                    setSession(newSession);
+                    console.debug('APP.JSX: setSession default role', newSession.user.role);
                 }
             } else if (profile) {
                 const normalizedRole = (profile.role || 'user').trim().toLowerCase();
-                setSession({
+                const newSession = {
                     ...currentAuthSession,
                     user: {
                         ...currentAuthSession.user,
                         ...profile,
                         role: normalizedRole,
                     },
-                });
+                };
+                setSession(newSession);
+                console.debug('APP.JSX: setSession profile role', newSession.user.role);
             } else {
-                setSession({
+                const newSession = {
                     ...currentAuthSession,
                     user: {
                         ...currentAuthSession.user,
                         role: 'user',
                         full_name: currentAuthSession.user.email,
                     },
-                });
+                };
+                setSession(newSession);
+                console.debug('APP.JSX: setSession no profile role', newSession.user.role);
             }
         } catch (e) {
             if (
                 currentReactSessionForFallback?.user?.id === currentAuthSession?.user?.id &&
                 currentReactSessionForFallback.user.role
             ) {
-                setSession({
+                const newSession = {
                     ...currentAuthSession,
                     user: {
                         ...currentAuthSession.user,
                         role: (currentReactSessionForFallback.user.role || 'user').trim().toLowerCase(),
                         full_name: currentReactSessionForFallback.user.full_name,
                     },
-                });
+                };
+                setSession(newSession);
+                console.debug('APP.JSX: setSession exception fallback role', newSession.user.role);
             } else if (currentAuthSession && currentAuthSession.user) {
-                setSession({
+                const newSession = {
                     ...currentAuthSession,
                     user: {
                         ...currentAuthSession.user,
                         role: 'user',
                         full_name: currentAuthSession.user.email,
                     },
-                });
+                };
+                setSession(newSession);
+                console.debug('APP.JSX: setSession exception default role', newSession.user.role);
             } else {
                 setSession(null);
-            }
+                }
         }
     };
 
