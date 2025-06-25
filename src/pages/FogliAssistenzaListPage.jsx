@@ -30,7 +30,7 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
     const [filtroOrdineTesto, setFiltroOrdineTesto] = useState('');
     const [filtroStato, setFiltroStato] = useState(''); // NUOVO STATO PER IL FILTRO STATO ('' significa 'Tutti')
     
-    const userRole = session?.user?.role;
+    const userRole = (session?.user?.role || '').trim().toLowerCase();
     const currentUserId = session?.user?.id;
 
     // Funzione per caricare i dati dei fogli dal server
