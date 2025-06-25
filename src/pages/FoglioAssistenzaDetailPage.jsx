@@ -30,34 +30,58 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
     const currentUserId = session?.user?.id;
 
     // Calcola i permessi dopo che `foglio` è stato caricato
-    const canViewThisFoglio = foglio && (userRole === 'admin' || userRole === 'manager' || userRole === 'head' || (userRole === 'user' && foglio.creato_da_user_id === currentUserId));
-    const baseEditPermission = foglio && (userRole === 'admin' || userRole === 'manager' || (userRole === 'user' && foglio.creato_da_user_id === currentUserId));
-    const canEditThisFoglioOverall =
-        baseEditPermission &&
+    const canViewThisFoglio =
         foglio &&
-        foglio.stato_foglio !== 'Chiuso' &&
-        !(foglio.stato_foglio === 'Completato' && foglio.firma_cliente_url);
+        (userRole === 'admin' ||
+            userRole === 'manager' ||
+            userRole === 'head' ||
+            (userRole === 'user' && foglio.creato_da_user_id === currentUserId));
+
+    const isChiuso = foglio?.stato_foglio === 'Chiuso';
+    const isCompletato = foglio?.stato_foglio === 'Completato';
+    const firmaPresente = !!foglio?.firma_cliente_url;
+
+    const baseEditPermission =
+        foglio &&
+        (userRole === 'admin' ||
+            userRole === 'manager' ||
+            (userRole === 'user' && foglio.creato_da_user_id === currentUserId));
+
+    let canEditThisFoglioOverall = false;
+    if (foglio) {
+        if (userRole === 'admin') {
+            canEditThisFoglioOverall = true;
+        } else if (userRole === 'manager') {
+            canEditThisFoglioOverall = !isChiuso;
+        } else if (userRole === 'user' && foglio.creato_da_user_id === currentUserId) {
+            canEditThisFoglioOverall = !isChiuso && !isCompletato && !firmaPresente;
+        }
+    }
+
     console.debug('FADetail perms', {
         userRole,
         currentUserId,
         foglioCreator: foglio?.creato_da_user_id,
         foglioStato: foglio?.stato_foglio,
-        baseEditPermission,
+        firmaPresente,
         canEditThisFoglioOverall,
     });
-    const canRemoveFirmaCliente =
-        baseEditPermission &&
+    const canRemoveFirmaCliente = baseEditPermission && foglio && !isChiuso;
+
+    const canDeleteThisFoglio =
         foglio &&
-        foglio.stato_foglio !== 'Chiuso';
-    const canDeleteThisFoglio = foglio && (userRole === 'admin' || (userRole === 'user' && foglio.creato_da_user_id === currentUserId));
-    // Gli interventi possono essere modificati solo se il foglio è ancora aperto
-    // (stato diverso da "Completato" o "Chiuso") e se la firma cliente non è stata
-    // ancora acquisita. Si basa comunque sui permessi di modifica globali del foglio.
-    const canModifyInterventi =
-        baseEditPermission &&
-        foglio &&
-        !['Completato', 'Chiuso'].includes(foglio.stato_foglio) &&
-        !foglio.firma_cliente_url;
+        (userRole === 'admin' || (userRole === 'user' && foglio.creato_da_user_id === currentUserId));
+
+    let canModifyInterventi = false;
+    if (foglio) {
+        if (userRole === 'admin') {
+            canModifyInterventi = true;
+        } else if (userRole === 'manager') {
+            canModifyInterventi = !isChiuso;
+        } else if (userRole === 'user' && foglio.creato_da_user_id === currentUserId) {
+            canModifyInterventi = !isChiuso && !isCompletato && !firmaPresente;
+        }
+    }
 
     const fetchFoglioData = useCallback(async () => {
         if (!session || !foglioId) { 
