@@ -62,20 +62,36 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
     const currentUserId = session?.user?.id;
     const baseFormPermission =
         userRole === 'admin' ||
-        (!isEditMode && userRole === 'user') ||
-        (isEditMode && (userRole === 'manager' || (userRole === 'user' && formCreatoDaUserIdOriginal === currentUserId)));
-    const formEditingAllowed =
-        formStatoFoglio !== 'Chiuso' &&
-        !(formStatoFoglio === 'Completato' && !!firmaClientePreview);
-    const canSubmitForm = baseFormPermission && formEditingAllowed;
+        (!isEditMode && (userRole === 'user' || userRole === 'manager')) ||
+        (isEditMode &&
+            (userRole === 'admin' ||
+                userRole === 'manager' ||
+                (userRole === 'user' && formCreatoDaUserIdOriginal === currentUserId)));
+
+    const isChiuso = formStatoFoglio === 'Chiuso';
+    const isCompletato = formStatoFoglio === 'Completato';
+    const firmaPresente = !!firmaClientePreview;
+
+    let canSubmitForm = false;
+    if (!isEditMode) {
+        canSubmitForm = baseFormPermission;
+    } else if (baseFormPermission) {
+        if (userRole === 'admin') {
+            canSubmitForm = true;
+        } else if (userRole === 'manager') {
+            canSubmitForm = !isChiuso;
+        } else if (userRole === 'user' && formCreatoDaUserIdOriginal === currentUserId) {
+            canSubmitForm = !isChiuso && !isCompletato && !firmaPresente;
+        }
+    }
+
     console.debug('FAPage perms', {
         userRole,
         currentUserId,
         formCreatoDaUserIdOriginal,
         isEditMode,
         formStatoFoglio,
-        baseFormPermission,
-        formEditingAllowed,
+        firmaPresente,
         canSubmitForm,
     });
 
