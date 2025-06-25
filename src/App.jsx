@@ -1,4 +1,9 @@
-// src/App.jsx
+/**
+ * Root component that defines application routes and global state.
+ * Manages user session via Supabase and shares common data (clienti,
+ * tecnici, commesse, ordini) with the pages. Uses React Router for
+ * navigation and shows different pages based on authentication.
+ */
 import React, { useState, useEffect, useRef } from 'react';
 import { Routes, Route, Link, useNavigate, Navigate, Outlet } from 'react-router-dom';
 import { supabase } from './supabaseClient';
@@ -58,27 +63,94 @@ function App() {
             setSession(null); return;
         }
         try {
-            const profilePromise = supabase.from('profiles').select('role, full_name').eq('id', currentAuthSession.user.id).single();
+            const profilePromise = supabase
+                .from('profiles')
+                .select('role, full_name')
+                .eq('id', currentAuthSession.user.id)
+                .single();
             const timeoutDuration = isTabFocusRelatedEvent ? 5000 : 7000;
             const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error(`Timeout fetch profilo (${timeoutDuration/1000} secondi)`)), timeoutDuration));
             const { data: profile, error: profileError } = await Promise.race([profilePromise, timeoutPromise]);
             if (profileError) {
-                if (currentReactSessionForFallback?.user?.id === currentAuthSession.user.id && currentReactSessionForFallback.user.role) {
-                    setSession({ ...currentAuthSession, user: { ...currentAuthSession.user, role: currentReactSessionForFallback.user.role, full_name: currentReactSessionForFallback.user.full_name } });
+                if (
+                    currentReactSessionForFallback?.user?.id === currentAuthSession.user.id &&
+                    currentReactSessionForFallback.user.role
+                ) {
+                    const newSession = {
+                        ...currentAuthSession,
+                        user: {
+                            ...currentAuthSession.user,
+                            role: (currentReactSessionForFallback.user.role || 'user').trim().toLowerCase(),
+                            full_name: currentReactSessionForFallback.user.full_name,
+                        },
+                    };
+                    setSession(newSession);
+                    console.debug('APP.JSX: setSession fallback role', newSession.user.role);
                 } else {
-                    setSession({ ...currentAuthSession, user: { ...currentAuthSession.user, role: 'user', full_name: currentAuthSession.user.email } });
+                    const newSession = {
+                        ...currentAuthSession,
+                        user: {
+                            ...currentAuthSession.user,
+                            role: 'user',
+                            full_name: currentAuthSession.user.email,
+                        },
+                    };
+                    setSession(newSession);
+                    console.debug('APP.JSX: setSession default role', newSession.user.role);
                 }
             } else if (profile) {
-                setSession({ ...currentAuthSession, user: { ...currentAuthSession.user, ...profile } });
-            } else { 
-                setSession({ ...currentAuthSession, user: { ...currentAuthSession.user, role: 'user', full_name: currentAuthSession.user.email } });
+                const normalizedRole = (profile.role || 'user').trim().toLowerCase();
+                const newSession = {
+                    ...currentAuthSession,
+                    user: {
+                        ...currentAuthSession.user,
+                        ...profile,
+                        role: normalizedRole,
+                    },
+                };
+                setSession(newSession);
+                console.debug('APP.JSX: setSession profile role', newSession.user.role);
+            } else {
+                const newSession = {
+                    ...currentAuthSession,
+                    user: {
+                        ...currentAuthSession.user,
+                        role: 'user',
+                        full_name: currentAuthSession.user.email,
+                    },
+                };
+                setSession(newSession);
+                console.debug('APP.JSX: setSession no profile role', newSession.user.role);
             }
         } catch (e) {
-            if (currentReactSessionForFallback?.user?.id === currentAuthSession?.user?.id && currentReactSessionForFallback.user.role) {
-                setSession({ ...currentAuthSession, user: { ...currentAuthSession.user, role: currentReactSessionForFallback.user.role, full_name: currentReactSessionForFallback.user.full_name } });
+            if (
+                currentReactSessionForFallback?.user?.id === currentAuthSession?.user?.id &&
+                currentReactSessionForFallback.user.role
+            ) {
+                const newSession = {
+                    ...currentAuthSession,
+                    user: {
+                        ...currentAuthSession.user,
+                        role: (currentReactSessionForFallback.user.role || 'user').trim().toLowerCase(),
+                        full_name: currentReactSessionForFallback.user.full_name,
+                    },
+                };
+                setSession(newSession);
+                console.debug('APP.JSX: setSession exception fallback role', newSession.user.role);
             } else if (currentAuthSession && currentAuthSession.user) {
-                setSession({ ...currentAuthSession, user: { ...currentAuthSession.user, role: 'user', full_name: currentAuthSession.user.email } });
-            } else { setSession(null); }
+                const newSession = {
+                    ...currentAuthSession,
+                    user: {
+                        ...currentAuthSession.user,
+                        role: 'user',
+                        full_name: currentAuthSession.user.email,
+                    },
+                };
+                setSession(newSession);
+                console.debug('APP.JSX: setSession exception default role', newSession.user.role);
+            } else {
+                setSession(null);
+                }
         }
     };
 
@@ -193,13 +265,13 @@ function App() {
     );
   }
 
-  const userRole = session?.user?.role;
+  const userRole = (session?.user?.role || '').trim().toLowerCase();
   const canCreateNewSheet = userRole === 'admin' || userRole === 'user';
 
   return ( 
     <div className="app-container">
       <header>
-        <h1>Oilsafe Service Hub CODEX-v1</h1>
+        <h1>Oilsafe Service Hub v{__APP_VERSION__}</h1>
         {session && session.user && (
           <nav>
             <Link to="/">Dashboard</Link>

@@ -1,4 +1,8 @@
-// src/pages/FogliAssistenzaListPage.jsx
+/**
+ * Lists service sheets ("fogli assistenza") with filters and bulk actions.
+ * Fetches data via Supabase and uses pdfGenerator.js for printing.
+ * Receives anagrafiche (clients, technicians, etc.) as props from App.jsx.
+ */
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient'; // Assicurati che il percorso sia corretto
@@ -12,7 +16,10 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
     const [error, setError] = useState(null);
     const [selectedFogli, setSelectedFogli] = useState(new Set());
     const [stampaLoading, setStampaLoading] = useState(false);
+    // Imposta il layout di stampa predefinito su quello dettagliato
+    const [layoutStampa, setLayoutStampa] = useState('detailed');
     const [successMessage, setSuccessMessage] = useState('');
+    const [sendingEmailId, setSendingEmailId] = useState(null);
 
     // Stati per i campi di filtro
     const [filtroDataDa, setFiltroDataDa] = useState('');
@@ -23,7 +30,7 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
     const [filtroOrdineTesto, setFiltroOrdineTesto] = useState('');
     const [filtroStato, setFiltroStato] = useState(''); // NUOVO STATO PER IL FILTRO STATO ('' significa 'Tutti')
     
-    const userRole = session?.user?.role;
+    const userRole = (session?.user?.role || '').trim().toLowerCase();
     const currentUserId = session?.user?.id;
 
     // Funzione per caricare i dati dei fogli dal server
@@ -42,6 +49,7 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
             .select(`
                 id, numero_foglio, data_apertura_foglio, stato_foglio, creato_da_user_id,
                 cliente_id, commessa_id, ordine_cliente_id,
+                email_report_cliente, email_report_interno,
                 interventi_assistenza!left(tecnico_id)
             `)
             .order('data_apertura_foglio', { ascending: false });
@@ -142,7 +150,7 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
         else { setSelectedFogli(new Set()); }
     };
 
-    const handlePrintSelected = async () => { 
+    const handlePrintSelected = async () => {
         if (selectedFogli.size === 0) { alert("Seleziona almeno un foglio di assistenza da stampare."); return; }
         setStampaLoading(true); setError(null); setSuccessMessage('');
         let printErrors = [];
@@ -154,7 +162,7 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                 const { data: interventiData, error: interventiError } = await supabase.from('interventi_assistenza').select(`*, tecnici (*)`) .eq('foglio_assistenza_id', foglioId).order('data_intervento_effettivo');
                 if (interventiError) console.warn(`Attenzione: Errore nel recuperare gli interventi per il foglio ${foglioId}: ${interventiError.message}`);
                 
-                await generateFoglioAssistenzaPDF(foglioData, interventiData || []);
+                await generateFoglioAssistenzaPDF(foglioData, interventiData || [], { layout: layoutStampa });
             } catch (err) { 
                 console.error(`Errore durante la generazione del PDF per il foglio ${foglioId}:`, err); 
                 printErrors.push(`Foglio ${foglioId.substring(0,8)}: ${err.message}`);
@@ -162,7 +170,22 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
         }
         if (printErrors.length > 0) { setError(`Si sono verificati errori durante la stampa:\n${printErrors.join('\n')}`); }
         else { setSuccessMessage(`Operazione di stampa PDF completata per ${selectedFogli.size} fogli.`); setTimeout(() => setSuccessMessage(''), 3000); }
-        setStampaLoading(false); setSelectedFogli(new Set()); 
+        setStampaLoading(false); setSelectedFogli(new Set());
+    };
+
+    const handleSendEmail = async (foglioId) => {
+        if (!window.confirm('Inviare il report di questo foglio via email?')) return;
+        setSendingEmailId(foglioId);
+        setError(null); setSuccessMessage('');
+        const { error: fnError } = await supabase.functions.invoke('invia-report-foglio', { body: { foglio_id: foglioId } });
+        if (fnError) {
+            console.error('Errore invio email:', fnError);
+            setError(fnError.message || 'Errore invio email');
+        } else {
+            setSuccessMessage('Email inviata.');
+            setTimeout(() => setSuccessMessage(''), 3000);
+        }
+        setSendingEmailId(null);
     };
 
     const resetAllFilters = () => {
@@ -214,10 +237,15 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                         Nuovo Foglio Assistenza
                     </Link>
                 )}
-                
+
+                <select value={layoutStampa} onChange={e => setLayoutStampa(e.target.value)}>
+                    <option value="table">Layout Compatto</option>
+                    <option value="detailed">Layout Dettagliato</option>
+                </select>
+
                 {fogliFiltrati.length > 0 && (
-                    <button 
-                        onClick={handlePrintSelected} 
+                    <button
+                        onClick={handlePrintSelected}
                         disabled={selectedFogli.size === 0 || stampaLoading || loadingFogli}
                         className="button primary"
                     >
@@ -274,6 +302,14 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                                 <td><span className={`status-badge status-${foglio.stato_foglio?.toLowerCase().replace(/\s+/g, '-')}`}>{foglio.stato_foglio}</span></td>
                                 <td className="actions">
                                     <Link to={`/fogli-assistenza/${foglio.id}`} className="button small">Dettaglio</Link>
+                                    <button
+                                        className="button secondary small"
+                                        onClick={() => handleSendEmail(foglio.id)}
+                                        disabled={sendingEmailId === foglio.id}
+                                        style={{marginLeft:'5px'}}
+                                    >
+                                        {sendingEmailId === foglio.id ? 'Invio...' : 'Invia Email'}
+                                    </button>
                                 </td>
                             </tr>
                         ))}

@@ -1,4 +1,8 @@
-// src/components/Anagrafiche/CommesseManager.jsx
+/**
+ * Handles listing and editing of job orders ("commesse") linked to clients.
+ * Uses Supabase for CRUD operations and supports import/export through
+ * CSV/XLSX files. Requires the list of clients as prop for forms.
+ */
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../../supabaseClient';
 import Papa from 'papaparse';
@@ -34,7 +38,7 @@ function CommesseManager({ session, clienti }) { // `clienti` prop è usato per 
     const [ricercaSbloccata, setRicercaSbloccata] = useState(false);
 
     // Ruolo utente e permessi
-    const userRole = session?.user?.role;
+    const userRole = (session?.user?.role || '').trim().toLowerCase();
     const canManage = userRole === 'admin' || userRole === 'manager';
 
     // Ref per input file e debounce

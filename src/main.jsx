@@ -1,3 +1,9 @@
+/**
+ * Entry point of the React application.
+ * It mounts the `App` component within `BrowserRouter` so routing works.
+ * Depends on `App.jsx` for the main component tree and `index.css` for
+ * global styles. Loaded automatically by Vite when the page starts.
+ */
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'

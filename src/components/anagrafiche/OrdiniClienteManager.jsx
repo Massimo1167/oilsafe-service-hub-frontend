@@ -1,4 +1,8 @@
-// src/components/Anagrafiche/OrdiniClienteManager.jsx
+/**
+ * Component to manage customer orders and their relation to clients
+ * and job orders. Includes pagination, import/export and CRUD features
+ * via Supabase. Visibility depends on user role.
+ */
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../../supabaseClient';
 import Papa from 'papaparse';
@@ -35,7 +39,7 @@ function OrdiniClienteManager({ session, clienti, commesse }) {
     const [ricercaSbloccata, setRicercaSbloccata] = useState(false);
 
     // Ruolo utente e permessi
-    const userRole = session?.user?.role;
+    const userRole = (session?.user?.role || '').trim().toLowerCase();
     const canManage = userRole === 'admin' || userRole === 'manager';
 
     // Ref per input file e debounce

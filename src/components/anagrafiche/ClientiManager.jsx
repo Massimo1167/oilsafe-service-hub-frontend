@@ -1,4 +1,9 @@
-// src/components/Anagrafiche/ClientiManager.jsx
+/**
+ * CRUD management interface for clients ("clienti").
+ * Uses Supabase for data persistence and supports CSV/XLSX import-export.
+ * Relies on authentication from `App.jsx`; redirects if the user lacks
+ * permissions. Displays and manages client addresses as well.
+ */
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../supabaseClient';
 import Papa from 'papaparse';
@@ -34,7 +39,7 @@ function ClientiManager({ session }) {
     const [formEditIndirizzoCompleto, setFormEditIndirizzoCompleto] = useState('');
     const [formEditIndirizzoDescrizione, setFormEditIndirizzoDescrizione] = useState('');
 
-    const userRole = session?.user?.role;
+    const userRole = (session?.user?.role || '').trim().toLowerCase();
     const canManage = userRole === 'admin' || userRole === 'manager';
     const fileInputRef = useRef(null);
 

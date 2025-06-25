@@ -1,6 +1,10 @@
-// src/pages/FoglioAssistenzaFormPage.jsx
+/**
+ * Page with a form to create or edit a service sheet. Manages draft
+ * persistence, signature capture and relations to clients, orders and
+ * job orders. Uses Supabase for storage and navigation via React Router.
+ */
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { useNavigate, useParams, Link } from 'react-router-dom';
+import { useNavigate, useParams, Link, Navigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import SignatureCanvas from 'react-signature-canvas';
 
@@ -31,8 +35,10 @@ function FoglioAssistenzaFormPage({ session, clienti, commesse, ordini }) {
     const [formSelectedOrdineId, setFormSelectedOrdineId] = useState('');
     const [formDescrizioneGenerale, setFormDescrizioneGenerale] = useState('');
     const [formOsservazioniGenerali, setFormOsservazioniGenerali] = useState('');
-    const [formMaterialiForniti, setFormMaterialiForniti] = useState('');
-    const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
+const [formMaterialiForniti, setFormMaterialiForniti] = useState('');
+const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
+ const [formEmailCliente, setFormEmailCliente] = useState('');
+ const [formEmailInterno, setFormEmailInterno] = useState('');
     const [formCreatoDaUserIdOriginal, setFormCreatoDaUserIdOriginal] = useState('');
     const [numeroFoglioVisualizzato, setNumeroFoglioVisualizzato] = useState('');
 
@@ -52,9 +58,42 @@ function FoglioAssistenzaFormPage({ session, clienti, commesse, ordini }) {
     const [firmaClientePreview, setFirmaClientePreview] = useState(null);
     const [firmaTecnicoPreview, setFirmaTecnicoPreview] = useState(null);
 
-    const userRole = session?.user?.role;
+    const userRole = (session?.user?.role || '').trim().toLowerCase();
     const currentUserId = session?.user?.id;
-    const canSubmitForm = userRole === 'admin' || (!isEditMode && userRole === 'user') || (isEditMode && (userRole === 'manager' || (userRole === 'user' && formCreatoDaUserIdOriginal === currentUserId)));
+    const baseFormPermission =
+        userRole === 'admin' ||
+        (!isEditMode && (userRole === 'user' || userRole === 'manager')) ||
+        (isEditMode &&
+            (userRole === 'admin' ||
+                userRole === 'manager' ||
+                (userRole === 'user' && formCreatoDaUserIdOriginal === currentUserId)));
+
+    const isChiuso = formStatoFoglio === 'Chiuso';
+    const isCompletato = formStatoFoglio === 'Completato';
+    const firmaPresente = !!firmaClientePreview;
+
+    let canSubmitForm = false;
+    if (!isEditMode) {
+        canSubmitForm = baseFormPermission;
+    } else if (baseFormPermission) {
+        if (userRole === 'admin') {
+            canSubmitForm = true;
+        } else if (userRole === 'manager') {
+            canSubmitForm = !isChiuso;
+        } else if (userRole === 'user' && formCreatoDaUserIdOriginal === currentUserId) {
+            canSubmitForm = !isChiuso && !isCompletato && !firmaPresente;
+        }
+    }
+
+    console.debug('FAPage perms', {
+        userRole,
+        currentUserId,
+        formCreatoDaUserIdOriginal,
+        isEditMode,
+        formStatoFoglio,
+        firmaPresente,
+        canSubmitForm,
+    });
 
     useEffect(() => {
         if (!pageLoading) {
@@ -73,6 +112,8 @@ function FoglioAssistenzaFormPage({ session, clienti, commesse, ordini }) {
                     if (d.formOsservazioniGenerali) setFormOsservazioniGenerali(d.formOsservazioniGenerali);
                     if (d.formMaterialiForniti) setFormMaterialiForniti(d.formMaterialiForniti);
                     if (d.formStatoFoglio) setFormStatoFoglio(d.formStatoFoglio);
+                    if (d.formEmailCliente) setFormEmailCliente(d.formEmailCliente);
+                    if (d.formEmailInterno) setFormEmailInterno(d.formEmailInterno);
                 } catch (e) {
                     console.error('Errore caricamento draft form:', e);
                 }
@@ -94,10 +135,12 @@ function FoglioAssistenzaFormPage({ session, clienti, commesse, ordini }) {
                 formOsservazioniGenerali,
                 formMaterialiForniti,
                 formStatoFoglio,
+                formEmailCliente,
+                formEmailInterno,
             };
             localStorage.setItem(draftKey, JSON.stringify(draft));
         }
-    }, [draftKey, pageLoading, formDataApertura, formSelectedClienteId, formSelectedIndirizzoId, formReferenteCliente, formMotivoGenerale, formSelectedCommessaId, formSelectedOrdineId, formDescrizioneGenerale, formOsservazioniGenerali, formMaterialiForniti, formStatoFoglio]);
+    }, [draftKey, pageLoading, formDataApertura, formSelectedClienteId, formSelectedIndirizzoId, formReferenteCliente, formMotivoGenerale, formSelectedCommessaId, formSelectedOrdineId, formDescrizioneGenerale, formOsservazioniGenerali, formMaterialiForniti, formStatoFoglio, formEmailCliente, formEmailInterno]);
 
     useEffect(() => {
         if (formSelectedClienteId) {
@@ -145,6 +188,8 @@ function FoglioAssistenzaFormPage({ session, clienti, commesse, ordini }) {
                     setFormOsservazioniGenerali(data.osservazioni_generali || '');
                     setFormMaterialiForniti(data.materiali_forniti_generale || '');
                     setFormStatoFoglio(data.stato_foglio || 'Aperto');
+                    setFormEmailCliente(data.email_report_cliente || '');
+                    setFormEmailInterno(data.email_report_interno || '');
                     setFormCreatoDaUserIdOriginal(data.creato_da_user_id || '');
                     setFirmaClientePreview(data.firma_cliente_url || null);
                     setFirmaTecnicoPreview(data.firma_tecnico_principale_url || null);
@@ -191,7 +236,9 @@ function FoglioAssistenzaFormPage({ session, clienti, commesse, ordini }) {
               ordine_cliente_id: formSelectedOrdineId || null,
               descrizione_lavoro_generale: formDescrizioneGenerale.trim(), 
               osservazioni_generali: formOsservazioniGenerali.trim(),
-              materiali_forniti_generale: formMaterialiForniti.trim(), 
+              materiali_forniti_generale: formMaterialiForniti.trim(),
+              email_report_cliente: formEmailCliente.trim() || null,
+              email_report_interno: formEmailInterno.trim() || null,
               firma_cliente_url: firmaClienteUrlToSave,
               firma_tecnico_principale_url: firmaTecnicoUrlToSave,
               stato_foglio: formStatoFoglio,
@@ -298,6 +345,14 @@ function FoglioAssistenzaFormPage({ session, clienti, commesse, ordini }) {
                         <option value="">Nessun Ordine ({ordiniFiltrati.length})</option>
                         {ordiniFiltrati.map(o => <option key={o.id} value={o.id}>{o.numero_ordine_cliente} - {o.descrizione_ordine}</option>)}
                     </select>
+                </div>
+                <div>
+                    <label htmlFor="formEmailCliente">Email Cliente per Report (opzionale):</label>
+                    <input type="email" id="formEmailCliente" value={formEmailCliente} onChange={e => setFormEmailCliente(e.target.value)} />
+                </div>
+                <div>
+                    <label htmlFor="formEmailInterno">Email Interna per Report (opzionale):</label>
+                    <input type="email" id="formEmailInterno" value={formEmailInterno} onChange={e => setFormEmailInterno(e.target.value)} />
                 </div>
                 <div>
                     <label htmlFor="formMotivoGenerale">Motivo Intervento Generale:</label>

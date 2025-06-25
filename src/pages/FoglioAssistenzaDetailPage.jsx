@@ -1,8 +1,13 @@
-// src/pages/FoglioAssistenzaDetailPage.jsx
+/**
+ * Shows the details of a single service sheet and its interventions.
+ * Allows editing, deletion and PDF export using `pdfGenerator.js`.
+ * Uses InterventoAssistenzaForm for adding interventions.
+ */
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, Navigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient'; // Assicurati che il percorso sia corretto
 import InterventoAssistenzaForm from '../components/InterventoAssistenzaForm'; // Assicurati che il percorso sia corretto
+import InterventoCard from '../components/InterventoCard';
 import { generateFoglioAssistenzaPDF } from '../utils/pdfGenerator'; // Assicurati che il percorso sia corretto
 
 function FoglioAssistenzaDetailPage({ session, tecnici }) {
@@ -14,16 +19,69 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
     const [actionLoading, setActionLoading] = useState(false); 
     const [error, setError] = useState(null);
     const [showInterventoForm, setShowInterventoForm] = useState(false);
-    const [editingIntervento, setEditingIntervento] = useState(null); 
+    const [editingIntervento, setEditingIntervento] = useState(null);
+    const [interventoFormReadOnly, setInterventoFormReadOnly] = useState(false);
     const [stampaSingolaLoading, setStampaSingolaLoading] = useState(false);
+    // Il layout di stampa predefinito diventa quello dettagliato
+    const [layoutStampa, setLayoutStampa] = useState('detailed');
+    const [isSmallScreen, setIsSmallScreen] = useState(false);
 
-    const userRole = session?.user?.role;
+    const userRole = (session?.user?.role || '').trim().toLowerCase();
     const currentUserId = session?.user?.id;
 
     // Calcola i permessi dopo che `foglio` è stato caricato
-    const canViewThisFoglio = foglio && (userRole === 'admin' || userRole === 'manager' || userRole === 'head' || (userRole === 'user' && foglio.creato_da_user_id === currentUserId));
-    const canEditThisFoglioOverall = foglio && (userRole === 'admin' || userRole === 'manager' || (userRole === 'user' && foglio.creato_da_user_id === currentUserId));
-    const canDeleteThisFoglio = foglio && (userRole === 'admin' || (userRole === 'user' && foglio.creato_da_user_id === currentUserId));
+    const canViewThisFoglio =
+        foglio &&
+        (userRole === 'admin' ||
+            userRole === 'manager' ||
+            userRole === 'head' ||
+            (userRole === 'user' && foglio.creato_da_user_id === currentUserId));
+
+    const isChiuso = foglio?.stato_foglio === 'Chiuso';
+    const isCompletato = foglio?.stato_foglio === 'Completato';
+    const firmaPresente = !!foglio?.firma_cliente_url;
+
+    const baseEditPermission =
+        foglio &&
+        (userRole === 'admin' ||
+            userRole === 'manager' ||
+            (userRole === 'user' && foglio.creato_da_user_id === currentUserId));
+
+    let canEditThisFoglioOverall = false;
+    if (foglio) {
+        if (userRole === 'admin') {
+            canEditThisFoglioOverall = true;
+        } else if (userRole === 'manager') {
+            canEditThisFoglioOverall = !isChiuso;
+        } else if (userRole === 'user' && foglio.creato_da_user_id === currentUserId) {
+            canEditThisFoglioOverall = !isChiuso && !isCompletato && !firmaPresente;
+        }
+    }
+
+    console.debug('FADetail perms', {
+        userRole,
+        currentUserId,
+        foglioCreator: foglio?.creato_da_user_id,
+        foglioStato: foglio?.stato_foglio,
+        firmaPresente,
+        canEditThisFoglioOverall,
+    });
+    const canRemoveFirmaCliente = baseEditPermission && foglio && !isChiuso;
+
+    const canDeleteThisFoglio =
+        foglio &&
+        (userRole === 'admin' || (userRole === 'user' && foglio.creato_da_user_id === currentUserId));
+
+    let canModifyInterventi = false;
+    if (foglio) {
+        if (userRole === 'admin') {
+            canModifyInterventi = true;
+        } else if (userRole === 'manager') {
+            canModifyInterventi = !isChiuso;
+        } else if (userRole === 'user' && foglio.creato_da_user_id === currentUserId) {
+            canModifyInterventi = !isChiuso && !isCompletato && !firmaPresente;
+        }
+    }
 
     const fetchFoglioData = useCallback(async () => {
         if (!session || !foglioId) { 
@@ -74,9 +132,23 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
         fetchFoglioData();
     }, [fetchFoglioData]);
 
+    useEffect(() => {
+        const handleResize = () => {
+            setIsSmallScreen(window.innerWidth <= 768);
+        };
+        handleResize();
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
-    const handleOpenInterventoForm = (interventoToEdit = null) => {
-        setEditingIntervento(interventoToEdit); 
+
+    const handleOpenInterventoForm = (interventoToEdit = null, readOnly = false) => {
+        if (!canModifyInterventi && !readOnly) {
+            alert("Interventi non modificabili per questo foglio.");
+            return;
+        }
+        setEditingIntervento(interventoToEdit);
+        setInterventoFormReadOnly(readOnly);
         setShowInterventoForm(true);
         const formElement = document.getElementById('intervento-form-section');
         if (formElement) formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -84,7 +156,8 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
 
     const handleCloseInterventoForm = () => {
         setShowInterventoForm(false);
-        setEditingIntervento(null); 
+        setEditingIntervento(null);
+        setInterventoFormReadOnly(false);
     };
 
     const handleInterventoSaved = () => { 
@@ -113,22 +186,43 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
     };
 
     const handleDeleteIntervento = async (interventoId) => {
-        if (!canEditThisFoglioOverall) { 
-            alert("Non hai i permessi per eliminare interventi su questo foglio.");
+        if (!canModifyInterventi) {
+            alert("Non è possibile modificare gli interventi di questo foglio.");
             return;
         }
         if (window.confirm("Sei sicuro di voler eliminare questo intervento specifico?")) {
-            setActionLoading(true); 
+            setActionLoading(true);
             const { error: deleteError } = await supabase.from('interventi_assistenza').delete().eq('id', interventoId);
             if (deleteError) {
                 setError("Errore eliminazione intervento: " + deleteError.message);
                 alert("Errore eliminazione intervento: " + deleteError.message);
             } else {
-                await fetchFoglioData(); 
+                await fetchFoglioData();
                 alert("Intervento eliminato.");
             }
             setActionLoading(false);
         }
+    };
+
+    // Permette la rimozione della firma cliente già salvata.
+    // Aggiorna il record su Supabase impostando `firma_cliente_url` a null
+    // e ricarica i dati del foglio dopo l'operazione.
+    const handleRemoveFirmaCliente = async () => {
+        if (!canRemoveFirmaCliente || !foglio?.firma_cliente_url) return;
+        if (!window.confirm("Rimuovere la firma cliente?")) return;
+        setActionLoading(true);
+        const { error } = await supabase
+            .from('fogli_assistenza')
+            .update({ firma_cliente_url: null })
+            .eq('id', foglioId);
+        if (error) {
+            setError("Errore rimozione firma cliente: " + error.message);
+            alert("Errore rimozione firma cliente: " + error.message);
+        } else {
+            await fetchFoglioData();
+            alert("Firma cliente rimossa.");
+        }
+        setActionLoading(false);
     };
 
     const handlePrintSingleFoglio = async () => {
@@ -148,7 +242,7 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
                 if (fullErr || !fullData) throw new Error(fullErr?.message || "Impossibile ricaricare dati foglio per stampa.");
                 foglioCompletoPerStampa = fullData;
             }
-            await generateFoglioAssistenzaPDF(foglioCompletoPerStampa, interventi);
+            await generateFoglioAssistenzaPDF(foglioCompletoPerStampa, interventi, { layout: layoutStampa });
         } catch (err) { 
             console.error(`Errore durante la generazione del PDF per il foglio singolo ${foglioId}:`, err);
             setError(`Errore PDF: ${err.message}`);
@@ -168,10 +262,14 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
             <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom:'1rem', flexWrap:'wrap', gap:'10px'}}>
                 <Link to="/fogli-assistenza" className="button secondary">← Lista Fogli</Link>
                 <div style={{display: 'flex', alignItems: 'center', flexWrap:'wrap', gap:'10px'}}>
+                    <select value={layoutStampa} onChange={e => setLayoutStampa(e.target.value)}>
+                        <option value="table">Layout Compatto</option>
+                        <option value="detailed">Layout Dettagliato</option>
+                    </select>
                     {canViewThisFoglio && (
-                         <button 
-                            onClick={handlePrintSingleFoglio} 
-                            className="button primary" 
+                         <button
+                            onClick={handlePrintSingleFoglio}
+                            className="button primary"
                             disabled={stampaSingolaLoading || !foglio || actionLoading}
                         >
                             {stampaSingolaLoading ? 'Stampa in corso...' : 'Stampa Foglio'}
@@ -207,10 +305,12 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
                 <div><strong>Referente Richiesta:</strong> {foglio.referente_cliente_richiesta || 'N/D'}</div>
                 {foglio.commesse && <div><strong>Commessa:</strong> {`${foglio.commesse.codice_commessa} (${foglio.commesse.descrizione_commessa || 'N/D'})`}</div>}
                 {foglio.ordini_cliente && <div><strong>Ordine Cliente:</strong> {`${foglio.ordini_cliente.numero_ordine_cliente} (${foglio.ordini_cliente.descrizione_ordine || 'N/D'})`}</div>}
+                {foglio.email_report_cliente && <div><strong>Email Cliente Report:</strong> {foglio.email_report_cliente}</div>}
+                {foglio.email_report_interno && <div><strong>Email Interna Report:</strong> {foglio.email_report_interno}</div>}
                 <div><strong>Motivo Intervento:</strong> {foglio.motivo_intervento_generale || 'N/D'}</div>
                 <div style={{gridColumn: '1 / -1'}}><strong>Descrizione Lavoro Generale:</strong> <pre>{foglio.descrizione_lavoro_generale || 'N/D'}</pre></div>
                 <div style={{gridColumn: '1 / -1'}}><strong>Materiali Forniti:</strong> <pre>{foglio.materiali_forniti_generale || 'N/D'}</pre></div>
-                <div style={{gridColumn: '1 / -1'}}><strong>Osservazioni Generali:</strong> <pre>{foglio.osservazioni_generali || 'N/D'}</pre></div>
+                <div style={{gridColumn: '1 / -1'}}><strong>Osservazioni Generali:</strong> <pre style={{whiteSpace:'pre-wrap'}}>{foglio.osservazioni_generali || 'N/D'}</pre></div>
                 <div><strong>Stato Foglio:</strong> <span className={`status-badge status-${foglio.stato_foglio?.toLowerCase().replace(/\s+/g, '-')}`}>{foglio.stato_foglio}</span></div>
                 {foglio.creato_da_user_id && <div><small><em>Creato da ID: {foglio.creato_da_user_id.substring(0,8)}...</em></small></div>}
             </div>
@@ -220,7 +320,14 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
                 <div style={{textAlign:'center', padding:'10px', border:'1px solid #eee', borderRadius:'4px', minWidth:'320px', background:'white'}}>
                     <p>Firma Cliente:</p>
                     {foglio.firma_cliente_url ? (
+                    <>
                     <img src={foglio.firma_cliente_url} alt="Firma Cliente" style={{border:'1px solid #ccc', maxWidth: '300px', maxHeight: '150px', display:'block', margin:'auto'}}/>
+                    {canRemoveFirmaCliente && (
+                        <button onClick={handleRemoveFirmaCliente} className="button danger small" style={{marginTop:'8px'}}>
+                            Rimuovi firma cliente
+                        </button>
+                    )}
+                    </>
                     ) : <p>Non presente</p>}
                 </div>
                 <div style={{textAlign:'center', padding:'10px', border:'1px solid #eee', borderRadius:'4px', minWidth:'320px', background:'white'}}>
@@ -233,20 +340,21 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
 
             <hr style={{margin:'30px 0'}}/>
             <h3 id="intervento-form-section">Interventi di Assistenza Associati</h3>
-            {canEditThisFoglioOverall && (
+            {canModifyInterventi && (
                 <button onClick={() => handleOpenInterventoForm(null)} disabled={actionLoading || showInterventoForm} style={{marginBottom:'1rem'}}>
                     Aggiungi Nuovo Intervento
                 </button>
             )}
 
-            {showInterventoForm && canEditThisFoglioOverall && (
+            {showInterventoForm && (
                 <InterventoAssistenzaForm
                     session={session}
                     foglioAssistenzaId={foglioId}
                     tecniciList={tecnici || []}
-                    interventoToEdit={editingIntervento} 
-                    onInterventoSaved={handleInterventoSaved} 
-                    onCancel={handleCloseInterventoForm}    
+                    interventoToEdit={editingIntervento}
+                    readOnly={interventoFormReadOnly}
+                    onInterventoSaved={handleInterventoSaved}
+                    onCancel={handleCloseInterventoForm}
                 />
             )}
 
@@ -254,6 +362,20 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
                 <p>Nessun intervento registrato per questo foglio.</p>
             )}
             {interventi.length > 0 && (
+                isSmallScreen ? (
+                    <div>
+                        {interventi.map(intervento => (
+                            <InterventoCard
+                                key={intervento.id}
+                                intervento={intervento}
+                                canModify={canModifyInterventi}
+                                onEdit={() => handleOpenInterventoForm(intervento)}
+                                onDelete={() => handleDeleteIntervento(intervento.id)}
+                                onView={() => handleOpenInterventoForm(intervento, true)}
+                            />
+                        ))}
+                    </div>
+                ) : (
                 <div style={{overflowX: 'auto'}}>
                 <table>
                     <thead>
@@ -267,7 +389,7 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
                             <th style={{minWidth:'200px'}}>Descrizione Attività</th>
                             <th style={{minWidth:'150px'}}>Osservazioni Intervento</th>
                             <th>Spese</th>
-                            {canEditThisFoglioOverall && <th>Azioni</th>}
+                            <th>Azioni</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -287,30 +409,41 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
                                 {intervento.alloggio && "Alloggio"}
                                 {(!intervento.vitto && !intervento.autostrada && !intervento.alloggio) && "-"}
                             </td>
-                            {canEditThisFoglioOverall && (
-                                <td className="actions">
-                                    <button 
-                                        className="button secondary small" 
-                                        onClick={() => handleOpenInterventoForm(intervento)}
+                            <td className="actions">
+                                {canModifyInterventi ? (
+                                    <>
+                                        <button
+                                            className="button secondary small"
+                                            onClick={() => handleOpenInterventoForm(intervento)}
+                                            disabled={actionLoading || showInterventoForm}
+                                            style={{marginRight:'5px'}}
+                                        >
+                                            Modifica
+                                        </button>
+                                        <button
+                                            className="button danger small"
+                                            onClick={() => handleDeleteIntervento(intervento.id)}
+                                            disabled={actionLoading}
+                                        >
+                                            Elimina
+                                        </button>
+                                    </>
+                                ) : (
+                                    <button
+                                        className="button secondary small"
+                                        onClick={() => handleOpenInterventoForm(intervento, true)}
                                         disabled={actionLoading || showInterventoForm}
-                                        style={{marginRight:'5px'}}
                                     >
-                                        Modifica
+                                        Visualizza
                                     </button>
-                                    <button 
-                                        className="button danger small" 
-                                        onClick={() => handleDeleteIntervento(intervento.id)} 
-                                        disabled={actionLoading}
-                                    >
-                                        Elimina
-                                    </button>
-                                </td>
-                            )}
+                                )}
+                            </td>
                         </tr>
                         ))}
                     </tbody>
                 </table>
                 </div>
+                )
             )}
         </div>
     );
