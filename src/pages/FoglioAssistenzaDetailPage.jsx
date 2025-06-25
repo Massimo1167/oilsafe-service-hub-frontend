@@ -26,7 +26,7 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
     const [layoutStampa, setLayoutStampa] = useState('detailed');
     const [isSmallScreen, setIsSmallScreen] = useState(false);
 
-    const userRole = session?.user?.role;
+    const userRole = (session?.user?.role || '').trim().toLowerCase();
     const currentUserId = session?.user?.id;
 
     // Calcola i permessi dopo che `foglio` è stato caricato

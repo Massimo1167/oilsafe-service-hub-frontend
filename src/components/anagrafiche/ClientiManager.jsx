@@ -39,7 +39,7 @@ function ClientiManager({ session }) {
     const [formEditIndirizzoCompleto, setFormEditIndirizzoCompleto] = useState('');
     const [formEditIndirizzoDescrizione, setFormEditIndirizzoDescrizione] = useState('');
 
-    const userRole = session?.user?.role;
+    const userRole = (session?.user?.role || '').trim().toLowerCase();
     const canManage = userRole === 'admin' || userRole === 'manager';
     const fileInputRef = useRef(null);
 
