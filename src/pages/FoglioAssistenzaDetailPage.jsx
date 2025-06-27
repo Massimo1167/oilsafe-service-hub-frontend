@@ -3,7 +3,7 @@
  * Allows editing, deletion and PDF export using `pdfGenerator.js`.
  * Uses InterventoAssistenzaForm for adding interventions.
  */
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, Link, useNavigate, Navigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient'; // Assicurati che il percorso sia corretto
 import InterventoAssistenzaForm from '../components/InterventoAssistenzaForm'; // Assicurati che il percorso sia corretto
@@ -28,6 +28,7 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
 
     const userRole = (session?.user?.role || '').trim().toLowerCase();
     const currentUserId = session?.user?.id;
+    const currentUserEmail = session?.user?.email?.toLowerCase();
 
     // Calcola i permessi dopo che `foglio` è stato caricato
     const canViewThisFoglio =
@@ -35,17 +36,21 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
         (userRole === 'admin' ||
             userRole === 'manager' ||
             userRole === 'head' ||
-            (userRole === 'user' && foglio.creato_da_user_id === currentUserId));
+            (userRole === 'user' && (foglio.creato_da_user_id === currentUserId || isUserAssignedTecnico)));
 
     const isChiuso = foglio?.stato_foglio === 'Chiuso';
     const isCompletato = foglio?.stato_foglio === 'Completato';
     const firmaPresente = !!foglio?.firma_cliente_url;
+    const isUserAssignedTecnico = useMemo(() => {
+        const email = currentUserEmail || '';
+        return interventi.some(i => (i.tecnici?.email || '').toLowerCase() === email);
+    }, [interventi, currentUserEmail]);
 
     const baseEditPermission =
         foglio &&
         (userRole === 'admin' ||
             userRole === 'manager' ||
-            (userRole === 'user' && foglio.creato_da_user_id === currentUserId));
+            (userRole === 'user' && (foglio.creato_da_user_id === currentUserId || isUserAssignedTecnico)));
 
     let canEditThisFoglioOverall = false;
     if (foglio) {
@@ -53,7 +58,7 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
             canEditThisFoglioOverall = true;
         } else if (userRole === 'manager') {
             canEditThisFoglioOverall = !isChiuso;
-        } else if (userRole === 'user' && foglio.creato_da_user_id === currentUserId) {
+        } else if (userRole === 'user' && (foglio.creato_da_user_id === currentUserId || isUserAssignedTecnico)) {
             canEditThisFoglioOverall = !isChiuso && !isCompletato && !firmaPresente;
         }
     }
@@ -78,7 +83,7 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
             canModifyInterventi = true;
         } else if (userRole === 'manager') {
             canModifyInterventi = !isChiuso;
-        } else if (userRole === 'user' && foglio.creato_da_user_id === currentUserId) {
+        } else if (userRole === 'user' && (foglio.creato_da_user_id === currentUserId || isUserAssignedTecnico)) {
             canModifyInterventi = !isChiuso && !isCompletato && !firmaPresente;
         }
     }
@@ -115,7 +120,7 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
 
         const { data: interventiData, error: interventiError } = await supabase
           .from('interventi_assistenza')
-          .select(`*, tecnici (id, nome, cognome)`)
+          .select(`*, tecnici (id, nome, cognome, email)`)
           .eq('foglio_assistenza_id', foglioId)
           .order('data_intervento_effettivo', { ascending: true });
 
