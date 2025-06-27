@@ -46,9 +46,8 @@ CREATE POLICY "User CRUD on own interventi_assistenza for select"
       ) OR
       EXISTS (
         SELECT 1 FROM public.tecnici t
-        JOIN auth.users u ON u.id = auth.uid()
         WHERE t.id = interventi_assistenza.tecnico_id
-          AND LOWER(t.email) = LOWER(u.email)
+          AND LOWER(t.email) = LOWER(current_setting('request.jwt.claims', true)::json->>'email')
       )
     )
   );
@@ -65,9 +64,8 @@ CREATE POLICY "User CRUD on own interventi_assistenza for update"
       ) OR
       EXISTS (
         SELECT 1 FROM public.tecnici t
-        JOIN auth.users u ON u.id = auth.uid()
         WHERE t.id = interventi_assistenza.tecnico_id
-          AND LOWER(t.email) = LOWER(u.email)
+          AND LOWER(t.email) = LOWER(current_setting('request.jwt.claims', true)::json->>'email')
       )
     )
   );
@@ -84,9 +82,8 @@ CREATE POLICY "User CRUD on own interventi_assistenza for delete"
       ) OR
       EXISTS (
         SELECT 1 FROM public.tecnici t
-        JOIN auth.users u ON u.id = auth.uid()
         WHERE t.id = interventi_assistenza.tecnico_id
-          AND LOWER(t.email) = LOWER(u.email)
+          AND LOWER(t.email) = LOWER(current_setting('request.jwt.claims', true)::json->>'email')
       )
     )
   );
@@ -106,9 +103,8 @@ CREATE POLICY "User CRUD on own interventi_assistenza for insert"
       ) OR
       EXISTS (
         SELECT 1 FROM public.tecnici t
-        JOIN auth.users u ON u.id = auth.uid()
         WHERE t.id = interventi_assistenza.tecnico_id
-          AND LOWER(t.email) = LOWER(u.email)
+          AND LOWER(t.email) = LOWER(current_setting('request.jwt.claims', true)::json->>'email')
       )
     )
   );
