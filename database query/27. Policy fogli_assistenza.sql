@@ -45,13 +45,7 @@ CREATE POLICY "User CRUD on own fogli_assistenza for select"
   USING (
     public.get_my_role() = 'user' AND (
       auth.uid() = creato_da_user_id OR
-      EXISTS (
-        SELECT 1 FROM public.interventi_assistenza ia
-        JOIN public.tecnici t ON t.id = ia.tecnico_id
-        JOIN auth.users u ON u.id = auth.uid()
-        WHERE ia.foglio_assistenza_id = fogli_assistenza.id
-          AND LOWER(t.email) = LOWER(u.email)
-      )
+      public.is_user_assigned_to_foglio(fogli_assistenza.id)
     )
   );
   -- Per update, il check implicito è che l'utente stia modificando un record che già vede (quindi il suo)
@@ -62,13 +56,7 @@ CREATE POLICY "User CRUD on own fogli_assistenza for update"
   USING (
     public.get_my_role() = 'user' AND (
       auth.uid() = creato_da_user_id OR
-      EXISTS (
-        SELECT 1 FROM public.interventi_assistenza ia
-        JOIN public.tecnici t ON t.id = ia.tecnico_id
-        JOIN auth.users u ON u.id = auth.uid()
-        WHERE ia.foglio_assistenza_id = fogli_assistenza.id
-          AND LOWER(t.email) = LOWER(u.email)
-      )
+      public.is_user_assigned_to_foglio(fogli_assistenza.id)
     )
   );
   -- Per update, il check implicito è che l'utente stia modificando un record che già vede (quindi il suo)
