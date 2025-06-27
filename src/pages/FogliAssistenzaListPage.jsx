@@ -50,12 +50,11 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                 id, numero_foglio, data_apertura_foglio, stato_foglio, creato_da_user_id,
                 cliente_id, commessa_id, ordine_cliente_id,
                 email_report_cliente, email_report_interno,
-                interventi_assistenza!left(tecnico_id)
+                interventi_assistenza!left(tecnico_id, tecnici (email))
             `)
             .order('data_apertura_foglio', { ascending: false });
 
         // Applica filtri server-side (solo per data, che è più efficiente)
-        if (userRole === 'user') query = query.eq('creato_da_user_id', currentUserId);
         if (filtroDataDa) query = query.gte('data_apertura_foglio', filtroDataDa);
         if (filtroDataA) {
             const dataAEndDate = new Date(filtroDataA);

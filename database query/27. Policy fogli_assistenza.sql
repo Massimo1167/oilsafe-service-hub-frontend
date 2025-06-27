@@ -6,16 +6,19 @@ ALTER TABLE public.fogli_assistenza ENABLE ROW LEVEL SECURITY;
 -- Rimuovi vecchie policy generiche...
 
 -- ADMIN: tutti i permessi
+DROP POLICY IF EXISTS "Admin full access on fogli_assistenza" ON public.fogli_assistenza;
 CREATE POLICY "Admin full access on fogli_assistenza"
   ON public.fogli_assistenza FOR ALL
   USING (public.get_my_role() = 'admin')
   WITH CHECK (public.get_my_role() = 'admin');
 
 -- MANAGER: visualizzare e modificare i fogli di lavoro di tutti
+DROP POLICY IF EXISTS "Manager read all fogli_assistenza" ON public.fogli_assistenza;
 CREATE POLICY "Manager read all fogli_assistenza"
   ON public.fogli_assistenza FOR SELECT
   USING (public.get_my_role() = 'manager');
 
+DROP POLICY IF EXISTS "Manager update all fogli_assistenza" ON public.fogli_assistenza;
 CREATE POLICY "Manager update all fogli_assistenza"
   ON public.fogli_assistenza FOR UPDATE
   USING (public.get_my_role() = 'manager')
@@ -23,27 +26,54 @@ CREATE POLICY "Manager update all fogli_assistenza"
 -- Nota: Il manager non ha INSERT o DELETE su fogli_assistenza secondo la tua definizione iniziale.
 
 -- HEAD: visualizzare i fogli di lavoro di tutti
+DROP POLICY IF EXISTS "Head read all fogli_assistenza" ON public.fogli_assistenza;
 CREATE POLICY "Head read all fogli_assistenza"
   ON public.fogli_assistenza FOR SELECT
   USING (public.get_my_role() = 'head');
 
 -- USER: creare, cancellare, modificare i fogli di lavoro personali
 -- E visualizzare solo i propri
+DROP POLICY IF EXISTS "User CRUD on own fogli_assistenza for insert" ON public.fogli_assistenza;
 CREATE POLICY "User CRUD on own fogli_assistenza for insert"
   ON public.fogli_assistenza FOR INSERT
   WITH CHECK (public.get_my_role() = 'user' AND auth.uid() = creato_da_user_id);
   -- Quando un 'user' inserisce, il 'creato_da_user_id' DEVE essere il suo auth.uid()
 
+DROP POLICY IF EXISTS "User CRUD on own fogli_assistenza for select" ON public.fogli_assistenza;
 CREATE POLICY "User CRUD on own fogli_assistenza for select"
   ON public.fogli_assistenza FOR SELECT
-  USING (public.get_my_role() = 'user' AND auth.uid() = creato_da_user_id);
+  USING (
+    public.get_my_role() = 'user' AND (
+      auth.uid() = creato_da_user_id OR
+      EXISTS (
+        SELECT 1 FROM public.interventi_assistenza ia
+        JOIN public.tecnici t ON t.id = ia.tecnico_id
+        JOIN auth.users u ON u.id = auth.uid()
+        WHERE ia.foglio_assistenza_id = fogli_assistenza.id
+          AND LOWER(t.email) = LOWER(u.email)
+      )
+    )
+  );
   -- Per update, il check implicito è che l'utente stia modificando un record che già vede (quindi il suo)
   
+DROP POLICY IF EXISTS "User CRUD on own fogli_assistenza for update" ON public.fogli_assistenza;
 CREATE POLICY "User CRUD on own fogli_assistenza for update"
   ON public.fogli_assistenza FOR UPDATE
-  USING (public.get_my_role() = 'user' AND auth.uid() = creato_da_user_id);
+  USING (
+    public.get_my_role() = 'user' AND (
+      auth.uid() = creato_da_user_id OR
+      EXISTS (
+        SELECT 1 FROM public.interventi_assistenza ia
+        JOIN public.tecnici t ON t.id = ia.tecnico_id
+        JOIN auth.users u ON u.id = auth.uid()
+        WHERE ia.foglio_assistenza_id = fogli_assistenza.id
+          AND LOWER(t.email) = LOWER(u.email)
+      )
+    )
+  );
   -- Per update, il check implicito è che l'utente stia modificando un record che già vede (quindi il suo)
 
+DROP POLICY IF EXISTS "User CRUD on own fogli_assistenza for delete" ON public.fogli_assistenza;
 CREATE POLICY "User CRUD on own fogli_assistenza for delete"
   ON public.fogli_assistenza FOR DELETE
   USING (public.get_my_role() = 'user' AND auth.uid() = creato_da_user_id);

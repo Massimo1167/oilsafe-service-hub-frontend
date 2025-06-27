@@ -60,13 +60,15 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
 
     const userRole = (session?.user?.role || '').trim().toLowerCase();
     const currentUserId = session?.user?.id;
+    const currentUserEmail = session?.user?.email?.toLowerCase();
+    const [isAssignedTecnico, setIsAssignedTecnico] = useState(false);
     const baseFormPermission =
         userRole === 'admin' ||
         (!isEditMode && (userRole === 'user' || userRole === 'manager')) ||
         (isEditMode &&
             (userRole === 'admin' ||
                 userRole === 'manager' ||
-                (userRole === 'user' && formCreatoDaUserIdOriginal === currentUserId)));
+                (userRole === 'user' && (formCreatoDaUserIdOriginal === currentUserId || isAssignedTecnico))));
 
     const isChiuso = formStatoFoglio === 'Chiuso';
     const isCompletato = formStatoFoglio === 'Completato';
@@ -80,7 +82,7 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
             canSubmitForm = true;
         } else if (userRole === 'manager') {
             canSubmitForm = !isChiuso;
-        } else if (userRole === 'user' && formCreatoDaUserIdOriginal === currentUserId) {
+        } else if (userRole === 'user' && (formCreatoDaUserIdOriginal === currentUserId || isAssignedTecnico)) {
             canSubmitForm = !isChiuso && !isCompletato && !firmaPresente;
         }
     }
@@ -198,9 +200,25 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
             };
             fetchFoglioData();
         } else if (!isEditMode) {
-            setPageLoading(false); 
+            setPageLoading(false);
         }
     }, [isEditMode, foglioIdParam, session]);
+
+    useEffect(() => {
+        const checkTecnico = async () => {
+            if (!isEditMode || !foglioIdParam || !session) return;
+            const { data, error } = await supabase
+                .from('interventi_assistenza')
+                .select('tecnico_id, tecnici (email)')
+                .eq('foglio_assistenza_id', foglioIdParam);
+            if (!error && data) {
+                const email = currentUserEmail || '';
+                const assigned = data.some(i => (i.tecnici?.email || '').toLowerCase() === email);
+                setIsAssignedTecnico(assigned);
+            }
+        };
+        checkTecnico();
+    }, [isEditMode, foglioIdParam, session, currentUserEmail]);
 
     const clearSignature = (ref, previewSetterKey) => { /* ... */ };
 
