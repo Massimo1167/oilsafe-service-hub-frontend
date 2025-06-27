@@ -232,7 +232,7 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
             </div>
             
             <div className="azioni-gruppo" style={{ margin: '20px 0', display: 'flex', gap: '10px', alignItems: 'center' }}>
-                {(userRole === 'admin' || userRole === 'user') && (
+                {(userRole === 'admin' || userRole === 'manager' || userRole === 'user') && (
                     <Link to="/fogli-assistenza/nuovo" className="button">
                         Nuovo Foglio Assistenza
                     </Link>

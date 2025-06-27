@@ -266,7 +266,7 @@ function App() {
   }
 
   const userRole = (session?.user?.role || '').trim().toLowerCase();
-  const canCreateNewSheet = userRole === 'admin' || userRole === 'user';
+  const canCreateNewSheet = userRole === 'admin' || userRole === 'manager'  || userRole === 'user';
 
   return ( 
     <div className="app-container">
