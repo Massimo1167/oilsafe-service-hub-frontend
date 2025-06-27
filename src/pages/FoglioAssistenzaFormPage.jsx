@@ -272,7 +272,9 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
                 if (numeroError) throw new Error("Impossibile generare numero foglio: " + numeroError.message);
                 console.log("Numero foglio generato:", numeroData);
                 foglioPayload.numero_foglio = numeroData;
-                if (userRole === 'user' && currentUserId) { foglioPayload.creato_da_user_id = currentUserId; }
+                if ((userRole === 'user' || userRole === 'manager') && currentUserId) {
+                    foglioPayload.creato_da_user_id = currentUserId;
+                }
                 const { data, error } = await supabase.from('fogli_assistenza').insert([foglioPayload]).select().single();
                 resultData = data; resultError = error;
             }

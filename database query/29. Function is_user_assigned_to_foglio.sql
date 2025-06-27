@@ -7,13 +7,15 @@ AS $$
 DECLARE
   result BOOLEAN;
 BEGIN
+  -- Recupera l'email dall'header JWT senza consultare la tabella auth.users
+  -- per evitare errori di permesso quando la funzione è invocata in contesti
+  -- con privilegi limitati.
   SELECT EXISTS (
     SELECT 1
     FROM public.interventi_assistenza ia
     JOIN public.tecnici t ON t.id = ia.tecnico_id
-    JOIN auth.users u ON u.id = auth.uid()
     WHERE ia.foglio_assistenza_id = foglio_id
-      AND LOWER(t.email) = LOWER(u.email)
+      AND LOWER(t.email) = LOWER(current_setting('request.jwt.claims', true)::json->>'email')
   ) INTO result;
   RETURN result;
 END;
