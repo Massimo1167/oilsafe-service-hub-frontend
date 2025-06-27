@@ -34,9 +34,17 @@ CREATE POLICY "User CRUD on own interventi_assistenza for select"
   ON public.interventi_assistenza FOR SELECT
   USING (
     public.get_my_role() = 'user' AND
-    EXISTS (
-      SELECT 1 FROM public.fogli_assistenza fa
-      WHERE fa.id = interventi_assistenza.foglio_assistenza_id AND fa.creato_da_user_id = auth.uid()
+    (
+      EXISTS (
+        SELECT 1 FROM public.fogli_assistenza fa
+        WHERE fa.id = interventi_assistenza.foglio_assistenza_id AND fa.creato_da_user_id = auth.uid()
+      ) OR
+      EXISTS (
+        SELECT 1 FROM public.tecnici t
+        JOIN auth.users u ON u.id = auth.uid()
+        WHERE t.id = interventi_assistenza.tecnico_id
+          AND LOWER(t.email) = LOWER(u.email)
+      )
     )
   );
 
@@ -44,9 +52,17 @@ CREATE POLICY "User CRUD on own interventi_assistenza for update"
   ON public.interventi_assistenza FOR UPDATE
   USING (
     public.get_my_role() = 'user' AND
-    EXISTS (
-      SELECT 1 FROM public.fogli_assistenza fa
-      WHERE fa.id = interventi_assistenza.foglio_assistenza_id AND fa.creato_da_user_id = auth.uid()
+    (
+      EXISTS (
+        SELECT 1 FROM public.fogli_assistenza fa
+        WHERE fa.id = interventi_assistenza.foglio_assistenza_id AND fa.creato_da_user_id = auth.uid()
+      ) OR
+      EXISTS (
+        SELECT 1 FROM public.tecnici t
+        JOIN auth.users u ON u.id = auth.uid()
+        WHERE t.id = interventi_assistenza.tecnico_id
+          AND LOWER(t.email) = LOWER(u.email)
+      )
     )
   );
 
@@ -54,9 +70,17 @@ CREATE POLICY "User CRUD on own interventi_assistenza for delete"
   ON public.interventi_assistenza FOR DELETE
   USING (
     public.get_my_role() = 'user' AND
-    EXISTS (
-      SELECT 1 FROM public.fogli_assistenza fa
-      WHERE fa.id = interventi_assistenza.foglio_assistenza_id AND fa.creato_da_user_id = auth.uid()
+    (
+      EXISTS (
+        SELECT 1 FROM public.fogli_assistenza fa
+        WHERE fa.id = interventi_assistenza.foglio_assistenza_id AND fa.creato_da_user_id = auth.uid()
+      ) OR
+      EXISTS (
+        SELECT 1 FROM public.tecnici t
+        JOIN auth.users u ON u.id = auth.uid()
+        WHERE t.id = interventi_assistenza.tecnico_id
+          AND LOWER(t.email) = LOWER(u.email)
+      )
     )
   );
 
@@ -67,8 +91,16 @@ CREATE POLICY "User CRUD on own interventi_assistenza for insert"
   ON public.interventi_assistenza FOR INSERT
   WITH CHECK (
     public.get_my_role() = 'user' AND
-    EXISTS (
-      SELECT 1 FROM public.fogli_assistenza fa
-      WHERE fa.id = interventi_assistenza.foglio_assistenza_id AND fa.creato_da_user_id = auth.uid()
+    (
+      EXISTS (
+        SELECT 1 FROM public.fogli_assistenza fa
+        WHERE fa.id = interventi_assistenza.foglio_assistenza_id AND fa.creato_da_user_id = auth.uid()
+      ) OR
+      EXISTS (
+        SELECT 1 FROM public.tecnici t
+        JOIN auth.users u ON u.id = auth.uid()
+        WHERE t.id = interventi_assistenza.tecnico_id
+          AND LOWER(t.email) = LOWER(u.email)
+      )
     )
   );
