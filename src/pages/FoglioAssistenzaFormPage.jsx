@@ -267,7 +267,7 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
               firma_cliente_url: firmaClienteUrlToSave,
               firma_tecnico_principale_url: firmaTecnicoUrlToSave,
               stato_foglio: formStatoFoglio,
-              assegnato_a_user_id: formAssignedTecnicoId || null,
+              assegnato_a_user_id: formAssignedTecnicoId || currentUserId || null,
             };
             
             let resultData, resultError;
@@ -324,7 +324,7 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
         ),
     [tecniciOrdinati, filtroTecnico]);
 
-    const canEditAssignedTecnico = !isEditMode || userRole === 'admin' || userRole === 'manager';
+    const canEditAssignedTecnico = userRole === 'admin' || userRole === 'manager';
 
     if (pageLoading && isEditMode) return <p>Caricamento dati foglio...</p>;
     if (!session) return <Navigate to="/login" replace />;
