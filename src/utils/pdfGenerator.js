@@ -200,6 +200,10 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, op
     addLabelAndValue(doc, 'Indirizzo Intervento:', indirizzoInterventoDaStampare, marginLeft);
 
     addLabelAndValue(doc, 'Referente Richiesta:', foglioData.referente_cliente_richiesta || 'N/D', marginLeft);
+    const nomeTecnicoAss = foglioData.tecnico_assegnato_nome || foglioData.profilo_tecnico_assegnato?.full_name;
+    if (nomeTecnicoAss) {
+        addLabelAndValue(doc, 'Tecnico Assegnato:', nomeTecnicoAss, marginLeft);
+    }
     if (foglioData.commesse) addLabelAndValue(doc, 'Commessa:', `${foglioData.commesse.codice_commessa} (${foglioData.commesse.descrizione_commessa || 'N/D'})`, marginLeft);
     if (foglioData.ordini_cliente) addLabelAndValue(doc, 'Ordine Cliente:', `${foglioData.ordini_cliente.numero_ordine_cliente} (${foglioData.ordini_cliente.descrizione_ordine || 'N/D'})`, marginLeft);
     addLabelAndValue(doc, 'Stato Foglio:', foglioData.stato_foglio, marginLeft);

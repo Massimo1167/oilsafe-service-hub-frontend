@@ -48,6 +48,8 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
             .from('fogli_assistenza')
             .select(`
                 id, numero_foglio, data_apertura_foglio, stato_foglio, creato_da_user_id,
+                assegnato_a_user_id,
+                profilo_tecnico_assegnato:profiles!fogli_assistenza_assegnato_a_user_id_fkey (full_name),
                 cliente_id, commessa_id, ordine_cliente_id,
                 email_report_cliente, email_report_interno,
                 interventi_assistenza!left(tecnico_id, tecnici (email))
@@ -92,12 +94,14 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                         }
                     });
                 }
+                const tecnicoAssegnato = safeAllTecnici.find(t => t.user_id === foglio.assegnato_a_user_id);
                 return {
                     ...foglio,
                     cliente_nome_azienda: cliente?.nome_azienda || 'N/D',
                     commessa_codice: commessa?.codice_commessa || '-',
                     ordine_numero: ordine?.numero_ordine_cliente || '-',
                     nomi_tecnici_coinvolti: Array.from(tecniciNomiSet).join(', ') || 'Nessuno',
+                    tecnico_assegnato_nome: tecnicoAssegnato ? `${tecnicoAssegnato.nome} ${tecnicoAssegnato.cognome}` : (foglio.profilo_tecnico_assegnato?.full_name || 'N/D'),
                 };
             });
             setFogli(processedFogli);
@@ -155,8 +159,10 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
         let printErrors = [];
         for (const foglioId of Array.from(selectedFogli)) { 
             try {
-                const { data: foglioData, error: foglioError } = await supabase.from('fogli_assistenza').select(`*, clienti (*), commesse (*), ordini_cliente (*), indirizzi_clienti!indirizzo_intervento_id (*)`).eq('id', foglioId).single();
+                const { data: foglioData, error: foglioError } = await supabase.from('fogli_assistenza').select(`*, assegnato_a_user_id, profilo_tecnico_assegnato:profiles!fogli_assistenza_assegnato_a_user_id_fkey (full_name), clienti (*), commesse (*), ordini_cliente (*), indirizzi_clienti!indirizzo_intervento_id (*)`).eq('id', foglioId).single();
                 if (foglioError || !foglioData) throw new Error(foglioError?.message || `Foglio ${foglioId} non trovato.`);
+                const tecnicoAss = (allTecnici || []).find(t => t.user_id === foglioData.assegnato_a_user_id);
+                foglioData.tecnico_assegnato_nome = tecnicoAss ? `${tecnicoAss.nome} ${tecnicoAss.cognome}` : foglioData.profilo_tecnico_assegnato?.full_name || null;
                 
                 const { data: interventiData, error: interventiError } = await supabase.from('interventi_assistenza').select(`*, tecnici (*)`) .eq('foglio_assistenza_id', foglioId).order('data_intervento_effettivo');
                 if (interventiError) console.warn(`Attenzione: Errore nel recuperare gli interventi per il foglio ${foglioId}: ${interventiError.message}`);
@@ -273,6 +279,7 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                             <th>N. Foglio</th>
                             <th>Data Apertura</th>
                             <th>Cliente</th>
+                            <th>Tecnico Assegnato</th>
                             <th>Tecnici Coinvolti</th>
                             <th>Commessa</th>
                             <th>Ordine Cl.</th>
@@ -293,6 +300,7 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                                 <td>{foglio.numero_foglio || `ID: ${foglio.id.substring(0,8)}`}</td>
                                 <td>{new Date(foglio.data_apertura_foglio).toLocaleDateString()}</td>
                                 <td>{foglio.cliente_nome_azienda}</td>
+                                <td>{foglio.tecnico_assegnato_nome}</td>
                                 <td style={{fontSize:'0.9em', maxWidth:'200px', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}} title={foglio.nomi_tecnici_coinvolti}>
                                     {foglio.nomi_tecnici_coinvolti}
                                 </td>
