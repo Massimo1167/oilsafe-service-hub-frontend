@@ -30,6 +30,11 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
     const currentUserId = session?.user?.id;
     const currentUserEmail = session?.user?.email?.toLowerCase();
 
+    const isUserAssignedTecnico = useMemo(() => {
+        const email = currentUserEmail || '';
+        return interventi.some(i => (i.tecnici?.email || '').toLowerCase() === email);
+    }, [interventi, currentUserEmail]);
+
     // Calcola i permessi dopo che `foglio` è stato caricato
     const canViewThisFoglio =
         foglio &&
@@ -41,10 +46,6 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
     const isChiuso = foglio?.stato_foglio === 'Chiuso';
     const isCompletato = foglio?.stato_foglio === 'Completato';
     const firmaPresente = !!foglio?.firma_cliente_url;
-    const isUserAssignedTecnico = useMemo(() => {
-        const email = currentUserEmail || '';
-        return interventi.some(i => (i.tecnici?.email || '').toLowerCase() === email);
-    }, [interventi, currentUserEmail]);
 
     const baseEditPermission =
         foglio &&
