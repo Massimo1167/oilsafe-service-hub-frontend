@@ -312,7 +312,6 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
     const ordiniFiltrati = useMemo(() => ordiniDisponibili.filter(o => o.numero_ordine_cliente.toLowerCase().includes(filtroOrdine.toLowerCase()) || (o.descrizione_ordine || '').toLowerCase().includes(filtroOrdine.toLowerCase())), [ordiniDisponibili, filtroOrdine]);
     const tecniciOrdinati = useMemo(() =>
         [...(tecnici || [])]
-            .filter(t => t.user_id)
             .sort((a,b) => {
                 const cmp = a.cognome.localeCompare(b.cognome);
                 return cmp !== 0 ? cmp : a.nome.localeCompare(b.nome);
@@ -324,6 +323,8 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
             t.nome.toLowerCase().includes(filtroTecnico.toLowerCase())
         ),
     [tecniciOrdinati, filtroTecnico]);
+
+    const canEditAssignedTecnico = !isEditMode || userRole === 'admin' || userRole === 'manager';
 
     if (pageLoading && isEditMode) return <p>Caricamento dati foglio...</p>;
     if (!session) return <Navigate to="/login" replace />;
@@ -375,9 +376,19 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
                 <div>
                     <label htmlFor="tecnicoRiferimento">Tecnico di Riferimento:</label>
                     <input type="text" placeholder="Filtra tecnico..." value={filtroTecnico} onChange={e => setFiltroTecnico(e.target.value)} style={{marginBottom:'5px', width:'calc(100% - 22px)'}} />
-                    <select id="tecnicoRiferimento" value={formAssignedTecnicoId} onChange={e => { setFormAssignedTecnicoId(e.target.value); setFiltroTecnico(''); }} required>
+                    <select
+                        id="tecnicoRiferimento"
+                        value={formAssignedTecnicoId}
+                        onChange={e => { setFormAssignedTecnicoId(e.target.value); setFiltroTecnico(''); }}
+                        required
+                        disabled={!canEditAssignedTecnico}
+                    >
                         <option value="">Seleziona Tecnico ({tecniciFiltrati.length})</option>
-                        {tecniciFiltrati.map(t => <option key={t.id} value={t.user_id}>{t.cognome} {t.nome}</option>)}
+                        {tecniciFiltrati.map(t => (
+                            <option key={t.id} value={t.user_id || ''} disabled={!t.user_id}>
+                                {t.cognome} {t.nome}
+                            </option>
+                        ))}
                     </select>
                 </div>
                 <div>
