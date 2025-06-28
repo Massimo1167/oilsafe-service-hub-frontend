@@ -324,6 +324,11 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
         ),
     [tecniciOrdinati, filtroTecnico]);
 
+    const allTecniciDisabilitati = useMemo(
+        () => tecniciFiltrati.every(t => !t.user_id),
+        [tecniciFiltrati]
+    );
+
     const canEditAssignedTecnico = userRole === 'admin' || userRole === 'manager';
 
     if (pageLoading && isEditMode) return <p>Caricamento dati foglio...</p>;
@@ -390,10 +395,13 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
                                 value={t.user_id || ''}
                                 disabled={!t.user_id}
                             >
-                                {t.cognome} {t.nome}{t.email ? ` (${t.email})` : ''}
+                                {t.cognome} {t.nome}{t.email ? ` (${t.email})` : ''}{!t.user_id ? ' (account mancante)' : ''}
                             </option>
                         ))}
                     </select>
+                    {allTecniciDisabilitati && (
+                        <p style={{fontSize:'0.9em', color:'#c00'}}>Nessun tecnico con account disponibile.</p>
+                    )}
                 </div>
                 <div>
                     <label htmlFor="commessa">Commessa:</label>
