@@ -129,7 +129,11 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
         if (filtroClienteTesto.trim()) { dataDaFiltrare = dataDaFiltrare.filter(f => f.cliente_nome_azienda.toLowerCase().includes(filtroClienteTesto.toLowerCase())); }
         if (filtroCommessaTesto.trim()) { dataDaFiltrare = dataDaFiltrare.filter(f => f.commessa_codice.toLowerCase().includes(filtroCommessaTesto.toLowerCase())); }
         if (filtroOrdineTesto.trim()) { dataDaFiltrare = dataDaFiltrare.filter(f => f.ordine_numero.toLowerCase().includes(filtroOrdineTesto.toLowerCase())); }
-        if (filtroTecnicoTesto.trim()) { dataDaFiltrare = dataDaFiltrare.filter(f => f.nomi_tecnici_coinvolti.toLowerCase().includes(filtroTecnicoTesto.toLowerCase())); }
+        if (filtroTecnicoTesto.trim()) {
+            dataDaFiltrare = dataDaFiltrare.filter(f =>
+                (f.nomi_tecnici_coinvolti || '').toLowerCase().includes(filtroTecnicoTesto.toLowerCase())
+            );
+        }
         
         return dataDaFiltrare;
     }, [fogli, filtroStato, filtroClienteTesto, filtroCommessaTesto, filtroOrdineTesto, filtroTecnicoTesto]);

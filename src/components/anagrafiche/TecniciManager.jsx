@@ -33,7 +33,7 @@ function TecniciManager({ session }) {
     const fileInputRef = useRef(null);
     const filteredUsers = useMemo(
         () => users.filter(u =>
-            u.username.toLowerCase().includes(filterUser.toLowerCase()) ||
+            (u.username || '').toLowerCase().includes(filterUser.toLowerCase()) ||
             (u.full_name || '').toLowerCase().includes(filterUser.toLowerCase())
         ),
         [users, filterUser]
