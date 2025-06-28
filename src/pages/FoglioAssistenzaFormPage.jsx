@@ -24,6 +24,10 @@ function FoglioAssistenzaFormPage({ session, clienti, commesse, ordini, tecnici 
     const { foglioIdParam } = useParams();
     const isEditMode = !!foglioIdParam;
 
+    const userRole = (session?.user?.role || '').trim().toLowerCase();
+    const currentUserId = session?.user?.id;
+    const currentUserEmail = session?.user?.email?.toLowerCase();
+
     const draftKey = foglioIdParam ? `draft-foglio-${foglioIdParam}` : 'draft-foglio-new';
 
     // Stati del Form
@@ -60,9 +64,6 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
     const [firmaClientePreview, setFirmaClientePreview] = useState(null);
     const [firmaTecnicoPreview, setFirmaTecnicoPreview] = useState(null);
 
-    const userRole = (session?.user?.role || '').trim().toLowerCase();
-    const currentUserId = session?.user?.id;
-    const currentUserEmail = session?.user?.email?.toLowerCase();
     const [isAssignedTecnico, setIsAssignedTecnico] = useState(false);
     const baseFormPermission =
         userRole === 'admin' ||
