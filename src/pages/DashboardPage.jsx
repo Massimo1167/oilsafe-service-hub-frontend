@@ -14,15 +14,16 @@ function DashboardPage({ session }) { // Riceve la sessione per personalizzare i
       {/* Mostra un messaggio di benvenuto personalizzato se la sessione utente è attiva */}
       {session &&
         <p>
-          Loggato come: <strong>{session.user.full_name || session.user.email}</strong>
+          Loggato come: <strong>{session.user.full_name || session.user.email} </strong>
            Ruolo: <strong>{session.user.role}</strong>
         </p>
+   
       }
       <p style={{ fontStyle: 'italic', marginTop: '1em' }}>
         Versione applicazione: {__APP_VERSION__}
       </p>
       <p style={{ fontStyle: 'italic', marginTop: '1em' }}>
-        Sviluppato da Massimo Centrella (Oilsafe S.r.l. Modena)
+        Sviluppato da Massimo Centrella 
       </p>
       <hr style={{margin: "20px 0"}} />
       <p>Utilizza il menu di navigazione in alto per accedere alle diverse sezioni dell'applicazione.</p>
