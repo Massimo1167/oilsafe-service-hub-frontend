@@ -14,8 +14,9 @@ function DashboardPage({ session }) { // Riceve la sessione per personalizzare i
       {/* Mostra un messaggio di benvenuto personalizzato se la sessione utente è attiva */}
       {session &&
         <p>
-          Loggato come: <strong>{session.user.full_name || session.user.email} </strong>
-           Ruolo: <strong>{session.user.role}</strong>
+          Loggato come: <strong>{session.user.full_name || session.user.email}</strong>
+          
+          Ruolo: <strong>{session.user.role}</strong>
         </p>
    
       }
