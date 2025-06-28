@@ -56,6 +56,9 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
     const [filtroIndirizzo, setFiltroIndirizzo] = useState('');
     const [filtroTecnico, setFiltroTecnico] = useState('');
 
+    // Lista tecnici locale per aggiornamenti dinamici
+    const [localTecnici, setLocalTecnici] = useState(tecnici || []);
+
     const [loadingSubmit, setLoadingSubmit] = useState(false);
     const [pageLoading, setPageLoading] = useState(isEditMode); 
     const [error, setError] = useState(null);
@@ -227,6 +230,15 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
         checkTecnico();
     }, [isEditMode, foglioIdParam, session, currentUserEmail, formAssignedTecnicoId, currentUserId]);
 
+    useEffect(() => {
+        const fetchTecnici = async () => {
+            const { data, error } = await supabase.from('tecnici').select('*').order('cognome');
+            if (!error) setLocalTecnici(data || []);
+            else console.error('Errore fetch tecnici:', error);
+        };
+        fetchTecnici();
+    }, [session]);
+
     const clearSignature = (ref, previewSetterKey) => { /* ... */ };
 
     const handleSubmit = async (e) => {
@@ -323,12 +335,12 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
     const ordiniDisponibili = useMemo(() => formSelectedClienteId && ordini ? [...(ordini || [])].filter(o => o.cliente_id === formSelectedClienteId).sort((a,b) => a.numero_ordine_cliente.localeCompare(b.numero_ordine_cliente)) : [...(ordini || [])].sort((a,b) => a.numero_ordine_cliente.localeCompare(b.numero_ordine_cliente)),[ordini, formSelectedClienteId]);
     const ordiniFiltrati = useMemo(() => ordiniDisponibili.filter(o => o.numero_ordine_cliente.toLowerCase().includes(filtroOrdine.toLowerCase()) || (o.descrizione_ordine || '').toLowerCase().includes(filtroOrdine.toLowerCase())), [ordiniDisponibili, filtroOrdine]);
     const tecniciOrdinati = useMemo(() =>
-        [...(tecnici || [])]
+        [...(localTecnici || [])]
             .sort((a,b) => {
                 const cmp = a.cognome.localeCompare(b.cognome);
                 return cmp !== 0 ? cmp : a.nome.localeCompare(b.nome);
             }),
-    [tecnici]);
+    [localTecnici]);
     const tecniciFiltrati = useMemo(() =>
         tecniciOrdinati.filter(t =>
             (t.cognome || '').toLowerCase().includes(filtroTecnico.toLowerCase()) ||
