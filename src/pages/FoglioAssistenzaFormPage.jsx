@@ -19,7 +19,7 @@ function dataURLtoBlob(dataurl) {
     } catch (e) { console.error("Errore conversione dataURLtoBlob:", e); return null; }
 }
 
-function FoglioAssistenzaFormPage({ session, clienti, commesse, ordini }) {
+function FoglioAssistenzaFormPage({ session, clienti, commesse, ordini, tecnici }) {
     const navigate = useNavigate();
     const { foglioIdParam } = useParams();
     const isEditMode = !!foglioIdParam;
@@ -33,6 +33,7 @@ function FoglioAssistenzaFormPage({ session, clienti, commesse, ordini }) {
     const [formMotivoGenerale, setFormMotivoGenerale] = useState('');
     const [formSelectedCommessaId, setFormSelectedCommessaId] = useState('');
     const [formSelectedOrdineId, setFormSelectedOrdineId] = useState('');
+    const [formAssignedTecnicoId, setFormAssignedTecnicoId] = useState(currentUserId || '');
     const [formDescrizioneGenerale, setFormDescrizioneGenerale] = useState('');
     const [formOsservazioniGenerali, setFormOsservazioniGenerali] = useState('');
 const [formMaterialiForniti, setFormMaterialiForniti] = useState('');
@@ -49,6 +50,7 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
     const [filtroCommessa, setFiltroCommessa] = useState('');
     const [filtroOrdine, setFiltroOrdine] = useState('');
     const [filtroIndirizzo, setFiltroIndirizzo] = useState('');
+    const [filtroTecnico, setFiltroTecnico] = useState('');
 
     const [loadingSubmit, setLoadingSubmit] = useState(false);
     const [pageLoading, setPageLoading] = useState(isEditMode); 
@@ -110,6 +112,7 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
                     if (d.formMotivoGenerale) setFormMotivoGenerale(d.formMotivoGenerale);
                     if (d.formSelectedCommessaId) setFormSelectedCommessaId(d.formSelectedCommessaId);
                     if (d.formSelectedOrdineId) setFormSelectedOrdineId(d.formSelectedOrdineId);
+                    if (d.formAssignedTecnicoId) setFormAssignedTecnicoId(d.formAssignedTecnicoId);
                     if (d.formDescrizioneGenerale) setFormDescrizioneGenerale(d.formDescrizioneGenerale);
                     if (d.formOsservazioniGenerali) setFormOsservazioniGenerali(d.formOsservazioniGenerali);
                     if (d.formMaterialiForniti) setFormMaterialiForniti(d.formMaterialiForniti);
@@ -133,6 +136,7 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
                 formMotivoGenerale,
                 formSelectedCommessaId,
                 formSelectedOrdineId,
+                formAssignedTecnicoId,
                 formDescrizioneGenerale,
                 formOsservazioniGenerali,
                 formMaterialiForniti,
@@ -142,7 +146,7 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
             };
             localStorage.setItem(draftKey, JSON.stringify(draft));
         }
-    }, [draftKey, pageLoading, formDataApertura, formSelectedClienteId, formSelectedIndirizzoId, formReferenteCliente, formMotivoGenerale, formSelectedCommessaId, formSelectedOrdineId, formDescrizioneGenerale, formOsservazioniGenerali, formMaterialiForniti, formStatoFoglio, formEmailCliente, formEmailInterno]);
+    }, [draftKey, pageLoading, formDataApertura, formSelectedClienteId, formSelectedIndirizzoId, formReferenteCliente, formMotivoGenerale, formSelectedCommessaId, formSelectedOrdineId, formDescrizioneGenerale, formOsservazioniGenerali, formMaterialiForniti, formStatoFoglio, formEmailCliente, formEmailInterno, formAssignedTecnicoId]);
 
     useEffect(() => {
         if (formSelectedClienteId) {
@@ -186,6 +190,7 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
                     setFormMotivoGenerale(data.motivo_intervento_generale || '');
                     setFormSelectedCommessaId(data.commessa_id || '');
                     setFormSelectedOrdineId(data.ordine_cliente_id || '');
+                    setFormAssignedTecnicoId(data.assegnato_a_user_id || currentUserId || '');
                     setFormDescrizioneGenerale(data.descrizione_lavoro_generale || '');
                     setFormOsservazioniGenerali(data.osservazioni_generali || '');
                     setFormMaterialiForniti(data.materiali_forniti_generale || '');
@@ -213,12 +218,13 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
                 .eq('foglio_assistenza_id', foglioIdParam);
             if (!error && data) {
                 const email = currentUserEmail || '';
-                const assigned = data.some(i => (i.tecnici?.email || '').toLowerCase() === email);
-                setIsAssignedTecnico(assigned);
+                const assignedInterv = data.some(i => (i.tecnici?.email || '').toLowerCase() === email);
+                const assignedFoglio = formAssignedTecnicoId === currentUserId;
+                setIsAssignedTecnico(assignedInterv || assignedFoglio);
             }
         };
         checkTecnico();
-    }, [isEditMode, foglioIdParam, session, currentUserEmail]);
+    }, [isEditMode, foglioIdParam, session, currentUserEmail, formAssignedTecnicoId, currentUserId]);
 
     const clearSignature = (ref, previewSetterKey) => { /* ... */ };
 
@@ -260,6 +266,7 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
               firma_cliente_url: firmaClienteUrlToSave,
               firma_tecnico_principale_url: firmaTecnicoUrlToSave,
               stato_foglio: formStatoFoglio,
+              assegnato_a_user_id: formAssignedTecnicoId || null,
             };
             
             let resultData, resultError;
@@ -302,6 +309,20 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
     const commesseFiltrate = useMemo(() => commesseDisponibili.filter(c => c.codice_commessa.toLowerCase().includes(filtroCommessa.toLowerCase()) || (c.descrizione_commessa || '').toLowerCase().includes(filtroCommessa.toLowerCase())), [commesseDisponibili, filtroCommessa]);
     const ordiniDisponibili = useMemo(() => formSelectedClienteId && ordini ? [...(ordini || [])].filter(o => o.cliente_id === formSelectedClienteId).sort((a,b) => a.numero_ordine_cliente.localeCompare(b.numero_ordine_cliente)) : [...(ordini || [])].sort((a,b) => a.numero_ordine_cliente.localeCompare(b.numero_ordine_cliente)),[ordini, formSelectedClienteId]);
     const ordiniFiltrati = useMemo(() => ordiniDisponibili.filter(o => o.numero_ordine_cliente.toLowerCase().includes(filtroOrdine.toLowerCase()) || (o.descrizione_ordine || '').toLowerCase().includes(filtroOrdine.toLowerCase())), [ordiniDisponibili, filtroOrdine]);
+    const tecniciOrdinati = useMemo(() =>
+        [...(tecnici || [])]
+            .filter(t => t.user_id)
+            .sort((a,b) => {
+                const cmp = a.cognome.localeCompare(b.cognome);
+                return cmp !== 0 ? cmp : a.nome.localeCompare(b.nome);
+            }),
+    [tecnici]);
+    const tecniciFiltrati = useMemo(() =>
+        tecniciOrdinati.filter(t =>
+            t.cognome.toLowerCase().includes(filtroTecnico.toLowerCase()) ||
+            t.nome.toLowerCase().includes(filtroTecnico.toLowerCase())
+        ),
+    [tecniciOrdinati, filtroTecnico]);
 
     if (pageLoading && isEditMode) return <p>Caricamento dati foglio...</p>;
     if (!session) return <Navigate to="/login" replace />;
@@ -349,6 +370,14 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
                 <div>
                     <label htmlFor="formReferenteCliente">Referente Cliente (per richiesta):</label>
                     <input type="text" id="formReferenteCliente" value={formReferenteCliente} onChange={(e) => setFormReferenteCliente(e.target.value)} />
+                </div>
+                <div>
+                    <label htmlFor="tecnicoRiferimento">Tecnico di Riferimento:</label>
+                    <input type="text" placeholder="Filtra tecnico..." value={filtroTecnico} onChange={e => setFiltroTecnico(e.target.value)} style={{marginBottom:'5px', width:'calc(100% - 22px)'}} />
+                    <select id="tecnicoRiferimento" value={formAssignedTecnicoId} onChange={e => { setFormAssignedTecnicoId(e.target.value); setFiltroTecnico(''); }} required>
+                        <option value="">Seleziona Tecnico ({tecniciFiltrati.length})</option>
+                        {tecniciFiltrati.map(t => <option key={t.id} value={t.user_id}>{t.cognome} {t.nome}</option>)}
+                    </select>
                 </div>
                 <div>
                     <label htmlFor="commessa">Commessa:</label>

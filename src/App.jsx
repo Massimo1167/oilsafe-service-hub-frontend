@@ -318,18 +318,19 @@ function App() {
               path="/fogli-assistenza/nuovo" 
               element={
                 canCreateNewSheet ? 
-                <FoglioAssistenzaFormPage session={session} clienti={clienti} commesse={commesse} ordini={ordini} />
+                <FoglioAssistenzaFormPage session={session} clienti={clienti} commesse={commesse} ordini={ordini} tecnici={tecnici} />
                 : <Navigate to="/" replace />
               }
             />
             <Route 
               path="/fogli-assistenza/:foglioIdParam/modifica"
               element={
-                <FoglioAssistenzaFormPage 
-                    session={session} 
-                    clienti={clienti} 
-                    commesse={commesse} 
-                    ordini={ordini} 
+                <FoglioAssistenzaFormPage
+                    session={session}
+                    clienti={clienti}
+                    commesse={commesse}
+                    ordini={ordini}
+                    tecnici={tecnici}
                 />
               }
             />
