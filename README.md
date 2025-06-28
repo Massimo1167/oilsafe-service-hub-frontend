@@ -18,3 +18,6 @@ L'applicazione visualizza la versione corrente nella dashboard. Il numero di ver
 ## Database migrations
 
 - `06. Alter fogli_assistenza add assegnato_a_user_id.sql` adds an `assegnato_a_user_id` column to `fogli_assistenza` and populates it for existing records.
+- `27. Policy fogli_assistenza.sql` now allows users assigned to a sheet via `assegnato_a_user_id` to select and update it.
+- `28. Policy interventi_assistenza.sql` permits actions on interventions when the user is the technician assigned to the parent sheet.
+- `29. Function is_user_assigned_to_foglio.sql` also checks the `assegnato_a_user_id` field.

@@ -50,7 +50,11 @@ CREATE POLICY "User CRUD on own interventi_assistenza for select"
     (
       EXISTS (
         SELECT 1 FROM public.fogli_assistenza fa
-        WHERE fa.id = interventi_assistenza.foglio_assistenza_id AND fa.creato_da_user_id = auth.uid()
+        WHERE fa.id = interventi_assistenza.foglio_assistenza_id
+          AND (
+            fa.creato_da_user_id = auth.uid() OR
+            fa.assegnato_a_user_id = auth.uid()
+          )
       ) OR
       EXISTS (
         SELECT 1 FROM public.tecnici t
@@ -68,7 +72,11 @@ CREATE POLICY "User CRUD on own interventi_assistenza for update"
     (
       EXISTS (
         SELECT 1 FROM public.fogli_assistenza fa
-        WHERE fa.id = interventi_assistenza.foglio_assistenza_id AND fa.creato_da_user_id = auth.uid()
+        WHERE fa.id = interventi_assistenza.foglio_assistenza_id
+          AND (
+            fa.creato_da_user_id = auth.uid() OR
+            fa.assegnato_a_user_id = auth.uid()
+          )
       ) OR
       EXISTS (
         SELECT 1 FROM public.tecnici t
@@ -86,7 +94,11 @@ CREATE POLICY "User CRUD on own interventi_assistenza for delete"
     (
       EXISTS (
         SELECT 1 FROM public.fogli_assistenza fa
-        WHERE fa.id = interventi_assistenza.foglio_assistenza_id AND fa.creato_da_user_id = auth.uid()
+        WHERE fa.id = interventi_assistenza.foglio_assistenza_id
+          AND (
+            fa.creato_da_user_id = auth.uid() OR
+            fa.assegnato_a_user_id = auth.uid()
+          )
       ) OR
       EXISTS (
         SELECT 1 FROM public.tecnici t
@@ -107,7 +119,11 @@ CREATE POLICY "User CRUD on own interventi_assistenza for insert"
     (
       EXISTS (
         SELECT 1 FROM public.fogli_assistenza fa
-        WHERE fa.id = interventi_assistenza.foglio_assistenza_id AND fa.creato_da_user_id = auth.uid()
+        WHERE fa.id = interventi_assistenza.foglio_assistenza_id
+          AND (
+            fa.creato_da_user_id = auth.uid() OR
+            fa.assegnato_a_user_id = auth.uid()
+          )
       ) OR
       EXISTS (
         SELECT 1 FROM public.tecnici t
