@@ -319,8 +319,9 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
     [tecnici]);
     const tecniciFiltrati = useMemo(() =>
         tecniciOrdinati.filter(t =>
-            t.cognome.toLowerCase().includes(filtroTecnico.toLowerCase()) ||
-            t.nome.toLowerCase().includes(filtroTecnico.toLowerCase())
+            (t.cognome.toLowerCase().includes(filtroTecnico.toLowerCase()) ||
+            t.nome.toLowerCase().includes(filtroTecnico.toLowerCase())) &&
+            t.user_id
         ),
     [tecniciOrdinati, filtroTecnico]);
 
@@ -385,7 +386,7 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
                     >
                         <option value="">Seleziona Tecnico ({tecniciFiltrati.length})</option>
                         {tecniciFiltrati.map(t => (
-                            <option key={t.id} value={t.user_id || ''} disabled={!t.user_id}>
+                            <option key={t.id} value={t.user_id}>
                                 {t.cognome} {t.nome}
                             </option>
                         ))}
