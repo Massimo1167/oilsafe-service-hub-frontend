@@ -3,7 +3,7 @@
  * Provides CRUD operations with CSV/XLSX import-export via Supabase.
  * It is protected by user role checks coming from `App.jsx`.
  */
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { supabase } from '../../supabaseClient';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
@@ -25,10 +25,19 @@ function TecniciManager({ session }) {
     const [formEmail, setFormEmail] = useState('');
     const [formUserId, setFormUserId] = useState('');
     const [editingTecnico, setEditingTecnico] = useState(null);
+    const [users, setUsers] = useState([]);
+    const [filterUser, setFilterUser] = useState('');
 
     const userRole = (session?.user?.role || '').trim().toLowerCase();
     const canManage = userRole === 'admin' || userRole === 'manager';
     const fileInputRef = useRef(null);
+    const filteredUsers = useMemo(
+        () => users.filter(u =>
+            u.username.toLowerCase().includes(filterUser.toLowerCase()) ||
+            (u.full_name || '').toLowerCase().includes(filterUser.toLowerCase())
+        ),
+        [users, filterUser]
+    );
 
     const fetchTecnici = async (nomeFiltro, cognomeFiltro) => {
         if (
@@ -66,21 +75,38 @@ function TecniciManager({ session }) {
         setPageLoading(false);
     }, [session, canManage]);
 
+    useEffect(() => {
+        if (!canManage) return;
+        const fetchUsers = async () => {
+            const { data, error: usersError } = await supabase
+                .from('profiles')
+                .select('id, username, full_name')
+                .order('username');
+            if (usersError) {
+                console.error('Errore fetch profili:', usersError);
+            }
+            setUsers(data || []);
+        };
+        fetchUsers();
+    }, [canManage]);
+
     const resetForm = () => {
         setFormNome('');
         setFormCognome('');
         setFormEmail('');
         setFormUserId('');
+        setFilterUser('');
         setEditingTecnico(null);
     };
     
     const handleEditTecnico = (tecnico) => {
         if (!canManage) { alert("Non hai i permessi per modificare."); return; }
-        setEditingTecnico(tecnico); 
+        setEditingTecnico(tecnico);
         setFormNome(tecnico.nome);
         setFormCognome(tecnico.cognome);
         setFormEmail(tecnico.email || '');
         setFormUserId(tecnico.user_id || '');
+        setFilterUser('');
         window.scrollTo(0, 0);
     };
 
@@ -297,8 +323,27 @@ function TecniciManager({ session }) {
                         <input type="email" id="formEmailTecnico" value={formEmail} onChange={e => setFormEmail(e.target.value)} />
                     </div>
                     <div>
-                        <label htmlFor="formUserIdTecnico">User ID Profilo:</label>
-                        <input type="text" id="formUserIdTecnico" value={formUserId} onChange={e => setFormUserId(e.target.value)} placeholder="UUID profilo" />
+                        <label htmlFor="formUserIdTecnico">Profilo Utente:</label>
+                        <input
+                            type="text"
+                            id="filterUserTecnico"
+                            value={filterUser}
+                            onChange={e => setFilterUser(e.target.value)}
+                            placeholder="Filtra per username o nome..."
+                            style={{marginBottom:'5px'}}
+                        />
+                        <select
+                            id="formUserIdTecnico"
+                            value={formUserId}
+                            onChange={e => { setFormUserId(e.target.value); setFilterUser(''); }}
+                        >
+                            <option value="">Nessun profilo ({filteredUsers.length} trovati)</option>
+                            {filteredUsers.map(u => (
+                                <option key={u.id} value={u.id}>
+                                    {u.full_name ? `${u.full_name} (${u.username})` : u.username}
+                                </option>
+                            ))}
+                        </select>
                     </div>
                     <button type="submit" disabled={loadingActions}>{loadingActions ? 'Salvataggio...' : (editingTecnico ? 'Salva Modifiche' : 'Aggiungi Tecnico')}</button>
                     {editingTecnico && ( <button type="button" className="secondary" onClick={resetForm} disabled={loadingActions} style={{marginLeft:'10px'}}> Annulla Modifica </button> )}
