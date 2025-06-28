@@ -13,16 +13,24 @@ CREATE POLICY "Admin full access on interventi_assistenza"
 
 -- MANAGER: visualizzare e modificare i fogli di lavoro di tutti
 DROP POLICY IF EXISTS "Manager read all interventi_assistenza" ON public.interventi_assistenza;
-CREATE POLICY "Manager read all interventi_assistenza"
-  ON public.interventi_assistenza FOR SELECT
-  USING (public.get_my_role() = 'manager');
+--CREATE POLICY "Manager read all interventi_assistenza"
+--  ON public.interventi_assistenza FOR SELECT
+--  USING (public.get_my_role() = 'manager');
 
 DROP POLICY IF EXISTS "Manager update all interventi_assistenza" ON public.interventi_assistenza;
-CREATE POLICY "Manager update all interventi_assistenza"
-  ON public.interventi_assistenza FOR UPDATE
+--CREATE POLICY "Manager update all interventi_assistenza"
+--  ON public.interventi_assistenza FOR UPDATE
+--  USING (public.get_my_role() = 'manager')
+--  WITH CHECK (public.get_my_role() = 'manager');
+
+-- Nota: Inizialmente Il manager non aveva INSERT o DELETE su interventi_assistenza secondo la definizione iniziale,
+-- adesso ho assegnato tutti i permessi anche a manager perchè sono aumentate le mansioni
+-- MANAGER: tutti i permessi
+DROP POLICY IF EXISTS "Manager full access on interventi_assistenza" ON public.interventi_assistenza;
+CREATE POLICY "Manager full access on interventi_assistenza"
+  ON public.interventi_assistenza FOR ALL
   USING (public.get_my_role() = 'manager')
   WITH CHECK (public.get_my_role() = 'manager');
--- Nota: Il manager non ha INSERT o DELETE su interventi_assistenza secondo la tua definizione iniziale.
 
 
 -- HEAD: visualizzare gli interventi di tutti i fogli
