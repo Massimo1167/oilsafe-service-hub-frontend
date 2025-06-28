@@ -103,7 +103,7 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
           .select(`
             *,
             assegnato_a_user_id,
-            profilo_tecnico_assegnato:profiles!fogli_assistenza_assegnato_a_user_id_fkey (full_name),
+            profilo_tecnico_assegnato:profiles (full_name),
             clienti (id, nome_azienda),
             commesse (id, codice_commessa, descrizione_commessa),
             ordini_cliente (id, numero_ordine_cliente, descrizione_ordine),
@@ -247,7 +247,7 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
             if (!foglio.clienti || !foglio.indirizzi_clienti) { // Aggiunto check per indirizzi_clienti
                 console.warn("Ricarico dati foglio completi per stampa (dati relazionati mancanti)...");
                 const { data: fullData, error: fullErr } = await supabase.from('fogli_assistenza')
-                    .select(`*, assegnato_a_user_id, profilo_tecnico_assegnato:profiles!fogli_assistenza_assegnato_a_user_id_fkey (full_name), clienti (*), commesse (*), ordini_cliente (*), indirizzi_clienti!indirizzo_intervento_id (*)`)
+                    .select(`*, assegnato_a_user_id, profilo_tecnico_assegnato:profiles (full_name), clienti (*), commesse (*), ordini_cliente (*), indirizzi_clienti!indirizzo_intervento_id (*)`)
                     .eq('id', foglioId).single();
                 if (fullErr || !fullData) throw new Error(fullErr?.message || "Impossibile ricaricare dati foglio per stampa.");
                 const tecnicoAss = (tecnici || []).find(t => t.user_id === fullData.assegnato_a_user_id);

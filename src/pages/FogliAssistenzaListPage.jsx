@@ -49,7 +49,7 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
             .select(`
                 id, numero_foglio, data_apertura_foglio, stato_foglio, creato_da_user_id,
                 assegnato_a_user_id,
-                profilo_tecnico_assegnato:profiles!fogli_assistenza_assegnato_a_user_id_fkey (full_name),
+                profilo_tecnico_assegnato:profiles (full_name),
                 cliente_id, commessa_id, ordine_cliente_id,
                 email_report_cliente, email_report_interno,
                 interventi_assistenza!left(tecnico_id, tecnici (email))
@@ -159,7 +159,7 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
         let printErrors = [];
         for (const foglioId of Array.from(selectedFogli)) { 
             try {
-                const { data: foglioData, error: foglioError } = await supabase.from('fogli_assistenza').select(`*, assegnato_a_user_id, profilo_tecnico_assegnato:profiles!fogli_assistenza_assegnato_a_user_id_fkey (full_name), clienti (*), commesse (*), ordini_cliente (*), indirizzi_clienti!indirizzo_intervento_id (*)`).eq('id', foglioId).single();
+                const { data: foglioData, error: foglioError } = await supabase.from('fogli_assistenza').select(`*, assegnato_a_user_id, profilo_tecnico_assegnato:profiles (full_name), clienti (*), commesse (*), ordini_cliente (*), indirizzi_clienti!indirizzo_intervento_id (*)`).eq('id', foglioId).single();
                 if (foglioError || !foglioData) throw new Error(foglioError?.message || `Foglio ${foglioId} non trovato.`);
                 const tecnicoAss = (allTecnici || []).find(t => t.user_id === foglioData.assegnato_a_user_id);
                 foglioData.tecnico_assegnato_nome = tecnicoAss ? `${tecnicoAss.nome} ${tecnicoAss.cognome}` : foglioData.profilo_tecnico_assegnato?.full_name || null;

@@ -21,3 +21,4 @@ L'applicazione visualizza la versione corrente nella dashboard. Il numero di ver
 - `27. Policy fogli_assistenza.sql` now allows users assigned to a sheet via `assegnato_a_user_id` to select and update it.
 - `28. Policy interventi_assistenza.sql` permits actions on interventions when the user is the technician assigned to the parent sheet.
 - `29. Function is_user_assigned_to_foglio.sql` also checks the `assegnato_a_user_id` field.
+- `52. FK fogli_assistenza assegnato_a_profiles.sql` links `fogli_assistenza.assegnato_a_user_id` to `public.profiles.id`.
