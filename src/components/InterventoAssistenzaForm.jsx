@@ -145,9 +145,9 @@ function InterventoAssistenzaForm({
     [tecniciList]);
 
     const tecniciFiltrati = useMemo(() =>
-        tecniciOrdinati.filter(t => 
-            t.cognome.toLowerCase().includes(filtroTecnico.toLowerCase()) ||
-            t.nome.toLowerCase().includes(filtroTecnico.toLowerCase())
+        tecniciOrdinati.filter(t =>
+            (t.cognome || '').toLowerCase().includes(filtroTecnico.toLowerCase()) ||
+            (t.nome || '').toLowerCase().includes(filtroTecnico.toLowerCase())
         ),
     [tecniciOrdinati, filtroTecnico]);
 

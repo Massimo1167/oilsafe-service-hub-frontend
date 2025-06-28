@@ -331,8 +331,8 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
     [tecnici]);
     const tecniciFiltrati = useMemo(() =>
         tecniciOrdinati.filter(t =>
-            t.cognome.toLowerCase().includes(filtroTecnico.toLowerCase()) ||
-            t.nome.toLowerCase().includes(filtroTecnico.toLowerCase())
+            (t.cognome || '').toLowerCase().includes(filtroTecnico.toLowerCase()) ||
+            (t.nome || '').toLowerCase().includes(filtroTecnico.toLowerCase())
         ),
     [tecniciOrdinati, filtroTecnico]);
 
