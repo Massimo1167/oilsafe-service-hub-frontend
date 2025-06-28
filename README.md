@@ -14,3 +14,7 @@ If you are developing a production application, we recommend using TypeScript wi
 ## Versioning
 
 L'applicazione visualizza la versione corrente nella dashboard. Il numero di versione è letto dal campo `version` di `package.json` ed è disponibile come costante `__APP_VERSION__` durante la build Vite.
+
+## Database migrations
+
+- `06. Alter fogli_assistenza add assegnato_a_user_id.sql` adds an `assegnato_a_user_id` column to `fogli_assistenza` and populates it for existing records.
