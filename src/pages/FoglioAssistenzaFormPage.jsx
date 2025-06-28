@@ -239,7 +239,19 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
         }
 
         try {
-            let firmaClienteUrlToSave = firmaClientePreview; 
+            const { data: profCheck, error: profError } = await supabase
+                .from('profiles')
+                .select('id')
+                .eq('id', formAssignedTecnicoId)
+                .maybeSingle();
+            if (profError) throw profError;
+            if (!profCheck) {
+                setError('Tecnico non collegato a un account utente.');
+                setLoadingSubmit(false);
+                return;
+            }
+
+            let firmaClienteUrlToSave = firmaClientePreview;
             let firmaTecnicoUrlToSave = firmaTecnicoPreview;
             // Logica di upload firme completa
             if (sigCanvasClienteRef.current && !sigCanvasClienteRef.current.isEmpty()) {
