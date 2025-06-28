@@ -23,6 +23,7 @@ function TecniciManager({ session }) {
     const [formNome, setFormNome] = useState('');
     const [formCognome, setFormCognome] = useState('');
     const [formEmail, setFormEmail] = useState('');
+    const [formUserId, setFormUserId] = useState('');
     const [editingTecnico, setEditingTecnico] = useState(null);
 
     const userRole = (session?.user?.role || '').trim().toLowerCase();
@@ -65,14 +66,21 @@ function TecniciManager({ session }) {
         setPageLoading(false);
     }, [session, canManage]);
 
-    const resetForm = () => { setFormNome(''); setFormCognome(''); setFormEmail(''); setEditingTecnico(null); };
+    const resetForm = () => {
+        setFormNome('');
+        setFormCognome('');
+        setFormEmail('');
+        setFormUserId('');
+        setEditingTecnico(null);
+    };
     
     const handleEditTecnico = (tecnico) => {
         if (!canManage) { alert("Non hai i permessi per modificare."); return; }
         setEditingTecnico(tecnico); 
-        setFormNome(tecnico.nome); 
-        setFormCognome(tecnico.cognome); 
+        setFormNome(tecnico.nome);
+        setFormCognome(tecnico.cognome);
         setFormEmail(tecnico.email || '');
+        setFormUserId(tecnico.user_id || '');
         window.scrollTo(0, 0);
     };
 
@@ -81,10 +89,11 @@ function TecniciManager({ session }) {
         if (!canManage) { alert("Non hai i permessi."); return; }
         if (!formNome.trim() || !formCognome.trim()) { alert("Nome e cognome obbligatori."); return; }
         setLoadingActions(true); setError(null); setSuccessMessage('');
-        const tecnicoData = { 
-            nome: formNome.trim(), 
-            cognome: formCognome.trim(), 
-            email: formEmail.trim() || null 
+        const tecnicoData = {
+            nome: formNome.trim(),
+            cognome: formCognome.trim(),
+            email: formEmail.trim() || null,
+            user_id: formUserId.trim() || null
         };
         let opError;
         if (editingTecnico) { 
@@ -283,7 +292,14 @@ function TecniciManager({ session }) {
                     <h3>{editingTecnico ? 'Modifica Tecnico' : 'Nuovo Tecnico'}</h3>
                     <div> <label htmlFor="formNomeTecnico">Nome:</label> <input type="text" id="formNomeTecnico" value={formNome} onChange={e => setFormNome(e.target.value)} required /> </div>
                     <div> <label htmlFor="formCognomeTecnico">Cognome:</label> <input type="text" id="formCognomeTecnico" value={formCognome} onChange={e => setFormCognome(e.target.value)} required /> </div>
-                    <div> <label htmlFor="formEmailTecnico">Email (Opzionale):</label> <input type="email" id="formEmailTecnico" value={formEmail} onChange={e => setFormEmail(e.target.value)} /> </div>
+                    <div>
+                        <label htmlFor="formEmailTecnico">Email (Opzionale):</label>
+                        <input type="email" id="formEmailTecnico" value={formEmail} onChange={e => setFormEmail(e.target.value)} />
+                    </div>
+                    <div>
+                        <label htmlFor="formUserIdTecnico">User ID Profilo:</label>
+                        <input type="text" id="formUserIdTecnico" value={formUserId} onChange={e => setFormUserId(e.target.value)} placeholder="UUID profilo" />
+                    </div>
                     <button type="submit" disabled={loadingActions}>{loadingActions ? 'Salvataggio...' : (editingTecnico ? 'Salva Modifiche' : 'Aggiungi Tecnico')}</button>
                     {editingTecnico && ( <button type="button" className="secondary" onClick={resetForm} disabled={loadingActions} style={{marginLeft:'10px'}}> Annulla Modifica </button> )}
                 </form>
