@@ -6,8 +6,9 @@
  * to handle save/cancel events. When invoked with `readOnly` all
  * form fields are disabled allowing inspection only.
  */
-import React, { useState, useEffect, useMemo } from 'react'; // Aggiunto useMemo
-import { supabase } from '../supabaseClient'; // Assicurati che il percorso sia corretto
+import React, { useState, useEffect, useMemo } from 'react';
+import { supabase } from '../supabaseClient';
+import VoiceInputButton from './VoiceInputButton';
 
 function InterventoAssistenzaForm({
     session,
@@ -208,7 +209,18 @@ function InterventoAssistenzaForm({
             </div>
             <div>
               <label htmlFor="formDescrizioneAttivita">Descrizione Attività Svolta:</label>
-              <textarea id="formDescrizioneAttivita" value={formDescrizioneAttivita} onChange={(e) => setFormDescrizioneAttivita(e.target.value)} />
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem' }}>
+                <textarea
+                  id="formDescrizioneAttivita"
+                  value={formDescrizioneAttivita}
+                  onChange={(e) => setFormDescrizioneAttivita(e.target.value)}
+                />
+                <VoiceInputButton
+                  onTranscript={(text) =>
+                    setFormDescrizioneAttivita((prev) => (prev ? `${prev} ${text}` : text))
+                  }
+                />
+              </div>
             </div>
 
             {formTipoIntervento === 'In Loco' && (
@@ -242,7 +254,18 @@ function InterventoAssistenzaForm({
             )}
             <div>
               <label htmlFor="formOsservazioni">Osservazioni Intervento:</label>
-              <textarea id="formOsservazioni" value={formOsservazioni} onChange={(e) => setFormOsservazioni(e.target.value)} />
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem' }}>
+                <textarea
+                  id="formOsservazioni"
+                  value={formOsservazioni}
+                  onChange={(e) => setFormOsservazioni(e.target.value)}
+                />
+                <VoiceInputButton
+                  onTranscript={(text) =>
+                    setFormOsservazioni((prev) => (prev ? `${prev} ${text}` : text))
+                  }
+                />
+              </div>
             </div>
             </fieldset>
 
