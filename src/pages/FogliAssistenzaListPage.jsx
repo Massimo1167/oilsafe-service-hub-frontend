@@ -16,6 +16,7 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
     const [error, setError] = useState(null);
     const [selectedFogli, setSelectedFogli] = useState(new Set());
     const [stampaLoading, setStampaLoading] = useState(false);
+    const [copyLoading, setCopyLoading] = useState(false);
     // Imposta il layout di stampa predefinito su quello dettagliato
     const [layoutStampa, setLayoutStampa] = useState('detailed');
     const [successMessage, setSuccessMessage] = useState('');
@@ -182,6 +183,50 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
         setStampaLoading(false); setSelectedFogli(new Set());
     };
 
+    const handleCopySelected = async () => {
+        if (selectedFogli.size === 0) { alert("Seleziona almeno un foglio di assistenza da copiare."); return; }
+        if (!window.confirm(`Copiare ${selectedFogli.size} fogli selezionati?`)) return;
+        setCopyLoading(true); setError(null); setSuccessMessage('');
+        let copyErrors = [];
+        for (const foglioId of Array.from(selectedFogli)) {
+            try {
+                const { data: foglioData, error: foglioError } = await supabase.from('fogli_assistenza').select('*').eq('id', foglioId).single();
+                if (foglioError || !foglioData) throw new Error(foglioError?.message || `Foglio ${foglioId} non trovato.`);
+
+                const { data: numeroData, error: numeroError } = await supabase.rpc('genera_prossimo_numero_foglio');
+                if (numeroError) throw new Error(numeroError.message);
+
+                const { id, created_at, updated_at, numero_foglio, ...copyFields } = foglioData;
+                const foglioPayload = { ...copyFields, numero_foglio: numeroData };
+                if ((userRole === 'user' || userRole === 'manager') && currentUserId) {
+                    foglioPayload.creato_da_user_id = currentUserId;
+                }
+
+                const { data: newFoglio, error: insertError } = await supabase.from('fogli_assistenza').insert([foglioPayload]).select().single();
+                if (insertError) throw insertError;
+
+                const { data: interventiData, error: intError } = await supabase.from('interventi_assistenza').select('*').eq('foglio_assistenza_id', foglioId);
+                if (intError) throw intError;
+
+                if (interventiData && interventiData.length > 0) {
+                    const interventiToInsert = interventiData.map(int => {
+                        const { id, created_at, updated_at, ...rest } = int;
+                        return { ...rest, foglio_assistenza_id: newFoglio.id };
+                    });
+                    const { error: insError } = await supabase.from('interventi_assistenza').insert(interventiToInsert);
+                    if (insError) throw insError;
+                }
+            } catch (err) {
+                console.error(`Errore copia foglio ${foglioId}:`, err);
+                copyErrors.push(`Foglio ${foglioId.substring(0,8)}: ${err.message}`);
+            }
+        }
+        if (copyErrors.length > 0) { setError(`Si sono verificati errori durante la copia:\n${copyErrors.join('\n')}`); }
+        else { setSuccessMessage(`Copia completata per ${selectedFogli.size} fogli.`); setTimeout(() => setSuccessMessage(''), 3000); }
+        setCopyLoading(false); setSelectedFogli(new Set());
+        fetchFogliDaServer();
+    };
+
     const handleSendEmail = async (foglioId) => {
         if (!window.confirm('Inviare il report di questo foglio via email?')) return;
         setSendingEmailId(foglioId);
@@ -259,6 +304,15 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                         className="button primary"
                     >
                         {stampaLoading ? `Stampa... (${selectedFogli.size})` : `Stampa Selezionati (${selectedFogli.size})`}
+                    </button>
+                )}
+                {fogliFiltrati.length > 0 && (
+                    <button
+                        onClick={handleCopySelected}
+                        disabled={selectedFogli.size === 0 || copyLoading || loadingFogli}
+                        className="button secondary"
+                    >
+                        {copyLoading ? `Copia... (${selectedFogli.size})` : `Copia Selezionati (${selectedFogli.size})`}
                     </button>
                 )}
             </div>
