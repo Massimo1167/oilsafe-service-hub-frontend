@@ -399,6 +399,7 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
                         <tr>
                             <th>Data</th>
                             <th>Tecnico</th>
+                            <th>N. Tecnici</th>
                             <th>Tipo</th>
                             <th>Ore Lavoro</th>
                             <th>Ore Viaggio</th>
@@ -414,6 +415,7 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
                         <tr key={intervento.id}>
                             <td>{new Date(intervento.data_intervento_effettivo).toLocaleDateString()}</td>
                             <td>{intervento.tecnici ? `${intervento.tecnici.nome} ${intervento.tecnici.cognome}` : 'N/D'}</td>
+                            <td>{intervento.numero_tecnici || '-'}</td>
                             <td>{intervento.tipo_intervento || '-'}</td>
                             <td>{intervento.ore_lavoro_effettive || '-'}</td>
                             <td>{intervento.ore_viaggio || '-'}</td>
