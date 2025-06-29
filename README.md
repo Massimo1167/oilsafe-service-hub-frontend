@@ -24,3 +24,4 @@ L'applicazione visualizza la versione corrente nella dashboard. Il numero di ver
 - `52. FK fogli_assistenza assegnato_a_profiles.sql` links `fogli_assistenza.assegnato_a_user_id` to `public.profiles.id`.
 - Technicians must have a `user_id` linked to `public.profiles` to be selectable when compiling a service sheet.
 - `53. Alter tecnici add user_id.sql` creates a `user_id` field in `tecnici` referencing `public.profiles`.
+- `54. Alter interventi_assistenza add numero_tecnici.sql` adds a `numero_tecnici` column to `interventi_assistenza` with default 1.
