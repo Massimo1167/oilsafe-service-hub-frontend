@@ -19,6 +19,10 @@ function InterventoCard({ intervento, canModify, onEdit, onDelete, onView }) {
                         <td>{tecnicoNome}</td>
                     </tr>
                     <tr>
+                        <td><strong>N. Tecnici</strong></td>
+                        <td>{intervento.numero_tecnici || '-'}</td>
+                    </tr>
+                    <tr>
                         <td><strong>Tipo</strong></td>
                         <td>{intervento.tipo_intervento || '-'}</td>
                     </tr>
