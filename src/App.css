@@ -223,3 +223,17 @@ header nav { /* Aggiunto per allineare il bottone a destra */
     margin-top: 0.5rem;
 }
 
+.voice-textarea-wrapper {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+}
+.voice-textarea-wrapper textarea {
+    flex: 1;
+}
+.voice-input-button {
+    padding: 0.4rem 0.6rem;
+    height: fit-content;
+    font-size: 1.2rem;
+}
+

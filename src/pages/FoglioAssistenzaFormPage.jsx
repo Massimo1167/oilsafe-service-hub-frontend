@@ -7,6 +7,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useParams, Link, Navigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import SignatureCanvas from 'react-signature-canvas';
+import VoiceInputButton from '../components/VoiceInputButton';
 
 function dataURLtoBlob(dataurl) {
     if (!dataurl) return null;
@@ -453,19 +454,31 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
                 </div>
                 <div>
                     <label htmlFor="formMotivoGenerale">Motivo Intervento Generale:</label>
-                    <textarea id="formMotivoGenerale" value={formMotivoGenerale} onChange={(e) => setFormMotivoGenerale(e.target.value)} />
+                    <div className="voice-textarea-wrapper">
+                        <textarea id="formMotivoGenerale" value={formMotivoGenerale} onChange={(e) => setFormMotivoGenerale(e.target.value)} />
+                        <VoiceInputButton onTranscript={txt => setFormMotivoGenerale(prev => (prev ? prev + ' ' : '') + txt)} />
+                    </div>
                 </div>
                 <div>
                     <label htmlFor="formDescrizioneGenerale">Descrizione Lavoro Generale:</label>
-                    <textarea id="formDescrizioneGenerale" value={formDescrizioneGenerale} onChange={(e) => setFormDescrizioneGenerale(e.target.value)} />
+                    <div className="voice-textarea-wrapper">
+                        <textarea id="formDescrizioneGenerale" value={formDescrizioneGenerale} onChange={(e) => setFormDescrizioneGenerale(e.target.value)} />
+                        <VoiceInputButton onTranscript={txt => setFormDescrizioneGenerale(prev => (prev ? prev + ' ' : '') + txt)} />
+                    </div>
                 </div>
                 <div>
                     <label htmlFor="formMaterialiForniti">Materiali Forniti (Generale):</label>
-                    <textarea id="formMaterialiForniti" value={formMaterialiForniti} onChange={(e) => setFormMaterialiForniti(e.target.value)} />
+                    <div className="voice-textarea-wrapper">
+                        <textarea id="formMaterialiForniti" value={formMaterialiForniti} onChange={(e) => setFormMaterialiForniti(e.target.value)} />
+                        <VoiceInputButton onTranscript={txt => setFormMaterialiForniti(prev => (prev ? prev + ' ' : '') + txt)} />
+                    </div>
                 </div>
                 <div>
                     <label htmlFor="formOsservazioniGenerali">Osservazioni Generali:</label>
-                    <textarea id="formOsservazioniGenerali" value={formOsservazioniGenerali} onChange={(e) => setFormOsservazioniGenerali(e.target.value)} />
+                    <div className="voice-textarea-wrapper">
+                        <textarea id="formOsservazioniGenerali" value={formOsservazioniGenerali} onChange={(e) => setFormOsservazioniGenerali(e.target.value)} />
+                        <VoiceInputButton onTranscript={txt => setFormOsservazioniGenerali(prev => (prev ? prev + ' ' : '') + txt)} />
+                    </div>
                 </div>
                 <div>
                     <label>Firma Cliente:</label>
