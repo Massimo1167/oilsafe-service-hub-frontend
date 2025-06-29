@@ -183,6 +183,23 @@ header nav { /* Aggiunto per allineare il bottone a destra */
     background-color: #218838;
 }
 
+/* Compact microphone buttons */
+.voice-button {
+    margin-left: 4px;
+    padding: 0.4rem;
+    font-size: 1.2rem;
+    line-height: 1;
+}
+.voice-button:hover {
+    background-color: #218838;
+}
+.voice-button:disabled {
+    background-color: #cccccc;
+    color: #666666;
+    cursor: not-allowed;
+    border-color: #cccccc;
+}
+
 
 .intervento-card {
     border: 1px solid #ddd;
