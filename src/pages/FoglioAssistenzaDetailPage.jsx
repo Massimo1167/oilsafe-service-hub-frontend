@@ -32,8 +32,10 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
 
     const isUserAssignedTecnico = useMemo(() => {
         const email = currentUserEmail || '';
-        return interventi.some(i => (i.tecnici?.email || '').toLowerCase() === email);
-    }, [interventi, currentUserEmail]);
+        const assignedViaInterventi = interventi.some(i => (i.tecnici?.email || '').toLowerCase() === email);
+        const assignedViaFoglio = foglio?.assegnato_a_user_id === currentUserId;
+        return assignedViaInterventi || assignedViaFoglio;
+    }, [interventi, currentUserEmail, foglio, currentUserId]);
 
     // Calcola i permessi dopo che `foglio` è stato caricato
     const canViewThisFoglio =
