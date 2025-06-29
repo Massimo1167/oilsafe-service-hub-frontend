@@ -25,6 +25,7 @@ function InterventoAssistenzaForm({
     const [formDataIntervento, setFormDataIntervento] = useState(new Date().toISOString().split('T')[0]);
     const [formSelectedTecnicoId, setFormSelectedTecnicoId] = useState('');
     const [formTipoIntervento, setFormTipoIntervento] = useState('In Loco');
+    const [formNumeroTecnici, setFormNumeroTecnici] = useState('1');
     const [formOraInizioLavoro, setFormOraInizioLavoro] = useState('');
     const [formOraFineLavoro, setFormOraFineLavoro] = useState('');
     const [formOreLavoro, setFormOreLavoro] = useState('');
@@ -50,6 +51,7 @@ function InterventoAssistenzaForm({
             setFormDataIntervento(interventoToEdit.data_intervento_effettivo ? new Date(interventoToEdit.data_intervento_effettivo).toISOString().split('T')[0] : '');
             setFormSelectedTecnicoId(interventoToEdit.tecnico_id || '');
             setFormTipoIntervento(interventoToEdit.tipo_intervento || 'In Loco');
+            setFormNumeroTecnici(interventoToEdit.numero_tecnici?.toString() || '1');
             setFormOraInizioLavoro(interventoToEdit.ora_inizio_lavoro || '');
             setFormOraFineLavoro(interventoToEdit.ora_fine_lavoro || '');
             setFormOreLavoro(interventoToEdit.ore_lavoro_effettive?.toString() || '');
@@ -67,6 +69,7 @@ function InterventoAssistenzaForm({
             setFormDataIntervento(new Date().toISOString().split('T')[0]);
             setFormSelectedTecnicoId(tecniciList?.[0]?.id || ''); // Preseleziona il primo se disponibile
             setFormTipoIntervento('In Loco');
+            setFormNumeroTecnici('1');
             setFormOraInizioLavoro(''); setFormOraFineLavoro(''); setFormOreLavoro('');
             setFormDescrizioneAttivita(''); setFormKmPercorsi(''); setFormOraInizioViaggio('');
             setFormOraFineViaggio(''); setFormOreViaggio(''); setFormVitto(false);
@@ -98,6 +101,7 @@ function InterventoAssistenzaForm({
           data_intervento_effettivo: formDataIntervento,
           tecnico_id: formSelectedTecnicoId,
           tipo_intervento: formTipoIntervento,
+          numero_tecnici: parseInt(formNumeroTecnici, 10) || 1,
           ora_inizio_lavoro: formOraInizioLavoro || null,
           ora_fine_lavoro: formOraFineLavoro || null,
           ore_lavoro_effettive: parseFloat(formOreLavoro) || null,
@@ -192,6 +196,16 @@ function InterventoAssistenzaForm({
                 <option value="In Loco">In Loco</option>
                 <option value="Remoto">Remoto</option>
               </select>
+            </div>
+            <div>
+              <label htmlFor="formNumeroTecnici">Numero Tecnici:</label>
+              <input
+                type="number"
+                id="formNumeroTecnici"
+                min="1"
+                value={formNumeroTecnici}
+                onChange={(e) => setFormNumeroTecnici(e.target.value)}
+              />
             </div>
             <div style={{display: 'flex', gap: '1rem', flexWrap:'wrap'}}>
                 <div style={{flex:'1 1 200px'}}>
