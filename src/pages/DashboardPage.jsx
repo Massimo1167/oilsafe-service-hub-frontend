@@ -15,7 +15,7 @@ function DashboardPage({ session }) { // Riceve la sessione per personalizzare i
       {session &&
         <p>
           Loggato come: <strong>{session.user.full_name || session.user.email}</strong>
-          
+          <br />
           Ruolo: <strong>{session.user.role}</strong>
         </p>
    
