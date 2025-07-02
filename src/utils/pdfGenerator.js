@@ -200,6 +200,10 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, op
     addLabelAndValue(doc, 'Indirizzo Intervento:', indirizzoInterventoDaStampare, marginLeft);
 
     addLabelAndValue(doc, 'Referente Richiesta:', foglioData.referente_cliente_richiesta || 'N/D', marginLeft);
+    const nomeTecnicoAss = foglioData.tecnico_assegnato_nome || foglioData.profilo_tecnico_assegnato?.full_name;
+    if (nomeTecnicoAss) {
+        addLabelAndValue(doc, 'Tecnico Assegnato:', nomeTecnicoAss, marginLeft);
+    }
     if (foglioData.commesse) addLabelAndValue(doc, 'Commessa:', `${foglioData.commesse.codice_commessa} (${foglioData.commesse.descrizione_commessa || 'N/D'})`, marginLeft);
     if (foglioData.ordini_cliente) addLabelAndValue(doc, 'Ordine Cliente:', `${foglioData.ordini_cliente.numero_ordine_cliente} (${foglioData.ordini_cliente.descrizione_ordine || 'N/D'})`, marginLeft);
     addLabelAndValue(doc, 'Stato Foglio:', foglioData.stato_foglio, marginLeft);
@@ -221,6 +225,19 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, op
     renderBlock('Descrizione Lavoro Generale:', foglioData.descrizione_lavoro_generale);
     yPosition += 3;
 
+    // Calcolo totali interventi
+    let totaleKmPercorsi = 0;
+    let totaleOreViaggioTecnici = 0;
+    let totaleOreLavoroTecnici = 0;
+    if (interventiData && interventiData.length > 0) {
+        interventiData.forEach(int => {
+            const numTec = parseFloat(int.numero_tecnici) || 1;
+            totaleKmPercorsi += parseFloat(int.km_percorsi) || 0;
+            totaleOreViaggioTecnici += (parseFloat(int.ore_viaggio) || 0) * numTec;
+            totaleOreLavoroTecnici += (parseFloat(int.ore_lavoro_effettive) || 0) * numTec;
+        });
+    }
+
     // TABELLA INTERVENTI
     if (interventiData && interventiData.length > 0) {
         checkAndAddPage(doc, 20); 
@@ -228,12 +245,17 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, op
         addFormattedText(doc, 'Dettaglio Interventi Svolti:', marginLeft, { fontSize: 11, fontStyle: 'bold', marginBottom: 3 });
         
         if (layoutType === 'table') {
-            const head = [['Data', 'Tecnico', 'Tipo', 'H Lav.', 'H Via.', 'Km', 'Descrizione Attività', 'Osservazioni Int.', 'Spese']];
+            const head = [['Data', 'Tecnico', 'N. Tecnici', 'Tipo', 'H Lav.', 'H Via.', 'Km', 'Descrizione Attività', 'Osservazioni Int.', 'Spese']];
             const body = interventiData.map(int => [
                 new Date(int.data_intervento_effettivo).toLocaleDateString(),
                 int.tecnici ? `${int.tecnici.nome.substring(0,1)}. ${int.tecnici.cognome}` : 'N/D',
-                int.tipo_intervento || '-', int.ore_lavoro_effettive || '-', int.ore_viaggio || '-', int.km_percorsi || '-',
-                int.descrizione_attivita_svolta_intervento || '-', int.osservazioni_intervento || '-',
+                int.numero_tecnici || '-',
+                int.tipo_intervento || '-',
+                int.ore_lavoro_effettive || '-',
+                int.ore_viaggio || '-',
+                int.km_percorsi || '-',
+                int.descrizione_attivita_svolta_intervento || '-',
+                int.osservazioni_intervento || '-',
                 [(int.vitto ? 'V' : ''), (int.autostrada ? 'A' : ''), (int.alloggio ? 'H' : '')].filter(Boolean).join('/') || '-'
             ]);
 
@@ -248,14 +270,15 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, op
                 styles: { fontSize: 7, cellPadding: 1, overflow: 'linebreak' },
                 columnStyles: {
                     0: { cellWidth: 16, halign: 'center' },
-                    1: { cellWidth: 25 },
-                    2: { cellWidth: 13, halign: 'center' },
-                    3: { cellWidth: 10, halign: 'right' },
+                    1: { cellWidth: 22 },
+                    2: { cellWidth: 10, halign: 'right' },
+                    3: { cellWidth: 13, halign: 'center' },
                     4: { cellWidth: 10, halign: 'right' },
                     5: { cellWidth: 10, halign: 'right' },
-                    6: { cellWidth: 55 },
-                    7: { cellWidth: 35 },
-                    8: { cellWidth: 12, halign: 'center' },
+                    6: { cellWidth: 10, halign: 'right' },
+                    7: { cellWidth: 50 },
+                    8: { cellWidth: 33 },
+                    9: { cellWidth: 12, halign: 'center' },
                 },
                 didDrawPage: (data) => { if (data.pageNumber > 1) { addPageHeader(doc); } },
             });
@@ -267,6 +290,7 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, op
                 const row = [
                     new Date(int.data_intervento_effettivo).toLocaleDateString(),
                     int.tecnici ? `${int.tecnici.nome.substring(0,1)}. ${int.tecnici.cognome}` : 'N/D',
+                    int.numero_tecnici || '-',
                     int.tipo_intervento || '-',
                     int.ore_lavoro_effettive || '-',
                     int.ore_viaggio || '-',
@@ -276,7 +300,7 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, op
 
                 doc.autoTable({
                     startY: yPosition,
-                    head: [['Data', 'Tecnico', 'Tipo', 'H Lav.', 'H Via.', 'Km', 'Spese']],
+                    head: [['Data', 'Tecnico', 'N. Tecnici', 'Tipo', 'H Lav.', 'H Via.', 'Km', 'Spese']],
                     body: [row],
                     theme: 'plain',
                     margin: { left: marginLeft, right: marginRight },
@@ -284,12 +308,13 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, op
                     headStyles: { fillColor: [0, 123, 255], textColor: 255, fontStyle: 'bold', halign: 'center', fontSize: 8 },
                     columnStyles: {
                         0: { cellWidth: 22, halign: 'center' },
-                        1: { cellWidth: 40 },
-                        2: { cellWidth: 22, halign: 'center' },
-                        3: { cellWidth: 20, halign: 'right' },
+                        1: { cellWidth: 35 },
+                        2: { cellWidth: 12, halign: 'right' },
+                        3: { cellWidth: 22, halign: 'center' },
                         4: { cellWidth: 20, halign: 'right' },
                         5: { cellWidth: 20, halign: 'right' },
-                        6: { cellWidth: 42, halign: 'center' },
+                        6: { cellWidth: 20, halign: 'right' },
+                        7: { cellWidth: 37, halign: 'center' },
                     },
                     didDrawPage: (data) => { if (data.pageNumber > 1) { addPageHeader(doc); } },
                 });
@@ -311,6 +336,13 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, op
     addLine(doc);
     renderBlock(`Materiali Forniti (Generale):`, foglioData.materiali_forniti_generale || 'Nessuno');
     renderBlock(`Osservazioni Generali (Foglio):`, foglioData.osservazioni_generali || 'Nessuna');
+    yPosition += 5;
+
+    addLine(doc);
+    addFormattedText(doc, 'Totali Interventi:', marginLeft, { fontSize: 11, fontStyle: 'bold', marginBottom: 3 });
+    addLabelAndValue(doc, 'Km Totali Percorsi:', totaleKmPercorsi.toFixed(1), marginLeft);
+    addLabelAndValue(doc, 'Ore Viaggio x Tecnici:', totaleOreViaggioTecnici.toFixed(2), marginLeft);
+    addLabelAndValue(doc, 'Ore Lavoro x Tecnici:', totaleOreLavoroTecnici.toFixed(2), marginLeft);
     yPosition += 5;
 
     // FIRME

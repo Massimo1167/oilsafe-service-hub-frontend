@@ -3,7 +3,7 @@
  * Allows editing, deletion and PDF export using `pdfGenerator.js`.
  * Uses InterventoAssistenzaForm for adding interventions.
  */
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, Link, useNavigate, Navigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient'; // Assicurati che il percorso sia corretto
 import InterventoAssistenzaForm from '../components/InterventoAssistenzaForm'; // Assicurati che il percorso sia corretto
@@ -28,6 +28,14 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
 
     const userRole = (session?.user?.role || '').trim().toLowerCase();
     const currentUserId = session?.user?.id;
+    const currentUserEmail = session?.user?.email?.toLowerCase();
+
+    const isUserAssignedTecnico = useMemo(() => {
+        const email = currentUserEmail || '';
+        const assignedViaInterventi = interventi.some(i => (i.tecnici?.email || '').toLowerCase() === email);
+        const assignedViaFoglio = foglio?.assegnato_a_user_id === currentUserId;
+        return assignedViaInterventi || assignedViaFoglio;
+    }, [interventi, currentUserEmail, foglio, currentUserId]);
 
     // Calcola i permessi dopo che `foglio` è stato caricato
     const canViewThisFoglio =
@@ -35,7 +43,7 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
         (userRole === 'admin' ||
             userRole === 'manager' ||
             userRole === 'head' ||
-            (userRole === 'user' && foglio.creato_da_user_id === currentUserId));
+            (userRole === 'user' && (foglio.creato_da_user_id === currentUserId || isUserAssignedTecnico)));
 
     const isChiuso = foglio?.stato_foglio === 'Chiuso';
     const isCompletato = foglio?.stato_foglio === 'Completato';
@@ -45,7 +53,7 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
         foglio &&
         (userRole === 'admin' ||
             userRole === 'manager' ||
-            (userRole === 'user' && foglio.creato_da_user_id === currentUserId));
+            (userRole === 'user' && (foglio.creato_da_user_id === currentUserId || isUserAssignedTecnico)));
 
     let canEditThisFoglioOverall = false;
     if (foglio) {
@@ -53,7 +61,7 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
             canEditThisFoglioOverall = true;
         } else if (userRole === 'manager') {
             canEditThisFoglioOverall = !isChiuso;
-        } else if (userRole === 'user' && foglio.creato_da_user_id === currentUserId) {
+        } else if (userRole === 'user' && (foglio.creato_da_user_id === currentUserId || isUserAssignedTecnico)) {
             canEditThisFoglioOverall = !isChiuso && !isCompletato && !firmaPresente;
         }
     }
@@ -78,7 +86,7 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
             canModifyInterventi = true;
         } else if (userRole === 'manager') {
             canModifyInterventi = !isChiuso;
-        } else if (userRole === 'user' && foglio.creato_da_user_id === currentUserId) {
+        } else if (userRole === 'user' && (foglio.creato_da_user_id === currentUserId || isUserAssignedTecnico)) {
             canModifyInterventi = !isChiuso && !isCompletato && !firmaPresente;
         }
     }
@@ -96,10 +104,12 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
           .from('fogli_assistenza')
           .select(`
             *,
-            clienti (id, nome_azienda), 
-            commesse (id, codice_commessa, descrizione_commessa), 
+            assegnato_a_user_id,
+            profilo_tecnico_assegnato:profiles (full_name),
+            clienti (id, nome_azienda),
+            commesse (id, codice_commessa, descrizione_commessa),
             ordini_cliente (id, numero_ordine_cliente, descrizione_ordine),
-            indirizzi_clienti!indirizzo_intervento_id (id, indirizzo_completo, descrizione) 
+            indirizzi_clienti!indirizzo_intervento_id (id, indirizzo_completo, descrizione)
           `)
           .eq('id', foglioId)
           .single();
@@ -111,11 +121,13 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
           setLoadingPage(false);
           return;
         }
-        setFoglio(foglioData); 
+        const tecnicoAss = (tecnici || []).find(t => t.user_id === foglioData.assegnato_a_user_id);
+        const nomeTecnicoAss = tecnicoAss ? `${tecnicoAss.nome} ${tecnicoAss.cognome}` : foglioData.profilo_tecnico_assegnato?.full_name || null;
+        setFoglio({ ...foglioData, tecnico_assegnato_nome: nomeTecnicoAss });
 
         const { data: interventiData, error: interventiError } = await supabase
           .from('interventi_assistenza')
-          .select(`*, tecnici (id, nome, cognome)`)
+          .select(`*, tecnici (id, nome, cognome, email)`)
           .eq('foglio_assistenza_id', foglioId)
           .order('data_intervento_effettivo', { ascending: true });
 
@@ -237,9 +249,11 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
             if (!foglio.clienti || !foglio.indirizzi_clienti) { // Aggiunto check per indirizzi_clienti
                 console.warn("Ricarico dati foglio completi per stampa (dati relazionati mancanti)...");
                 const { data: fullData, error: fullErr } = await supabase.from('fogli_assistenza')
-                    .select(`*, clienti (*), commesse (*), ordini_cliente (*), indirizzi_clienti!indirizzo_intervento_id (*)`)
+                    .select(`*, assegnato_a_user_id, profilo_tecnico_assegnato:profiles (full_name), clienti (*), commesse (*), ordini_cliente (*), indirizzi_clienti!indirizzo_intervento_id (*)`)
                     .eq('id', foglioId).single();
                 if (fullErr || !fullData) throw new Error(fullErr?.message || "Impossibile ricaricare dati foglio per stampa.");
+                const tecnicoAss = (tecnici || []).find(t => t.user_id === fullData.assegnato_a_user_id);
+                fullData.tecnico_assegnato_nome = tecnicoAss ? `${tecnicoAss.nome} ${tecnicoAss.cognome}` : fullData.profilo_tecnico_assegnato?.full_name || null;
                 foglioCompletoPerStampa = fullData;
             }
             await generateFoglioAssistenzaPDF(foglioCompletoPerStampa, interventi, { layout: layoutStampa });
@@ -303,6 +317,9 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
                 </div>
 
                 <div><strong>Referente Richiesta:</strong> {foglio.referente_cliente_richiesta || 'N/D'}</div>
+                {foglio.tecnico_assegnato_nome && (
+                    <div><strong>Tecnico Assegnato:</strong> {foglio.tecnico_assegnato_nome}</div>
+                )}
                 {foglio.commesse && <div><strong>Commessa:</strong> {`${foglio.commesse.codice_commessa} (${foglio.commesse.descrizione_commessa || 'N/D'})`}</div>}
                 {foglio.ordini_cliente && <div><strong>Ordine Cliente:</strong> {`${foglio.ordini_cliente.numero_ordine_cliente} (${foglio.ordini_cliente.descrizione_ordine || 'N/D'})`}</div>}
                 {foglio.email_report_cliente && <div><strong>Email Cliente Report:</strong> {foglio.email_report_cliente}</div>}
@@ -382,6 +399,7 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
                         <tr>
                             <th>Data</th>
                             <th>Tecnico</th>
+                            <th>N. Tecnici</th>
                             <th>Tipo</th>
                             <th>Ore Lavoro</th>
                             <th>Ore Viaggio</th>
@@ -397,6 +415,7 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
                         <tr key={intervento.id}>
                             <td>{new Date(intervento.data_intervento_effettivo).toLocaleDateString()}</td>
                             <td>{intervento.tecnici ? `${intervento.tecnici.nome} ${intervento.tecnici.cognome}` : 'N/D'}</td>
+                            <td>{intervento.numero_tecnici || '-'}</td>
                             <td>{intervento.tipo_intervento || '-'}</td>
                             <td>{intervento.ore_lavoro_effettive || '-'}</td>
                             <td>{intervento.ore_viaggio || '-'}</td>

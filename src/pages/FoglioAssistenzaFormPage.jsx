@@ -7,6 +7,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useParams, Link, Navigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import SignatureCanvas from 'react-signature-canvas';
+import VoiceInputButton from '../components/VoiceInputButton';
 
 function dataURLtoBlob(dataurl) {
     if (!dataurl) return null;
@@ -19,10 +20,14 @@ function dataURLtoBlob(dataurl) {
     } catch (e) { console.error("Errore conversione dataURLtoBlob:", e); return null; }
 }
 
-function FoglioAssistenzaFormPage({ session, clienti, commesse, ordini }) {
+function FoglioAssistenzaFormPage({ session, clienti, commesse, ordini, tecnici }) {
     const navigate = useNavigate();
     const { foglioIdParam } = useParams();
     const isEditMode = !!foglioIdParam;
+
+    const userRole = (session?.user?.role || '').trim().toLowerCase();
+    const currentUserId = session?.user?.id;
+    const currentUserEmail = session?.user?.email?.toLowerCase();
 
     const draftKey = foglioIdParam ? `draft-foglio-${foglioIdParam}` : 'draft-foglio-new';
 
@@ -33,6 +38,7 @@ function FoglioAssistenzaFormPage({ session, clienti, commesse, ordini }) {
     const [formMotivoGenerale, setFormMotivoGenerale] = useState('');
     const [formSelectedCommessaId, setFormSelectedCommessaId] = useState('');
     const [formSelectedOrdineId, setFormSelectedOrdineId] = useState('');
+    const [formAssignedTecnicoId, setFormAssignedTecnicoId] = useState(currentUserId || '');
     const [formDescrizioneGenerale, setFormDescrizioneGenerale] = useState('');
     const [formOsservazioniGenerali, setFormOsservazioniGenerali] = useState('');
 const [formMaterialiForniti, setFormMaterialiForniti] = useState('');
@@ -49,6 +55,10 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
     const [filtroCommessa, setFiltroCommessa] = useState('');
     const [filtroOrdine, setFiltroOrdine] = useState('');
     const [filtroIndirizzo, setFiltroIndirizzo] = useState('');
+    const [filtroTecnico, setFiltroTecnico] = useState('');
+
+    // Lista tecnici locale per aggiornamenti dinamici
+    const [localTecnici, setLocalTecnici] = useState(tecnici || []);
 
     const [loadingSubmit, setLoadingSubmit] = useState(false);
     const [pageLoading, setPageLoading] = useState(isEditMode); 
@@ -58,15 +68,14 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
     const [firmaClientePreview, setFirmaClientePreview] = useState(null);
     const [firmaTecnicoPreview, setFirmaTecnicoPreview] = useState(null);
 
-    const userRole = (session?.user?.role || '').trim().toLowerCase();
-    const currentUserId = session?.user?.id;
+    const [isAssignedTecnico, setIsAssignedTecnico] = useState(false);
     const baseFormPermission =
         userRole === 'admin' ||
         (!isEditMode && (userRole === 'user' || userRole === 'manager')) ||
         (isEditMode &&
             (userRole === 'admin' ||
                 userRole === 'manager' ||
-                (userRole === 'user' && formCreatoDaUserIdOriginal === currentUserId)));
+                (userRole === 'user' && (formCreatoDaUserIdOriginal === currentUserId || isAssignedTecnico))));
 
     const isChiuso = formStatoFoglio === 'Chiuso';
     const isCompletato = formStatoFoglio === 'Completato';
@@ -80,7 +89,7 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
             canSubmitForm = true;
         } else if (userRole === 'manager') {
             canSubmitForm = !isChiuso;
-        } else if (userRole === 'user' && formCreatoDaUserIdOriginal === currentUserId) {
+        } else if (userRole === 'user' && (formCreatoDaUserIdOriginal === currentUserId || isAssignedTecnico)) {
             canSubmitForm = !isChiuso && !isCompletato && !firmaPresente;
         }
     }
@@ -108,6 +117,7 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
                     if (d.formMotivoGenerale) setFormMotivoGenerale(d.formMotivoGenerale);
                     if (d.formSelectedCommessaId) setFormSelectedCommessaId(d.formSelectedCommessaId);
                     if (d.formSelectedOrdineId) setFormSelectedOrdineId(d.formSelectedOrdineId);
+                    if (d.formAssignedTecnicoId) setFormAssignedTecnicoId(d.formAssignedTecnicoId);
                     if (d.formDescrizioneGenerale) setFormDescrizioneGenerale(d.formDescrizioneGenerale);
                     if (d.formOsservazioniGenerali) setFormOsservazioniGenerali(d.formOsservazioniGenerali);
                     if (d.formMaterialiForniti) setFormMaterialiForniti(d.formMaterialiForniti);
@@ -131,6 +141,7 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
                 formMotivoGenerale,
                 formSelectedCommessaId,
                 formSelectedOrdineId,
+                formAssignedTecnicoId,
                 formDescrizioneGenerale,
                 formOsservazioniGenerali,
                 formMaterialiForniti,
@@ -140,7 +151,7 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
             };
             localStorage.setItem(draftKey, JSON.stringify(draft));
         }
-    }, [draftKey, pageLoading, formDataApertura, formSelectedClienteId, formSelectedIndirizzoId, formReferenteCliente, formMotivoGenerale, formSelectedCommessaId, formSelectedOrdineId, formDescrizioneGenerale, formOsservazioniGenerali, formMaterialiForniti, formStatoFoglio, formEmailCliente, formEmailInterno]);
+    }, [draftKey, pageLoading, formDataApertura, formSelectedClienteId, formSelectedIndirizzoId, formReferenteCliente, formMotivoGenerale, formSelectedCommessaId, formSelectedOrdineId, formDescrizioneGenerale, formOsservazioniGenerali, formMaterialiForniti, formStatoFoglio, formEmailCliente, formEmailInterno, formAssignedTecnicoId]);
 
     useEffect(() => {
         if (formSelectedClienteId) {
@@ -184,6 +195,7 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
                     setFormMotivoGenerale(data.motivo_intervento_generale || '');
                     setFormSelectedCommessaId(data.commessa_id || '');
                     setFormSelectedOrdineId(data.ordine_cliente_id || '');
+                    setFormAssignedTecnicoId(data.assegnato_a_user_id || currentUserId || '');
                     setFormDescrizioneGenerale(data.descrizione_lavoro_generale || '');
                     setFormOsservazioniGenerali(data.osservazioni_generali || '');
                     setFormMaterialiForniti(data.materiali_forniti_generale || '');
@@ -198,9 +210,35 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
             };
             fetchFoglioData();
         } else if (!isEditMode) {
-            setPageLoading(false); 
+            setPageLoading(false);
         }
     }, [isEditMode, foglioIdParam, session]);
+
+    useEffect(() => {
+        const checkTecnico = async () => {
+            if (!isEditMode || !foglioIdParam || !session) return;
+            const { data, error } = await supabase
+                .from('interventi_assistenza')
+                .select('tecnico_id, tecnici (email)')
+                .eq('foglio_assistenza_id', foglioIdParam);
+            if (!error && data) {
+                const email = currentUserEmail || '';
+                const assignedInterv = data.some(i => (i.tecnici?.email || '').toLowerCase() === email);
+                const assignedFoglio = formAssignedTecnicoId === currentUserId;
+                setIsAssignedTecnico(assignedInterv || assignedFoglio);
+            }
+        };
+        checkTecnico();
+    }, [isEditMode, foglioIdParam, session, currentUserEmail, formAssignedTecnicoId, currentUserId]);
+
+    useEffect(() => {
+        const fetchTecnici = async () => {
+            const { data, error } = await supabase.from('tecnici').select('*').order('cognome');
+            if (!error) setLocalTecnici(data || []);
+            else console.error('Errore fetch tecnici:', error);
+        };
+        fetchTecnici();
+    }, [session]);
 
     const clearSignature = (ref, previewSetterKey) => { /* ... */ };
 
@@ -214,7 +252,19 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
         }
 
         try {
-            let firmaClienteUrlToSave = firmaClientePreview; 
+            const { data: profCheck, error: profError } = await supabase
+                .from('profiles')
+                .select('id')
+                .eq('id', formAssignedTecnicoId)
+                .maybeSingle();
+            if (profError) throw profError;
+            if (!profCheck) {
+                setError('Tecnico non collegato a un account utente.');
+                setLoadingSubmit(false);
+                return;
+            }
+
+            let firmaClienteUrlToSave = firmaClientePreview;
             let firmaTecnicoUrlToSave = firmaTecnicoPreview;
             // Logica di upload firme completa
             if (sigCanvasClienteRef.current && !sigCanvasClienteRef.current.isEmpty()) {
@@ -242,6 +292,7 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
               firma_cliente_url: firmaClienteUrlToSave,
               firma_tecnico_principale_url: firmaTecnicoUrlToSave,
               stato_foglio: formStatoFoglio,
+              assegnato_a_user_id: formAssignedTecnicoId || currentUserId || null,
             };
             
             let resultData, resultError;
@@ -254,7 +305,9 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
                 if (numeroError) throw new Error("Impossibile generare numero foglio: " + numeroError.message);
                 console.log("Numero foglio generato:", numeroData);
                 foglioPayload.numero_foglio = numeroData;
-                if (userRole === 'user' && currentUserId) { foglioPayload.creato_da_user_id = currentUserId; }
+                if ((userRole === 'user' || userRole === 'manager') && currentUserId) {
+                    foglioPayload.creato_da_user_id = currentUserId;
+                }
                 const { data, error } = await supabase.from('fogli_assistenza').insert([foglioPayload]).select().single();
                 resultData = data; resultError = error;
             }
@@ -282,6 +335,26 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
     const commesseFiltrate = useMemo(() => commesseDisponibili.filter(c => c.codice_commessa.toLowerCase().includes(filtroCommessa.toLowerCase()) || (c.descrizione_commessa || '').toLowerCase().includes(filtroCommessa.toLowerCase())), [commesseDisponibili, filtroCommessa]);
     const ordiniDisponibili = useMemo(() => formSelectedClienteId && ordini ? [...(ordini || [])].filter(o => o.cliente_id === formSelectedClienteId).sort((a,b) => a.numero_ordine_cliente.localeCompare(b.numero_ordine_cliente)) : [...(ordini || [])].sort((a,b) => a.numero_ordine_cliente.localeCompare(b.numero_ordine_cliente)),[ordini, formSelectedClienteId]);
     const ordiniFiltrati = useMemo(() => ordiniDisponibili.filter(o => o.numero_ordine_cliente.toLowerCase().includes(filtroOrdine.toLowerCase()) || (o.descrizione_ordine || '').toLowerCase().includes(filtroOrdine.toLowerCase())), [ordiniDisponibili, filtroOrdine]);
+    const tecniciOrdinati = useMemo(() =>
+        [...(localTecnici || [])]
+            .sort((a,b) => {
+                const cmp = a.cognome.localeCompare(b.cognome);
+                return cmp !== 0 ? cmp : a.nome.localeCompare(b.nome);
+            }),
+    [localTecnici]);
+    const tecniciFiltrati = useMemo(() =>
+        tecniciOrdinati.filter(t =>
+            (t.cognome || '').toLowerCase().includes(filtroTecnico.toLowerCase()) ||
+            (t.nome || '').toLowerCase().includes(filtroTecnico.toLowerCase())
+        ),
+    [tecniciOrdinati, filtroTecnico]);
+
+    const allTecniciDisabilitati = useMemo(
+        () => tecniciFiltrati.every(t => !t.user_id),
+        [tecniciFiltrati]
+    );
+
+    const canEditAssignedTecnico = userRole === 'admin' || userRole === 'manager';
 
     if (pageLoading && isEditMode) return <p>Caricamento dati foglio...</p>;
     if (!session) return <Navigate to="/login" replace />;
@@ -331,6 +404,31 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
                     <input type="text" id="formReferenteCliente" value={formReferenteCliente} onChange={(e) => setFormReferenteCliente(e.target.value)} />
                 </div>
                 <div>
+                    <label htmlFor="tecnicoRiferimento">Tecnico di Riferimento:</label>
+                    <input type="text" placeholder="Filtra tecnico..." value={filtroTecnico} onChange={e => setFiltroTecnico(e.target.value)} style={{marginBottom:'5px', width:'calc(100% - 22px)'}} />
+                    <select
+                        id="tecnicoRiferimento"
+                        value={formAssignedTecnicoId}
+                        onChange={e => { setFormAssignedTecnicoId(e.target.value); setFiltroTecnico(''); }}
+                        required
+                        disabled={!canEditAssignedTecnico}
+                    >
+                        <option value="">Seleziona Tecnico ({tecniciFiltrati.length})</option>
+                        {tecniciFiltrati.map(t => (
+                            <option
+                                key={t.id}
+                                value={t.user_id || ''}
+                                disabled={!t.user_id}
+                            >
+                                {t.cognome} {t.nome}{t.email ? ` (${t.email})` : ''}{!t.user_id ? ' (account mancante)' : ''}
+                            </option>
+                        ))}
+                    </select>
+                    {allTecniciDisabilitati && (
+                        <p style={{fontSize:'0.9em', color:'#c00'}}>Nessun tecnico con account disponibile.</p>
+                    )}
+                </div>
+                <div>
                     <label htmlFor="commessa">Commessa:</label>
                     <input type="text" placeholder="Filtra commessa..." value={filtroCommessa} onChange={e => setFiltroCommessa(e.target.value)} style={{marginBottom:'5px', width:'calc(100% - 22px)'}}/>
                     <select id="commessa" value={formSelectedCommessaId} onChange={(e) => { setFormSelectedCommessaId(e.target.value); setFiltroCommessa(''); }} >
@@ -356,19 +454,31 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
                 </div>
                 <div>
                     <label htmlFor="formMotivoGenerale">Motivo Intervento Generale:</label>
-                    <textarea id="formMotivoGenerale" value={formMotivoGenerale} onChange={(e) => setFormMotivoGenerale(e.target.value)} />
+                    <div className="voice-textarea-wrapper">
+                        <textarea id="formMotivoGenerale" value={formMotivoGenerale} onChange={(e) => setFormMotivoGenerale(e.target.value)} />
+                        <VoiceInputButton onTranscript={txt => setFormMotivoGenerale(prev => (prev ? prev + ' ' : '') + txt)} />
+                    </div>
                 </div>
                 <div>
                     <label htmlFor="formDescrizioneGenerale">Descrizione Lavoro Generale:</label>
-                    <textarea id="formDescrizioneGenerale" value={formDescrizioneGenerale} onChange={(e) => setFormDescrizioneGenerale(e.target.value)} />
+                    <div className="voice-textarea-wrapper">
+                        <textarea id="formDescrizioneGenerale" value={formDescrizioneGenerale} onChange={(e) => setFormDescrizioneGenerale(e.target.value)} />
+                        <VoiceInputButton onTranscript={txt => setFormDescrizioneGenerale(prev => (prev ? prev + ' ' : '') + txt)} />
+                    </div>
                 </div>
                 <div>
                     <label htmlFor="formMaterialiForniti">Materiali Forniti (Generale):</label>
-                    <textarea id="formMaterialiForniti" value={formMaterialiForniti} onChange={(e) => setFormMaterialiForniti(e.target.value)} />
+                    <div className="voice-textarea-wrapper">
+                        <textarea id="formMaterialiForniti" value={formMaterialiForniti} onChange={(e) => setFormMaterialiForniti(e.target.value)} />
+                        <VoiceInputButton onTranscript={txt => setFormMaterialiForniti(prev => (prev ? prev + ' ' : '') + txt)} />
+                    </div>
                 </div>
                 <div>
                     <label htmlFor="formOsservazioniGenerali">Osservazioni Generali:</label>
-                    <textarea id="formOsservazioniGenerali" value={formOsservazioniGenerali} onChange={(e) => setFormOsservazioniGenerali(e.target.value)} />
+                    <div className="voice-textarea-wrapper">
+                        <textarea id="formOsservazioniGenerali" value={formOsservazioniGenerali} onChange={(e) => setFormOsservazioniGenerali(e.target.value)} />
+                        <VoiceInputButton onTranscript={txt => setFormOsservazioniGenerali(prev => (prev ? prev + ' ' : '') + txt)} />
+                    </div>
                 </div>
                 <div>
                     <label>Firma Cliente:</label>

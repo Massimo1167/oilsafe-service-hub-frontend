@@ -266,7 +266,7 @@ function App() {
   }
 
   const userRole = (session?.user?.role || '').trim().toLowerCase();
-  const canCreateNewSheet = userRole === 'admin' || userRole === 'user';
+  const canCreateNewSheet = userRole === 'admin' || userRole === 'manager'  || userRole === 'user';
 
   return ( 
     <div className="app-container">
@@ -318,18 +318,19 @@ function App() {
               path="/fogli-assistenza/nuovo" 
               element={
                 canCreateNewSheet ? 
-                <FoglioAssistenzaFormPage session={session} clienti={clienti} commesse={commesse} ordini={ordini} />
+                <FoglioAssistenzaFormPage session={session} clienti={clienti} commesse={commesse} ordini={ordini} tecnici={tecnici} />
                 : <Navigate to="/" replace />
               }
             />
             <Route 
               path="/fogli-assistenza/:foglioIdParam/modifica"
               element={
-                <FoglioAssistenzaFormPage 
-                    session={session} 
-                    clienti={clienti} 
-                    commesse={commesse} 
-                    ordini={ordini} 
+                <FoglioAssistenzaFormPage
+                    session={session}
+                    clienti={clienti}
+                    commesse={commesse}
+                    ordini={ordini}
+                    tecnici={tecnici}
                 />
               }
             />

@@ -16,6 +16,7 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
     const [error, setError] = useState(null);
     const [selectedFogli, setSelectedFogli] = useState(new Set());
     const [stampaLoading, setStampaLoading] = useState(false);
+    const [copyLoading, setCopyLoading] = useState(false);
     // Imposta il layout di stampa predefinito su quello dettagliato
     const [layoutStampa, setLayoutStampa] = useState('detailed');
     const [successMessage, setSuccessMessage] = useState('');
@@ -48,14 +49,15 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
             .from('fogli_assistenza')
             .select(`
                 id, numero_foglio, data_apertura_foglio, stato_foglio, creato_da_user_id,
+                assegnato_a_user_id,
+                profilo_tecnico_assegnato:profiles (full_name),
                 cliente_id, commessa_id, ordine_cliente_id,
                 email_report_cliente, email_report_interno,
-                interventi_assistenza!left(tecnico_id)
+                interventi_assistenza!left(tecnico_id, tecnici (email))
             `)
             .order('data_apertura_foglio', { ascending: false });
 
         // Applica filtri server-side (solo per data, che è più efficiente)
-        if (userRole === 'user') query = query.eq('creato_da_user_id', currentUserId);
         if (filtroDataDa) query = query.gte('data_apertura_foglio', filtroDataDa);
         if (filtroDataA) {
             const dataAEndDate = new Date(filtroDataA);
@@ -93,12 +95,14 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                         }
                     });
                 }
+                const tecnicoAssegnato = safeAllTecnici.find(t => t.user_id === foglio.assegnato_a_user_id);
                 return {
                     ...foglio,
                     cliente_nome_azienda: cliente?.nome_azienda || 'N/D',
                     commessa_codice: commessa?.codice_commessa || '-',
                     ordine_numero: ordine?.numero_ordine_cliente || '-',
                     nomi_tecnici_coinvolti: Array.from(tecniciNomiSet).join(', ') || 'Nessuno',
+                    tecnico_assegnato_nome: tecnicoAssegnato ? `${tecnicoAssegnato.nome} ${tecnicoAssegnato.cognome}` : (foglio.profilo_tecnico_assegnato?.full_name || 'N/D'),
                 };
             });
             setFogli(processedFogli);
@@ -126,7 +130,11 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
         if (filtroClienteTesto.trim()) { dataDaFiltrare = dataDaFiltrare.filter(f => f.cliente_nome_azienda.toLowerCase().includes(filtroClienteTesto.toLowerCase())); }
         if (filtroCommessaTesto.trim()) { dataDaFiltrare = dataDaFiltrare.filter(f => f.commessa_codice.toLowerCase().includes(filtroCommessaTesto.toLowerCase())); }
         if (filtroOrdineTesto.trim()) { dataDaFiltrare = dataDaFiltrare.filter(f => f.ordine_numero.toLowerCase().includes(filtroOrdineTesto.toLowerCase())); }
-        if (filtroTecnicoTesto.trim()) { dataDaFiltrare = dataDaFiltrare.filter(f => f.nomi_tecnici_coinvolti.toLowerCase().includes(filtroTecnicoTesto.toLowerCase())); }
+        if (filtroTecnicoTesto.trim()) {
+            dataDaFiltrare = dataDaFiltrare.filter(f =>
+                (f.nomi_tecnici_coinvolti || '').toLowerCase().includes(filtroTecnicoTesto.toLowerCase())
+            );
+        }
         
         return dataDaFiltrare;
     }, [fogli, filtroStato, filtroClienteTesto, filtroCommessaTesto, filtroOrdineTesto, filtroTecnicoTesto]);
@@ -156,8 +164,10 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
         let printErrors = [];
         for (const foglioId of Array.from(selectedFogli)) { 
             try {
-                const { data: foglioData, error: foglioError } = await supabase.from('fogli_assistenza').select(`*, clienti (*), commesse (*), ordini_cliente (*), indirizzi_clienti!indirizzo_intervento_id (*)`).eq('id', foglioId).single();
+                const { data: foglioData, error: foglioError } = await supabase.from('fogli_assistenza').select(`*, assegnato_a_user_id, profilo_tecnico_assegnato:profiles (full_name), clienti (*), commesse (*), ordini_cliente (*), indirizzi_clienti!indirizzo_intervento_id (*)`).eq('id', foglioId).single();
                 if (foglioError || !foglioData) throw new Error(foglioError?.message || `Foglio ${foglioId} non trovato.`);
+                const tecnicoAss = (allTecnici || []).find(t => t.user_id === foglioData.assegnato_a_user_id);
+                foglioData.tecnico_assegnato_nome = tecnicoAss ? `${tecnicoAss.nome} ${tecnicoAss.cognome}` : foglioData.profilo_tecnico_assegnato?.full_name || null;
                 
                 const { data: interventiData, error: interventiError } = await supabase.from('interventi_assistenza').select(`*, tecnici (*)`) .eq('foglio_assistenza_id', foglioId).order('data_intervento_effettivo');
                 if (interventiError) console.warn(`Attenzione: Errore nel recuperare gli interventi per il foglio ${foglioId}: ${interventiError.message}`);
@@ -171,6 +181,50 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
         if (printErrors.length > 0) { setError(`Si sono verificati errori durante la stampa:\n${printErrors.join('\n')}`); }
         else { setSuccessMessage(`Operazione di stampa PDF completata per ${selectedFogli.size} fogli.`); setTimeout(() => setSuccessMessage(''), 3000); }
         setStampaLoading(false); setSelectedFogli(new Set());
+    };
+
+    const handleCopySelected = async () => {
+        if (selectedFogli.size === 0) { alert("Seleziona almeno un foglio di assistenza da copiare."); return; }
+        if (!window.confirm(`Copiare ${selectedFogli.size} fogli selezionati?`)) return;
+        setCopyLoading(true); setError(null); setSuccessMessage('');
+        let copyErrors = [];
+        for (const foglioId of Array.from(selectedFogli)) {
+            try {
+                const { data: foglioData, error: foglioError } = await supabase.from('fogli_assistenza').select('*').eq('id', foglioId).single();
+                if (foglioError || !foglioData) throw new Error(foglioError?.message || `Foglio ${foglioId} non trovato.`);
+
+                const { data: numeroData, error: numeroError } = await supabase.rpc('genera_prossimo_numero_foglio');
+                if (numeroError) throw new Error(numeroError.message);
+
+                const { id, created_at, updated_at, numero_foglio, ...copyFields } = foglioData;
+                const foglioPayload = { ...copyFields, numero_foglio: numeroData };
+                if ((userRole === 'user' || userRole === 'manager') && currentUserId) {
+                    foglioPayload.creato_da_user_id = currentUserId;
+                }
+
+                const { data: newFoglio, error: insertError } = await supabase.from('fogli_assistenza').insert([foglioPayload]).select().single();
+                if (insertError) throw insertError;
+
+                const { data: interventiData, error: intError } = await supabase.from('interventi_assistenza').select('*').eq('foglio_assistenza_id', foglioId);
+                if (intError) throw intError;
+
+                if (interventiData && interventiData.length > 0) {
+                    const interventiToInsert = interventiData.map(int => {
+                        const { id, created_at, updated_at, ...rest } = int;
+                        return { ...rest, foglio_assistenza_id: newFoglio.id };
+                    });
+                    const { error: insError } = await supabase.from('interventi_assistenza').insert(interventiToInsert);
+                    if (insError) throw insError;
+                }
+            } catch (err) {
+                console.error(`Errore copia foglio ${foglioId}:`, err);
+                copyErrors.push(`Foglio ${foglioId.substring(0,8)}: ${err.message}`);
+            }
+        }
+        if (copyErrors.length > 0) { setError(`Si sono verificati errori durante la copia:\n${copyErrors.join('\n')}`); }
+        else { setSuccessMessage(`Copia completata per ${selectedFogli.size} fogli.`); setTimeout(() => setSuccessMessage(''), 3000); }
+        setCopyLoading(false); setSelectedFogli(new Set());
+        fetchFogliDaServer();
     };
 
     const handleSendEmail = async (foglioId) => {
@@ -232,7 +286,7 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
             </div>
             
             <div className="azioni-gruppo" style={{ margin: '20px 0', display: 'flex', gap: '10px', alignItems: 'center' }}>
-                {(userRole === 'admin' || userRole === 'user') && (
+                {(userRole === 'admin' || userRole === 'manager' || userRole === 'user') && (
                     <Link to="/fogli-assistenza/nuovo" className="button">
                         Nuovo Foglio Assistenza
                     </Link>
@@ -250,6 +304,15 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                         className="button primary"
                     >
                         {stampaLoading ? `Stampa... (${selectedFogli.size})` : `Stampa Selezionati (${selectedFogli.size})`}
+                    </button>
+                )}
+                {fogliFiltrati.length > 0 && (
+                    <button
+                        onClick={handleCopySelected}
+                        disabled={selectedFogli.size === 0 || copyLoading || loadingFogli}
+                        className="button secondary"
+                    >
+                        {copyLoading ? `Copia... (${selectedFogli.size})` : `Copia Selezionati (${selectedFogli.size})`}
                     </button>
                 )}
             </div>
@@ -274,6 +337,7 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                             <th>N. Foglio</th>
                             <th>Data Apertura</th>
                             <th>Cliente</th>
+                            <th>Tecnico Assegnato</th>
                             <th>Tecnici Coinvolti</th>
                             <th>Commessa</th>
                             <th>Ordine Cl.</th>
@@ -294,6 +358,7 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                                 <td>{foglio.numero_foglio || `ID: ${foglio.id.substring(0,8)}`}</td>
                                 <td>{new Date(foglio.data_apertura_foglio).toLocaleDateString()}</td>
                                 <td>{foglio.cliente_nome_azienda}</td>
+                                <td>{foglio.tecnico_assegnato_nome}</td>
                                 <td style={{fontSize:'0.9em', maxWidth:'200px', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}} title={foglio.nomi_tecnici_coinvolti}>
                                     {foglio.nomi_tecnici_coinvolti}
                                 </td>

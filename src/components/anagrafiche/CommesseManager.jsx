@@ -77,9 +77,18 @@ function CommesseManager({ session, clienti }) { // `clienti` prop è usato per 
         const from = (currentPage - 1) * RIGHE_PER_PAGINA;
         const to = currentPage * RIGHE_PER_PAGINA - 1;
 
+        // Se l'utente filtra per nome cliente è necessario usare un INNER JOIN
+        // su "clienti" per applicare correttamente il filtro server-side.
+        let selectColumns =
+            'id, codice_commessa, descrizione_commessa, stato, cliente_id, clienti (id, nome_azienda)';
+        if (filtroServerClienteNome) {
+            selectColumns =
+                'id, codice_commessa, descrizione_commessa, stato, cliente_id, clienti!inner (id, nome_azienda)';
+        }
+
         let query = supabase
             .from('commesse')
-            .select(`id, codice_commessa, descrizione_commessa, stato, cliente_id, clienti (id, nome_azienda)`, { count: 'exact' })
+            .select(selectColumns, { count: 'exact' })
             .order('codice_commessa', { ascending: true })
             .range(from, to);
 

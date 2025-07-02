@@ -6,8 +6,9 @@
  * to handle save/cancel events. When invoked with `readOnly` all
  * form fields are disabled allowing inspection only.
  */
-import React, { useState, useEffect, useMemo } from 'react'; // Aggiunto useMemo
-import { supabase } from '../supabaseClient'; // Assicurati che il percorso sia corretto
+import React, { useState, useEffect, useMemo } from 'react';
+import { supabase } from '../supabaseClient';
+import VoiceInputButton from './VoiceInputButton';
 
 function InterventoAssistenzaForm({
     session,
@@ -24,6 +25,7 @@ function InterventoAssistenzaForm({
     const [formDataIntervento, setFormDataIntervento] = useState(new Date().toISOString().split('T')[0]);
     const [formSelectedTecnicoId, setFormSelectedTecnicoId] = useState('');
     const [formTipoIntervento, setFormTipoIntervento] = useState('In Loco');
+    const [formNumeroTecnici, setFormNumeroTecnici] = useState('1');
     const [formOraInizioLavoro, setFormOraInizioLavoro] = useState('');
     const [formOraFineLavoro, setFormOraFineLavoro] = useState('');
     const [formOreLavoro, setFormOreLavoro] = useState('');
@@ -49,6 +51,7 @@ function InterventoAssistenzaForm({
             setFormDataIntervento(interventoToEdit.data_intervento_effettivo ? new Date(interventoToEdit.data_intervento_effettivo).toISOString().split('T')[0] : '');
             setFormSelectedTecnicoId(interventoToEdit.tecnico_id || '');
             setFormTipoIntervento(interventoToEdit.tipo_intervento || 'In Loco');
+            setFormNumeroTecnici(interventoToEdit.numero_tecnici?.toString() || '1');
             setFormOraInizioLavoro(interventoToEdit.ora_inizio_lavoro || '');
             setFormOraFineLavoro(interventoToEdit.ora_fine_lavoro || '');
             setFormOreLavoro(interventoToEdit.ore_lavoro_effettive?.toString() || '');
@@ -66,6 +69,7 @@ function InterventoAssistenzaForm({
             setFormDataIntervento(new Date().toISOString().split('T')[0]);
             setFormSelectedTecnicoId(tecniciList?.[0]?.id || ''); // Preseleziona il primo se disponibile
             setFormTipoIntervento('In Loco');
+            setFormNumeroTecnici('1');
             setFormOraInizioLavoro(''); setFormOraFineLavoro(''); setFormOreLavoro('');
             setFormDescrizioneAttivita(''); setFormKmPercorsi(''); setFormOraInizioViaggio('');
             setFormOraFineViaggio(''); setFormOreViaggio(''); setFormVitto(false);
@@ -97,6 +101,7 @@ function InterventoAssistenzaForm({
           data_intervento_effettivo: formDataIntervento,
           tecnico_id: formSelectedTecnicoId,
           tipo_intervento: formTipoIntervento,
+          numero_tecnici: parseInt(formNumeroTecnici, 10) || 1,
           ora_inizio_lavoro: formOraInizioLavoro || null,
           ora_fine_lavoro: formOraFineLavoro || null,
           ore_lavoro_effettive: parseFloat(formOreLavoro) || null,
@@ -145,9 +150,9 @@ function InterventoAssistenzaForm({
     [tecniciList]);
 
     const tecniciFiltrati = useMemo(() =>
-        tecniciOrdinati.filter(t => 
-            t.cognome.toLowerCase().includes(filtroTecnico.toLowerCase()) ||
-            t.nome.toLowerCase().includes(filtroTecnico.toLowerCase())
+        tecniciOrdinati.filter(t =>
+            (t.cognome || '').toLowerCase().includes(filtroTecnico.toLowerCase()) ||
+            (t.nome || '').toLowerCase().includes(filtroTecnico.toLowerCase())
         ),
     [tecniciOrdinati, filtroTecnico]);
 
@@ -192,6 +197,16 @@ function InterventoAssistenzaForm({
                 <option value="Remoto">Remoto</option>
               </select>
             </div>
+            <div>
+              <label htmlFor="formNumeroTecnici">Numero Tecnici:</label>
+              <input
+                type="number"
+                id="formNumeroTecnici"
+                min="1"
+                value={formNumeroTecnici}
+                onChange={(e) => setFormNumeroTecnici(e.target.value)}
+              />
+            </div>
             <div style={{display: 'flex', gap: '1rem', flexWrap:'wrap'}}>
                 <div style={{flex:'1 1 200px'}}>
                     <label htmlFor="formOraInizioLavoro">Ora Inizio Lavoro:</label>
@@ -208,7 +223,18 @@ function InterventoAssistenzaForm({
             </div>
             <div>
               <label htmlFor="formDescrizioneAttivita">Descrizione Attività Svolta:</label>
-              <textarea id="formDescrizioneAttivita" value={formDescrizioneAttivita} onChange={(e) => setFormDescrizioneAttivita(e.target.value)} />
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem' }}>
+                <textarea
+                  id="formDescrizioneAttivita"
+                  value={formDescrizioneAttivita}
+                  onChange={(e) => setFormDescrizioneAttivita(e.target.value)}
+                />
+                <VoiceInputButton
+                  onTranscript={(text) =>
+                    setFormDescrizioneAttivita((prev) => (prev ? `${prev} ${text}` : text))
+                  }
+                />
+              </div>
             </div>
 
             {formTipoIntervento === 'In Loco' && (
@@ -242,7 +268,18 @@ function InterventoAssistenzaForm({
             )}
             <div>
               <label htmlFor="formOsservazioni">Osservazioni Intervento:</label>
-              <textarea id="formOsservazioni" value={formOsservazioni} onChange={(e) => setFormOsservazioni(e.target.value)} />
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem' }}>
+                <textarea
+                  id="formOsservazioni"
+                  value={formOsservazioni}
+                  onChange={(e) => setFormOsservazioni(e.target.value)}
+                />
+                <VoiceInputButton
+                  onTranscript={(text) =>
+                    setFormOsservazioni((prev) => (prev ? `${prev} ${text}` : text))
+                  }
+                />
+              </div>
             </div>
             </fieldset>
 

@@ -14,3 +14,14 @@ If you are developing a production application, we recommend using TypeScript wi
 ## Versioning
 
 L'applicazione visualizza la versione corrente nella dashboard. Il numero di versione è letto dal campo `version` di `package.json` ed è disponibile come costante `__APP_VERSION__` durante la build Vite.
+
+## Database migrations
+
+- `06. Alter fogli_assistenza add assegnato_a_user_id.sql` adds an `assegnato_a_user_id` column to `fogli_assistenza` and populates it for existing records.
+- `27. Policy fogli_assistenza.sql` now allows users assigned to a sheet via `assegnato_a_user_id` to select and update it.
+- `28. Policy interventi_assistenza.sql` permits actions on interventions when the user is the technician assigned to the parent sheet.
+- `29. Function is_user_assigned_to_foglio.sql` also checks the `assegnato_a_user_id` field.
+- `52. FK fogli_assistenza assegnato_a_profiles.sql` links `fogli_assistenza.assegnato_a_user_id` to `public.profiles.id`.
+- Technicians must have a `user_id` linked to `public.profiles` to be selectable when compiling a service sheet.
+- `53. Alter tecnici add user_id.sql` creates a `user_id` field in `tecnici` referencing `public.profiles`.
+- `54. Alter interventi_assistenza add numero_tecnici.sql` adds a `numero_tecnici` column to `interventi_assistenza` with default 1.
