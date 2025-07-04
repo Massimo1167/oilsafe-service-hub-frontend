@@ -44,6 +44,7 @@ function FoglioAssistenzaFormPage({ session, clienti, commesse, ordini, tecnici 
     const [formOsservazioniGenerali, setFormOsservazioniGenerali] = useState('');
 const [formMaterialiForniti, setFormMaterialiForniti] = useState('');
 const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
+    const [formNotaStatoFoglio, setFormNotaStatoFoglio] = useState('');
  const [formEmailCliente, setFormEmailCliente] = useState('');
  const [formEmailInterno, setFormEmailInterno] = useState('');
     const [formCreatoDaUserIdOriginal, setFormCreatoDaUserIdOriginal] = useState('');
@@ -79,7 +80,11 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
                 (userRole === 'user' && (formCreatoDaUserIdOriginal === currentUserId || isAssignedTecnico))));
 
     const completatoIndex = STATO_FOGLIO_STEPS.indexOf('Completato');
+    const attesaFirmaIndex = STATO_FOGLIO_STEPS.indexOf('Attesa Firma');
+    const consuntivatoIndex = STATO_FOGLIO_STEPS.indexOf('Consuntivato');
     const statoIndex = STATO_FOGLIO_STEPS.indexOf(formStatoFoglio);
+    const showNotaStato = attesaFirmaIndex !== -1 && statoIndex >= attesaFirmaIndex;
+    const notaStatoRequired = consuntivatoIndex !== -1 && statoIndex >= consuntivatoIndex;
     const isChiuso = formStatoFoglio === 'Chiuso';
     const isCompletatoOrBeyond = statoIndex >= completatoIndex && completatoIndex !== -1;
     const firmaPresente = !!firmaClientePreview;
@@ -125,6 +130,7 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
                     if (d.formOsservazioniGenerali) setFormOsservazioniGenerali(d.formOsservazioniGenerali);
                     if (d.formMaterialiForniti) setFormMaterialiForniti(d.formMaterialiForniti);
                     if (d.formStatoFoglio) setFormStatoFoglio(d.formStatoFoglio);
+                    if (d.formNotaStatoFoglio) setFormNotaStatoFoglio(d.formNotaStatoFoglio);
                     if (d.formEmailCliente) setFormEmailCliente(d.formEmailCliente);
                     if (d.formEmailInterno) setFormEmailInterno(d.formEmailInterno);
                 } catch (e) {
@@ -149,12 +155,13 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
                 formOsservazioniGenerali,
                 formMaterialiForniti,
                 formStatoFoglio,
+                formNotaStatoFoglio,
                 formEmailCliente,
                 formEmailInterno,
             };
             localStorage.setItem(draftKey, JSON.stringify(draft));
         }
-    }, [draftKey, pageLoading, formDataApertura, formSelectedClienteId, formSelectedIndirizzoId, formReferenteCliente, formMotivoGenerale, formSelectedCommessaId, formSelectedOrdineId, formDescrizioneGenerale, formOsservazioniGenerali, formMaterialiForniti, formStatoFoglio, formEmailCliente, formEmailInterno, formAssignedTecnicoId]);
+    }, [draftKey, pageLoading, formDataApertura, formSelectedClienteId, formSelectedIndirizzoId, formReferenteCliente, formMotivoGenerale, formSelectedCommessaId, formSelectedOrdineId, formDescrizioneGenerale, formOsservazioniGenerali, formMaterialiForniti, formStatoFoglio, formNotaStatoFoglio, formEmailCliente, formEmailInterno, formAssignedTecnicoId]);
 
     useEffect(() => {
         if (formSelectedClienteId) {
@@ -203,6 +210,7 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
                     setFormOsservazioniGenerali(data.osservazioni_generali || '');
                     setFormMaterialiForniti(data.materiali_forniti_generale || '');
                     setFormStatoFoglio(data.stato_foglio || 'Aperto');
+                    setFormNotaStatoFoglio(data.nota_stato_foglio || '');
                     setFormEmailCliente(data.email_report_cliente || '');
                     setFormEmailInterno(data.email_report_interno || '');
                     setFormCreatoDaUserIdOriginal(data.creato_da_user_id || '');
@@ -292,6 +300,7 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
               materiali_forniti_generale: formMaterialiForniti.trim(),
               email_report_cliente: formEmailCliente.trim() || null,
               email_report_interno: formEmailInterno.trim() || null,
+              nota_stato_foglio: formNotaStatoFoglio.trim(),
               firma_cliente_url: firmaClienteUrlToSave,
               firma_tecnico_principale_url: firmaTecnicoUrlToSave,
               stato_foglio: formStatoFoglio,
@@ -517,13 +526,26 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
                         </>
                     )}
                 </div>
-                <div>
-                    <label htmlFor="formStatoFoglio">Stato Foglio:</label>
-                    <select id="formStatoFoglio" value={formStatoFoglio} onChange={e => setFormStatoFoglio(e.target.value)}>
-                        {STATO_FOGLIO_STEPS.map(st => (
-                            <option key={st} value={st}>{st}</option>
-                        ))}
-                    </select>
+                <div style={{display:'flex', gap:'10px', alignItems:'flex-start'}}>
+                    <div>
+                        <label htmlFor="formStatoFoglio">Stato Foglio:</label>
+                        <select id="formStatoFoglio" value={formStatoFoglio} onChange={e => setFormStatoFoglio(e.target.value)}>
+                            {STATO_FOGLIO_STEPS.map(st => (
+                                <option key={st} value={st}>{st}</option>
+                            ))}
+                        </select>
+                    </div>
+                    {showNotaStato && (
+                        <div style={{flexGrow:1}}>
+                            <label htmlFor="formNotaStatoFoglio">Nota Stato:</label>
+                            <textarea
+                                id="formNotaStatoFoglio"
+                                value={formNotaStatoFoglio}
+                                onChange={e => setFormNotaStatoFoglio(e.target.value)}
+                                required={notaStatoRequired}
+                            />
+                        </div>
+                    )}
                 </div>
                 {error && <p style={{ color: 'red', fontWeight:'bold' }}>ERRORE: {error}</p>}
                 <button type="submit" disabled={loadingSubmit || !canSubmitForm} style={{marginTop:'20px'}}>

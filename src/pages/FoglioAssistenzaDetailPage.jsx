@@ -332,6 +332,11 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
                 <div style={{gridColumn: '1 / -1'}}><strong>Materiali Forniti:</strong> <pre>{foglio.materiali_forniti_generale || 'N/D'}</pre></div>
                 <div style={{gridColumn: '1 / -1'}}><strong>Osservazioni Generali:</strong> <pre style={{whiteSpace:'pre-wrap'}}>{foglio.osservazioni_generali || 'N/D'}</pre></div>
                 <div><strong>Stato Foglio:</strong> <span className={`status-badge status-${foglio.stato_foglio?.toLowerCase().replace(/\s+/g, '-')}`}>{foglio.stato_foglio}</span></div>
+                {foglio.nota_stato_foglio && (
+                    <div style={{gridColumn: '1 / -1'}}>
+                        <strong>Nota Stato Foglio:</strong> <pre style={{whiteSpace:'pre-wrap'}}>{foglio.nota_stato_foglio}</pre>
+                    </div>
+                )}
                 {foglio.creato_da_user_id && <div><small><em>Creato da ID: {foglio.creato_da_user_id.substring(0,8)}...</em></small></div>}
             </div>
 
