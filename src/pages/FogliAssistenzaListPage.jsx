@@ -4,6 +4,7 @@
  * Receives anagrafiche (clients, technicians, etc.) as props from App.jsx.
  */
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import * as XLSX from 'xlsx';
 import { Link, Navigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient'; // Assicurati che il percorso sia corretto
 import { generateFoglioAssistenzaPDF } from '../utils/pdfGenerator'; // Assicurati che il percorso sia corretto
@@ -17,6 +18,7 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
     const [selectedFogli, setSelectedFogli] = useState(new Set());
     const [stampaLoading, setStampaLoading] = useState(false);
     const [copyLoading, setCopyLoading] = useState(false);
+    const [exportLoading, setExportLoading] = useState(false);
     // Imposta il layout di stampa predefinito su quello dettagliato
     const [layoutStampa, setLayoutStampa] = useState('detailed');
     const [successMessage, setSuccessMessage] = useState('');
@@ -227,6 +229,108 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
         fetchFogliDaServer();
     };
 
+    const handleExportSelected = async () => {
+        if (selectedFogli.size === 0) { alert('Seleziona almeno un foglio di assistenza da esportare.'); return; }
+        setExportLoading(true); setError(null); setSuccessMessage('');
+        const headers = [
+            'numero_foglio',
+            'data_apertura',
+            'cliente',
+            'indirizzo_intervento',
+            'referente_richiesta',
+            'tecnico_assegnato',
+            'motivo_intervento',
+            'materiali_forniti',
+            'commessa',
+            'ordine_cliente',
+            'km_totali',
+            'ore_viaggio_tecnici',
+            'ore_lavoro_tecnici',
+            'stato'
+        ];
+        const rows = [];
+        for (const foglioId of Array.from(selectedFogli)) {
+            try {
+                const { data: foglioData, error: foglioError } = await supabase
+                    .from('fogli_assistenza')
+                    .select(`
+                        numero_foglio,
+                        data_apertura_foglio,
+                        stato_foglio,
+                        referente_cliente_richiesta,
+                        motivo_intervento_generale,
+                        materiali_forniti_generale,
+                        assegnato_a_user_id,
+                        profilo_tecnico_assegnato:profiles (full_name),
+                        clienti (nome_azienda),
+                        indirizzi_clienti!indirizzo_intervento_id (indirizzo_completo, descrizione),
+                        commesse (codice_commessa),
+                        ordini_cliente (numero_ordine_cliente)
+                    `)
+                    .eq('id', foglioId)
+                    .single();
+                if (foglioError || !foglioData) throw new Error(foglioError?.message || `Foglio ${foglioId} non trovato.`);
+
+                const { data: interventiData, error: intervError } = await supabase
+                    .from('interventi_assistenza')
+                    .select('km_percorsi, ore_viaggio, ore_lavoro_effettive, numero_tecnici')
+                    .eq('foglio_assistenza_id', foglioId);
+                if (intervError) throw intervError;
+
+                let kmTot = 0; let oreVia = 0; let oreLav = 0;
+                (interventiData || []).forEach(int => {
+                    const numTec = parseFloat(int.numero_tecnici) || 1;
+                    kmTot += parseFloat(int.km_percorsi) || 0;
+                    oreVia += (parseFloat(int.ore_viaggio) || 0) * numTec;
+                    oreLav += (parseFloat(int.ore_lavoro_effettive) || 0) * numTec;
+                });
+
+                const tecnicoAss = (allTecnici || []).find(t => t.user_id === foglioData.assegnato_a_user_id);
+                const tecnicoNome = tecnicoAss ? `${tecnicoAss.nome} ${tecnicoAss.cognome}` : (foglioData.profilo_tecnico_assegnato?.full_name || 'N/D');
+
+                let indirizzoInterv = 'N/D';
+                if (foglioData.indirizzi_clienti && foglioData.indirizzi_clienti.indirizzo_completo) {
+                    indirizzoInterv = foglioData.indirizzi_clienti.indirizzo_completo;
+                    if (foglioData.indirizzi_clienti.descrizione) {
+                        indirizzoInterv = `${foglioData.indirizzi_clienti.descrizione}: ${indirizzoInterv}`;
+                    }
+                }
+
+                rows.push({
+                    numero_foglio: foglioData.numero_foglio || foglioId.substring(0, 8),
+                    data_apertura: foglioData.data_apertura_foglio,
+                    cliente: foglioData.clienti?.nome_azienda || 'N/D',
+                    indirizzo_intervento: indirizzoInterv,
+                    referente_richiesta: foglioData.referente_cliente_richiesta || 'N/D',
+                    tecnico_assegnato: tecnicoNome,
+                    motivo_intervento: foglioData.motivo_intervento_generale || 'N/D',
+                    materiali_forniti: foglioData.materiali_forniti_generale || 'N/D',
+                    commessa: foglioData.commesse?.codice_commessa || '-',
+                    ordine_cliente: foglioData.ordini_cliente?.numero_ordine_cliente || '-',
+                    km_totali: kmTot.toFixed(1),
+                    ore_viaggio_tecnici: oreVia.toFixed(2),
+                    ore_lavoro_tecnici: oreLav.toFixed(2),
+                    stato: foglioData.stato_foglio || '-'
+                });
+            } catch (err) {
+                console.error(`Errore export foglio ${foglioId}:`, err);
+                rows.push({ numero_foglio: foglioId.substring(0,8), errore: err.message });
+            }
+        }
+        try {
+            const worksheet = XLSX.utils.json_to_sheet(rows, { header: headers });
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, 'FogliAssistenza');
+            XLSX.writeFile(workbook, 'consuntivo_fogli_assistenza.xlsx');
+            setSuccessMessage(`Esportazione completata per ${rows.length} fogli.`);
+            setTimeout(() => setSuccessMessage(''), 3000);
+        } catch (expError) {
+            console.error('Errore esportazione fogli assistenza:', expError);
+            setError('Esportazione fallita: ' + expError.message);
+        }
+        setExportLoading(false);
+    };
+
     const handleSendEmail = async (foglioId) => {
         if (!window.confirm('Inviare il report di questo foglio via email?')) return;
         setSendingEmailId(foglioId);
@@ -313,6 +417,15 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                         className="button secondary"
                     >
                         {copyLoading ? `Copia... (${selectedFogli.size})` : `Copia Selezionati (${selectedFogli.size})`}
+                    </button>
+                )}
+                {fogliFiltrati.length > 0 && (
+                    <button
+                        onClick={handleExportSelected}
+                        disabled={selectedFogli.size === 0 || exportLoading || loadingFogli}
+                        className="button secondary"
+                    >
+                        {exportLoading ? `Esporta... (${selectedFogli.size})` : `Esporta XLSX (${selectedFogli.size})`}
                     </button>
                 )}
             </div>
