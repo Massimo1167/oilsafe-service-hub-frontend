@@ -47,9 +47,11 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
             (userRole === 'user' && (foglio.creato_da_user_id === currentUserId || isUserAssignedTecnico)));
 
     const completatoIndex = STATO_FOGLIO_STEPS.indexOf('Completato');
+    const chiusoIndex = STATO_FOGLIO_STEPS.indexOf('Chiuso');
     const statoIndex = STATO_FOGLIO_STEPS.indexOf(foglio?.stato_foglio);
     const isChiuso = foglio?.stato_foglio === 'Chiuso';
-    const isCompletatoOrBeyond = statoIndex >= completatoIndex && completatoIndex !== -1;
+    const isPostCompletato = completatoIndex !== -1 && statoIndex > completatoIndex;
+    const isPostChiuso = chiusoIndex !== -1 && statoIndex > chiusoIndex;
     const firmaPresente = !!foglio?.firma_cliente_url;
 
     const baseEditPermission =
@@ -60,12 +62,13 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
 
     let canEditThisFoglioOverall = false;
     if (foglio) {
-        if (userRole === 'admin') {
-            canEditThisFoglioOverall = true;
-        } else if (userRole === 'manager') {
-            canEditThisFoglioOverall = !isChiuso;
-        } else if (userRole === 'user' && (foglio.creato_da_user_id === currentUserId || isUserAssignedTecnico)) {
-            canEditThisFoglioOverall = !isChiuso && !isCompletatoOrBeyond && !firmaPresente;
+        if (userRole === 'admin' || userRole === 'manager') {
+            canEditThisFoglioOverall = !isPostChiuso;
+        } else if (
+            userRole === 'user' &&
+            (foglio.creato_da_user_id === currentUserId || isUserAssignedTecnico)
+        ) {
+            canEditThisFoglioOverall = !isPostCompletato;
         }
     }
 
@@ -85,12 +88,13 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
 
     let canModifyInterventi = false;
     if (foglio) {
-        if (userRole === 'admin') {
-            canModifyInterventi = true;
-        } else if (userRole === 'manager') {
-            canModifyInterventi = !isChiuso;
-        } else if (userRole === 'user' && (foglio.creato_da_user_id === currentUserId || isUserAssignedTecnico)) {
-            canModifyInterventi = !isChiuso && !isCompletatoOrBeyond && !firmaPresente;
+        if (userRole === 'admin' || userRole === 'manager') {
+            canModifyInterventi = !isPostChiuso;
+        } else if (
+            userRole === 'user' &&
+            (foglio.creato_da_user_id === currentUserId || isUserAssignedTecnico)
+        ) {
+            canModifyInterventi = !isPostCompletato;
         }
     }
 
