@@ -207,6 +207,9 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, op
     if (foglioData.commesse) addLabelAndValue(doc, 'Commessa:', `${foglioData.commesse.codice_commessa} (${foglioData.commesse.descrizione_commessa || 'N/D'})`, marginLeft);
     if (foglioData.ordini_cliente) addLabelAndValue(doc, 'Ordine Cliente:', `${foglioData.ordini_cliente.numero_ordine_cliente} (${foglioData.ordini_cliente.descrizione_ordine || 'N/D'})`, marginLeft);
     addLabelAndValue(doc, 'Stato Foglio:', foglioData.stato_foglio, marginLeft);
+    if (foglioData.nota_stato_foglio) {
+        addLabelAndValue(doc, 'Nota Stato Foglio:', foglioData.nota_stato_foglio, marginLeft);
+    }
     if (foglioData.creato_da_user_id) addLabelAndValue(doc, 'Rif. Utente Oilsafe:', `${foglioData.creato_da_user_id.substring(0,8)}...`, marginLeft);
     yPosition += 3; 
 
