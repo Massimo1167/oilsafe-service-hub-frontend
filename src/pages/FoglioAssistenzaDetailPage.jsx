@@ -9,6 +9,7 @@ import { supabase } from '../supabaseClient'; // Assicurati che il percorso sia 
 import InterventoAssistenzaForm from '../components/InterventoAssistenzaForm'; // Assicurati che il percorso sia corretto
 import InterventoCard from '../components/InterventoCard';
 import { generateFoglioAssistenzaPDF } from '../utils/pdfGenerator'; // Assicurati che il percorso sia corretto
+import { STATO_FOGLIO_STEPS } from '../utils/statoFoglio';
 
 function FoglioAssistenzaDetailPage({ session, tecnici }) {
     const { foglioId } = useParams();
@@ -45,8 +46,10 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
             userRole === 'head' ||
             (userRole === 'user' && (foglio.creato_da_user_id === currentUserId || isUserAssignedTecnico)));
 
+    const completatoIndex = STATO_FOGLIO_STEPS.indexOf('Completato');
+    const statoIndex = STATO_FOGLIO_STEPS.indexOf(foglio?.stato_foglio);
     const isChiuso = foglio?.stato_foglio === 'Chiuso';
-    const isCompletato = foglio?.stato_foglio === 'Completato';
+    const isCompletatoOrBeyond = statoIndex >= completatoIndex && completatoIndex !== -1;
     const firmaPresente = !!foglio?.firma_cliente_url;
 
     const baseEditPermission =
@@ -62,7 +65,7 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
         } else if (userRole === 'manager') {
             canEditThisFoglioOverall = !isChiuso;
         } else if (userRole === 'user' && (foglio.creato_da_user_id === currentUserId || isUserAssignedTecnico)) {
-            canEditThisFoglioOverall = !isChiuso && !isCompletato && !firmaPresente;
+            canEditThisFoglioOverall = !isChiuso && !isCompletatoOrBeyond && !firmaPresente;
         }
     }
 
@@ -87,7 +90,7 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
         } else if (userRole === 'manager') {
             canModifyInterventi = !isChiuso;
         } else if (userRole === 'user' && (foglio.creato_da_user_id === currentUserId || isUserAssignedTecnico)) {
-            canModifyInterventi = !isChiuso && !isCompletato && !firmaPresente;
+            canModifyInterventi = !isChiuso && !isCompletatoOrBeyond && !firmaPresente;
         }
     }
 

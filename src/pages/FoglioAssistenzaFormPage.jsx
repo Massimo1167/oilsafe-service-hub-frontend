@@ -6,6 +6,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useParams, Link, Navigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import { STATO_FOGLIO_STEPS } from '../utils/statoFoglio';
 import SignatureCanvas from 'react-signature-canvas';
 import VoiceInputButton from '../components/VoiceInputButton';
 
@@ -77,8 +78,10 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
                 userRole === 'manager' ||
                 (userRole === 'user' && (formCreatoDaUserIdOriginal === currentUserId || isAssignedTecnico))));
 
+    const completatoIndex = STATO_FOGLIO_STEPS.indexOf('Completato');
+    const statoIndex = STATO_FOGLIO_STEPS.indexOf(formStatoFoglio);
     const isChiuso = formStatoFoglio === 'Chiuso';
-    const isCompletato = formStatoFoglio === 'Completato';
+    const isCompletatoOrBeyond = statoIndex >= completatoIndex && completatoIndex !== -1;
     const firmaPresente = !!firmaClientePreview;
 
     let canSubmitForm = false;
@@ -90,7 +93,7 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
         } else if (userRole === 'manager') {
             canSubmitForm = !isChiuso;
         } else if (userRole === 'user' && (formCreatoDaUserIdOriginal === currentUserId || isAssignedTecnico)) {
-            canSubmitForm = !isChiuso && !isCompletato && !firmaPresente;
+            canSubmitForm = !isChiuso && !isCompletatoOrBeyond && !firmaPresente;
         }
     }
 
@@ -517,11 +520,9 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
                 <div>
                     <label htmlFor="formStatoFoglio">Stato Foglio:</label>
                     <select id="formStatoFoglio" value={formStatoFoglio} onChange={e => setFormStatoFoglio(e.target.value)}>
-                        <option value="Aperto">Aperto</option>
-                        <option value="In Lavorazione">In Lavorazione</option>
-                        <option value="Attesa Firma">Attesa Firma</option>
-                        <option value="Completato">Completato</option>
-                        <option value="Chiuso">Chiuso</option>
+                        {STATO_FOGLIO_STEPS.map(st => (
+                            <option key={st} value={st}>{st}</option>
+                        ))}
                     </select>
                 </div>
                 {error && <p style={{ color: 'red', fontWeight:'bold' }}>ERRORE: {error}</p>}
