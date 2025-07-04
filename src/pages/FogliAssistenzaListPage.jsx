@@ -236,6 +236,11 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
             'numero_foglio',
             'data_apertura',
             'cliente',
+            'indirizzo_intervento',
+            'referente_richiesta',
+            'tecnico_assegnato',
+            'motivo_intervento',
+            'materiali_forniti',
             'commessa',
             'ordine_cliente',
             'km_totali',
@@ -248,7 +253,20 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
             try {
                 const { data: foglioData, error: foglioError } = await supabase
                     .from('fogli_assistenza')
-                    .select(`numero_foglio, data_apertura_foglio, stato_foglio, clienti (nome_azienda), commesse (codice_commessa), ordini_cliente (numero_ordine_cliente)`)
+                    .select(`
+                        numero_foglio,
+                        data_apertura_foglio,
+                        stato_foglio,
+                        referente_cliente_richiesta,
+                        motivo_intervento_generale,
+                        materiali_forniti_generale,
+                        assegnato_a_user_id,
+                        profilo_tecnico_assegnato:profiles (full_name),
+                        clienti (nome_azienda),
+                        indirizzi_clienti!indirizzo_intervento_id (indirizzo_completo, descrizione),
+                        commesse (codice_commessa),
+                        ordini_cliente (numero_ordine_cliente)
+                    `)
                     .eq('id', foglioId)
                     .single();
                 if (foglioError || !foglioData) throw new Error(foglioError?.message || `Foglio ${foglioId} non trovato.`);
@@ -267,10 +285,26 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                     oreLav += (parseFloat(int.ore_lavoro_effettive) || 0) * numTec;
                 });
 
+                const tecnicoAss = (allTecnici || []).find(t => t.user_id === foglioData.assegnato_a_user_id);
+                const tecnicoNome = tecnicoAss ? `${tecnicoAss.nome} ${tecnicoAss.cognome}` : (foglioData.profilo_tecnico_assegnato?.full_name || 'N/D');
+
+                let indirizzoInterv = 'N/D';
+                if (foglioData.indirizzi_clienti && foglioData.indirizzi_clienti.indirizzo_completo) {
+                    indirizzoInterv = foglioData.indirizzi_clienti.indirizzo_completo;
+                    if (foglioData.indirizzi_clienti.descrizione) {
+                        indirizzoInterv = `${foglioData.indirizzi_clienti.descrizione}: ${indirizzoInterv}`;
+                    }
+                }
+
                 rows.push({
                     numero_foglio: foglioData.numero_foglio || foglioId.substring(0, 8),
                     data_apertura: foglioData.data_apertura_foglio,
                     cliente: foglioData.clienti?.nome_azienda || 'N/D',
+                    indirizzo_intervento: indirizzoInterv,
+                    referente_richiesta: foglioData.referente_cliente_richiesta || 'N/D',
+                    tecnico_assegnato: tecnicoNome,
+                    motivo_intervento: foglioData.motivo_intervento_generale || 'N/D',
+                    materiali_forniti: foglioData.materiali_forniti_generale || 'N/D',
                     commessa: foglioData.commesse?.codice_commessa || '-',
                     ordine_cliente: foglioData.ordini_cliente?.numero_ordine_cliente || '-',
                     km_totali: kmTot.toFixed(1),
