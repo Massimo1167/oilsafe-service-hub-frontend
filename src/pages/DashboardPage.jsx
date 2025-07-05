@@ -21,10 +21,10 @@ function DashboardPage({ session }) { // Riceve la sessione per personalizzare i
    
       }
       <p style={{ fontStyle: 'italic', marginTop: '1em' }}>
-        Versione: {__APP_VERSION__} - 
+        Ver.: {__APP_VERSION__} - 
       </p>
       <p style={{ fontStyle: 'italic', marginTop: '1em' }}>
-        Descrizione versione: {__APP_DESCRIPTION__}
+        Desc. ver.: {__APP_DESCRIPTION__}
       </p>
       <p>DB collegato: {import.meta.env.VITE_SUPABASE_DB_LABEL}</p>
       <p style={{ fontStyle: 'italic', marginTop: '1em' }}>

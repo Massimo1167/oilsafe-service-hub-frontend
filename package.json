@@ -1,7 +1,7 @@
 {
   "name": "oilsafe-service-hub-frontend",
   "private": true,
-  "version": "0.7.4",
+  "version": "0.7.5",
   "description": "Data 05/07/2025 :PR#96 - Gestione estesa stati foglio e descrizione versione",
   "type": "module",
   "scripts": {

@@ -271,7 +271,7 @@ function App() {
   return (
     <div className="app-container">
       <header>
-        <h1>Oilsafe Service Hub v{__APP_VERSION__} - {__APP_DESCRIPTION__}</h1>
+        <h1>Oilsafe Service Hub ver.{__APP_VERSION__}</h1>
         {session && session.user && (
           <nav>
             <Link to="/">Dashboard</Link>
