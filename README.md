@@ -13,7 +13,7 @@ If you are developing a production application, we recommend using TypeScript wi
 
 ## Versioning
 
-L'applicazione visualizza la versione corrente e una breve descrizione nella dashboard. Il numero di versione e la descrizione sono letti dai campi `version` e `description` di `package.json` ed sono disponibili come costanti `__APP_VERSION__` e `__APP_DESCRIPTION__` durante la build Vite.
+L'applicazione visualizza la versione corrente e una breve descrizione nella dashboard. In `vite.config.js` questi valori vengono importati direttamente da `package.json` (`import pkg from './package.json' assert { type: 'json' };`) e resi disponibili come costanti `__APP_VERSION__` e `__APP_DESCRIPTION__` durante la build Vite.
 
 ## Database migrations
 
