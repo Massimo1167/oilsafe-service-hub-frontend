@@ -8,6 +8,7 @@ import * as XLSX from 'xlsx';
 import { Link, Navigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient'; // Assicurati che il percorso sia corretto
 import { generateFoglioAssistenzaPDF } from '../utils/pdfGenerator'; // Assicurati che il percorso sia corretto
+import { STATO_FOGLIO_STEPS } from '../utils/statoFoglio';
 
 // Questo componente ora riceve le anagrafiche principali come props da App.jsx
 // per evitare di doverle ricaricare qui. Questo migliora le performance e la consistenza.
@@ -378,11 +379,9 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                         <label htmlFor="filtroStato">Stato Foglio:</label>
                         <select id="filtroStato" value={filtroStato} onChange={e => setFiltroStato(e.target.value)}>
                             <option value="">Tutti gli Stati</option>
-                            <option value="Aperto">Aperto</option>
-                            <option value="In Lavorazione">In Lavorazione</option>
-                            <option value="Attesa Firma">Attesa Firma</option>
-                            <option value="Completato">Completato</option>
-                            <option value="Chiuso">Chiuso</option>
+                            {STATO_FOGLIO_STEPS.map(st => (
+                                <option key={st} value={st}>{st}</option>
+                            ))}
                         </select>
                     </div>
                 </div>

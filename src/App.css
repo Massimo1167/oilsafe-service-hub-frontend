@@ -153,14 +153,24 @@ header nav { /* Aggiunto per allineare il bottone a destra */
 .button-logout:hover {
     background-color: rgba(255, 255, 255, 0.15);
 }
-.status-badge.status-default {
-    background-color: #17a2b8; /* Esempio colore per default (info blu/ciano) */
-    color: white;
-    font-size: 0.7em;
+.status-badge {
+    display: inline-block;
+    font-size: 0.75em;
     padding: 2px 5px;
     border-radius: 3px;
     margin-left: 5px;
+    color: #fff;
 }
+.status-badge.status-aperto { background-color: #6c757d; }
+.status-badge.status-in-lavorazione { background-color: #17a2b8; }
+.status-badge.status-attesa-firma { background-color: #ffc107; color:#000; }
+.status-badge.status-completato { background-color: #28a745; }
+.status-badge.status-consuntivato { background-color: #20c997; }
+.status-badge.status-inviato { background-color: #007bff; }
+.status-badge.status-in-attesa-accettazione { background-color: #6610f2; }
+.status-badge.status-fatturato { background-color: #e83e8c; }
+.status-badge.status-chiuso { background-color: #343a40; }
+.status-badge.status-default { background-color: #17a2b8; }
 
 .button.outline.small {
     background-color: transparent;

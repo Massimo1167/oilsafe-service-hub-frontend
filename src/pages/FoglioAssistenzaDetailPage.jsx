@@ -9,6 +9,7 @@ import { supabase } from '../supabaseClient'; // Assicurati che il percorso sia 
 import InterventoAssistenzaForm from '../components/InterventoAssistenzaForm'; // Assicurati che il percorso sia corretto
 import InterventoCard from '../components/InterventoCard';
 import { generateFoglioAssistenzaPDF } from '../utils/pdfGenerator'; // Assicurati che il percorso sia corretto
+import { STATO_FOGLIO_STEPS } from '../utils/statoFoglio';
 
 function FoglioAssistenzaDetailPage({ session, tecnici }) {
     const { foglioId } = useParams();
@@ -45,8 +46,12 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
             userRole === 'head' ||
             (userRole === 'user' && (foglio.creato_da_user_id === currentUserId || isUserAssignedTecnico)));
 
+    const completatoIndex = STATO_FOGLIO_STEPS.indexOf('Completato');
+    const chiusoIndex = STATO_FOGLIO_STEPS.indexOf('Chiuso');
+    const statoIndex = STATO_FOGLIO_STEPS.indexOf(foglio?.stato_foglio);
     const isChiuso = foglio?.stato_foglio === 'Chiuso';
-    const isCompletato = foglio?.stato_foglio === 'Completato';
+    const isPostCompletato = completatoIndex !== -1 && statoIndex > completatoIndex;
+    const isPostChiuso = chiusoIndex !== -1 && statoIndex > chiusoIndex;
     const firmaPresente = !!foglio?.firma_cliente_url;
 
     const baseEditPermission =
@@ -57,12 +62,13 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
 
     let canEditThisFoglioOverall = false;
     if (foglio) {
-        if (userRole === 'admin') {
-            canEditThisFoglioOverall = true;
-        } else if (userRole === 'manager') {
-            canEditThisFoglioOverall = !isChiuso;
-        } else if (userRole === 'user' && (foglio.creato_da_user_id === currentUserId || isUserAssignedTecnico)) {
-            canEditThisFoglioOverall = !isChiuso && !isCompletato && !firmaPresente;
+        if (userRole === 'admin' || userRole === 'manager') {
+            canEditThisFoglioOverall = !isPostChiuso;
+        } else if (
+            userRole === 'user' &&
+            (foglio.creato_da_user_id === currentUserId || isUserAssignedTecnico)
+        ) {
+            canEditThisFoglioOverall = !isPostCompletato;
         }
     }
 
@@ -82,12 +88,13 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
 
     let canModifyInterventi = false;
     if (foglio) {
-        if (userRole === 'admin') {
-            canModifyInterventi = true;
-        } else if (userRole === 'manager') {
-            canModifyInterventi = !isChiuso;
-        } else if (userRole === 'user' && (foglio.creato_da_user_id === currentUserId || isUserAssignedTecnico)) {
-            canModifyInterventi = !isChiuso && !isCompletato && !firmaPresente;
+        if (userRole === 'admin' || userRole === 'manager') {
+            canModifyInterventi = !isPostChiuso;
+        } else if (
+            userRole === 'user' &&
+            (foglio.creato_da_user_id === currentUserId || isUserAssignedTecnico)
+        ) {
+            canModifyInterventi = !isPostCompletato;
         }
     }
 
@@ -329,6 +336,11 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
                 <div style={{gridColumn: '1 / -1'}}><strong>Materiali Forniti:</strong> <pre>{foglio.materiali_forniti_generale || 'N/D'}</pre></div>
                 <div style={{gridColumn: '1 / -1'}}><strong>Osservazioni Generali:</strong> <pre style={{whiteSpace:'pre-wrap'}}>{foglio.osservazioni_generali || 'N/D'}</pre></div>
                 <div><strong>Stato Foglio:</strong> <span className={`status-badge status-${foglio.stato_foglio?.toLowerCase().replace(/\s+/g, '-')}`}>{foglio.stato_foglio}</span></div>
+                {foglio.nota_stato_foglio && (
+                    <div style={{gridColumn: '1 / -1'}}>
+                        <strong>Nota Stato Foglio:</strong> <pre style={{whiteSpace:'pre-wrap'}}>{foglio.nota_stato_foglio}</pre>
+                    </div>
+                )}
                 {foglio.creato_da_user_id && <div><small><em>Creato da ID: {foglio.creato_da_user_id.substring(0,8)}...</em></small></div>}
             </div>
 
