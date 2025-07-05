@@ -91,6 +91,15 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
     const isPostChiuso = chiusoIndex !== -1 && statoIndex > chiusoIndex;
     const firmaPresente = !!firmaClientePreview;
 
+    const allowedStatoOptions = useMemo(() => {
+        if (userRole === 'user') {
+            return completatoIndex !== -1
+                ? STATO_FOGLIO_STEPS.slice(0, completatoIndex + 1)
+                : STATO_FOGLIO_STEPS;
+        }
+        return STATO_FOGLIO_STEPS;
+    }, [userRole, completatoIndex]);
+
     let canSubmitForm = false;
     if (!isEditMode) {
         canSubmitForm = baseFormPermission;
@@ -538,7 +547,7 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
                     <div>
                         <label htmlFor="formStatoFoglio">Stato Foglio:</label>
                         <select id="formStatoFoglio" value={formStatoFoglio} onChange={e => setFormStatoFoglio(e.target.value)}>
-                            {STATO_FOGLIO_STEPS.map(st => (
+                            {allowedStatoOptions.map(st => (
                                 <option key={st} value={st}>{st}</option>
                             ))}
                         </select>
