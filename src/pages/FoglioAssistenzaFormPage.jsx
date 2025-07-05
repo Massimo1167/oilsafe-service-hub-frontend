@@ -82,23 +82,35 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
     const completatoIndex = STATO_FOGLIO_STEPS.indexOf('Completato');
     const attesaFirmaIndex = STATO_FOGLIO_STEPS.indexOf('Attesa Firma');
     const consuntivatoIndex = STATO_FOGLIO_STEPS.indexOf('Consuntivato');
+    const chiusoIndex = STATO_FOGLIO_STEPS.indexOf('Chiuso');
     const statoIndex = STATO_FOGLIO_STEPS.indexOf(formStatoFoglio);
     const showNotaStato = attesaFirmaIndex !== -1 && statoIndex >= attesaFirmaIndex;
     const notaStatoRequired = consuntivatoIndex !== -1 && statoIndex >= consuntivatoIndex;
     const isChiuso = formStatoFoglio === 'Chiuso';
-    const isCompletatoOrBeyond = statoIndex >= completatoIndex && completatoIndex !== -1;
+    const isPostCompletato = completatoIndex !== -1 && statoIndex > completatoIndex;
+    const isPostChiuso = chiusoIndex !== -1 && statoIndex > chiusoIndex;
     const firmaPresente = !!firmaClientePreview;
+
+    const allowedStatoOptions = useMemo(() => {
+        if (userRole === 'user') {
+            return completatoIndex !== -1
+                ? STATO_FOGLIO_STEPS.slice(0, completatoIndex + 1)
+                : STATO_FOGLIO_STEPS;
+        }
+        return STATO_FOGLIO_STEPS;
+    }, [userRole, completatoIndex]);
 
     let canSubmitForm = false;
     if (!isEditMode) {
         canSubmitForm = baseFormPermission;
     } else if (baseFormPermission) {
-        if (userRole === 'admin') {
-            canSubmitForm = true;
-        } else if (userRole === 'manager') {
-            canSubmitForm = !isChiuso;
-        } else if (userRole === 'user' && (formCreatoDaUserIdOriginal === currentUserId || isAssignedTecnico)) {
-            canSubmitForm = !isChiuso && !isCompletatoOrBeyond && !firmaPresente;
+        if (userRole === 'admin' || userRole === 'manager') {
+            canSubmitForm = !isPostChiuso;
+        } else if (
+            userRole === 'user' &&
+            (formCreatoDaUserIdOriginal === currentUserId || isAssignedTecnico)
+        ) {
+            canSubmitForm = !isPostCompletato;
         }
     }
 
@@ -260,6 +272,11 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
         if (!formSelectedClienteId) { setError("Cliente obbligatorio."); setLoadingSubmit(false); return; }
         if (indirizziClienteSelezionato.length > 0 && !formSelectedIndirizzoId) {
             setError("Selezionare un indirizzo di intervento."); setLoadingSubmit(false); return;
+        }
+        if (notaStatoRequired && !formNotaStatoFoglio.trim()) {
+            setError("Nota Stato obbligatoria.");
+            setLoadingSubmit(false);
+            return;
         }
 
         try {
@@ -530,7 +547,7 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
                     <div>
                         <label htmlFor="formStatoFoglio">Stato Foglio:</label>
                         <select id="formStatoFoglio" value={formStatoFoglio} onChange={e => setFormStatoFoglio(e.target.value)}>
-                            {STATO_FOGLIO_STEPS.map(st => (
+                            {allowedStatoOptions.map(st => (
                                 <option key={st} value={st}>{st}</option>
                             ))}
                         </select>
