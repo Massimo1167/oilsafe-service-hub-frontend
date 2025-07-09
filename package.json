@@ -1,8 +1,8 @@
 {
   "name": "oilsafe-service-hub-frontend",
   "private": true,
-  "version": "0.7.5",
-  "description": "Data 05/07/2025 :PR#96 - Gestione estesa stati foglio e descrizione versione",
+  "version": "0.8.1",
+  "description": "Data 05/07/2025 :PR#98 - Inserimento firma da da file jpeg o png",
   "type": "module",
   "scripts": {
     "dev": "vite",
