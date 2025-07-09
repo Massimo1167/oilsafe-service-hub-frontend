@@ -8,6 +8,8 @@ import { useNavigate, useParams, Link, Navigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { STATO_FOGLIO_STEPS } from '../utils/statoFoglio';
 import SignatureCanvas from 'react-signature-canvas';
+
+const MAX_SIGNATURE_SIZE = 2 * 1024 * 1024; // 2MB
 import VoiceInputButton from '../components/VoiceInputButton';
 
 function dataURLtoBlob(dataurl) {
@@ -67,6 +69,8 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
     const [error, setError] = useState(null);
     const sigCanvasClienteRef = useRef(null);
     const sigCanvasTecnicoRef = useRef(null);
+    const [clienteFile, setClienteFile] = useState(null);
+    const [tecnicoFile, setTecnicoFile] = useState(null);
     const [firmaClientePreview, setFirmaClientePreview] = useState(null);
     const [firmaTecnicoPreview, setFirmaTecnicoPreview] = useState(null);
 
@@ -228,6 +232,8 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
                     setFormCreatoDaUserIdOriginal(data.creato_da_user_id || '');
                     setFirmaClientePreview(data.firma_cliente_url || null);
                     setFirmaTecnicoPreview(data.firma_tecnico_principale_url || null);
+                    setClienteFile(null);
+                    setTecnicoFile(null);
                 }
                 setPageLoading(false);
             };
@@ -263,7 +269,51 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
         fetchTecnici();
     }, [session]);
 
-    const clearSignature = (ref, previewSetterKey) => { /* ... */ };
+    const handleClienteFile = (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        if (!['image/png', 'image/jpeg'].includes(file.type)) {
+            setError('Formato firma cliente non valido. Usa PNG o JPEG.');
+            return;
+        }
+        if (file.size > MAX_SIGNATURE_SIZE) {
+            setError('File firma cliente troppo grande.');
+            return;
+        }
+        setError(null);
+        setClienteFile(file);
+        setFirmaClientePreview(URL.createObjectURL(file));
+        if (sigCanvasClienteRef.current) sigCanvasClienteRef.current.clear();
+    };
+
+    const handleTecnicoFile = (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        if (!['image/png', 'image/jpeg'].includes(file.type)) {
+            setError('Formato firma tecnico non valido. Usa PNG o JPEG.');
+            return;
+        }
+        if (file.size > MAX_SIGNATURE_SIZE) {
+            setError('File firma tecnico troppo grande.');
+            return;
+        }
+        setError(null);
+        setTecnicoFile(file);
+        setFirmaTecnicoPreview(URL.createObjectURL(file));
+        if (sigCanvasTecnicoRef.current) sigCanvasTecnicoRef.current.clear();
+    };
+
+    const clearSignature = (ref, tipo) => {
+        if (ref?.current && !ref.current.isEmpty()) ref.current.clear();
+        if (tipo === 'cliente') {
+            setClienteFile(null);
+            setFirmaClientePreview(null);
+        }
+        if (tipo === 'tecnico') {
+            setTecnicoFile(null);
+            setFirmaTecnicoPreview(null);
+        }
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -294,14 +344,47 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
 
             let firmaClienteUrlToSave = firmaClientePreview;
             let firmaTecnicoUrlToSave = firmaTecnicoPreview;
-            // Logica di upload firme completa
-            if (sigCanvasClienteRef.current && !sigCanvasClienteRef.current.isEmpty()) {
-                const fCDU = sigCanvasClienteRef.current.toDataURL('image/png'); const fB = dataURLtoBlob(fCDU);
-                if (fB) { const fN = `f_cliente_${foglioIdParam||currentUserId||'new'}_${Date.now()}.png`; const {data:uD,error:uE}=await supabase.storage.from('firme-assistenza').upload(fN,fB,{upsert:true}); if(uE) throw uE; firmaClienteUrlToSave=supabase.storage.from('firme-assistenza').getPublicUrl(uD.path).data.publicUrl;}
+
+            if (clienteFile) {
+                const ext = clienteFile.type === 'image/png' ? '.png' : '.jpg';
+                const fileName = `f_cliente_${foglioIdParam || currentUserId || 'new'}_${Date.now()}${ext}`;
+                const { data: upData, error: upErr } = await supabase.storage
+                    .from('firme-assistenza')
+                    .upload(fileName, clienteFile, { upsert: true });
+                if (upErr) throw upErr;
+                firmaClienteUrlToSave = supabase.storage.from('firme-assistenza').getPublicUrl(upData.path).data.publicUrl;
+            } else if (sigCanvasClienteRef.current && !sigCanvasClienteRef.current.isEmpty()) {
+                const fCDU = sigCanvasClienteRef.current.toDataURL('image/png');
+                const fB = dataURLtoBlob(fCDU);
+                if (fB) {
+                    const fN = `f_cliente_${foglioIdParam || currentUserId || 'new'}_${Date.now()}.png`;
+                    const { data: uD, error: uE } = await supabase.storage
+                        .from('firme-assistenza')
+                        .upload(fN, fB, { upsert: true });
+                    if (uE) throw uE;
+                    firmaClienteUrlToSave = supabase.storage.from('firme-assistenza').getPublicUrl(uD.path).data.publicUrl;
+                }
             }
-            if (sigCanvasTecnicoRef.current && !sigCanvasTecnicoRef.current.isEmpty()) {
-                const fTDU = sigCanvasTecnicoRef.current.toDataURL('image/png'); const fTB = dataURLtoBlob(fTDU);
-                if (fTB) { const fN = `f_tecnico_${foglioIdParam||currentUserId||'new'}_${Date.now()}.png`; const {data:uD,error:uE}=await supabase.storage.from('firme-assistenza').upload(fN,fTB,{upsert:true}); if(uE) throw uE; firmaTecnicoUrlToSave=supabase.storage.from('firme-assistenza').getPublicUrl(uD.path).data.publicUrl;}
+
+            if (tecnicoFile) {
+                const ext = tecnicoFile.type === 'image/png' ? '.png' : '.jpg';
+                const fileName = `f_tecnico_${foglioIdParam || currentUserId || 'new'}_${Date.now()}${ext}`;
+                const { data: upData, error: upErr } = await supabase.storage
+                    .from('firme-assistenza')
+                    .upload(fileName, tecnicoFile, { upsert: true });
+                if (upErr) throw upErr;
+                firmaTecnicoUrlToSave = supabase.storage.from('firme-assistenza').getPublicUrl(upData.path).data.publicUrl;
+            } else if (sigCanvasTecnicoRef.current && !sigCanvasTecnicoRef.current.isEmpty()) {
+                const fTDU = sigCanvasTecnicoRef.current.toDataURL('image/png');
+                const fTB = dataURLtoBlob(fTDU);
+                if (fTB) {
+                    const fN = `f_tecnico_${foglioIdParam || currentUserId || 'new'}_${Date.now()}.png`;
+                    const { data: uD, error: uE } = await supabase.storage
+                        .from('firme-assistenza')
+                        .upload(fN, fTB, { upsert: true });
+                    if (uE) throw uE;
+                    firmaTecnicoUrlToSave = supabase.storage.from('firme-assistenza').getPublicUrl(uD.path).data.publicUrl;
+                }
             }
 
             const foglioPayload = {
@@ -511,35 +594,35 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
                 </div>
                 <div>
                     <label>Firma Cliente:</label>
-                    {isEditMode && firmaClientePreview && (!sigCanvasClienteRef.current || sigCanvasClienteRef.current.isEmpty()) && (
+                    <input type="file" accept="image/png,image/jpeg" onChange={handleClienteFile} />
+                    {(clienteFile || firmaClientePreview) ? (
                         <div>
-                            <img src={firmaClientePreview} alt="Firma Esistente" style={{border:'1px solid #ccc', maxWidth: '300px', maxHeight: '100px'}}/>
-                            <button type="button" className="secondary small" onClick={() => {setFirmaClientePreview(null);}}>Ridisegna</button>
+                            <img src={firmaClientePreview} alt="Firma Cliente" style={{border:'1px solid #ccc', maxWidth: '300px', maxHeight: '100px'}}/>
+                            <button type="button" className="secondary small" onClick={() => clearSignature(sigCanvasClienteRef, 'cliente')}>Rimuovi</button>
                         </div>
-                    )}
-                    {(!isEditMode || !firmaClientePreview) && (
+                    ) : (
                         <>
                             <div className="signature-pad-container">
                                 <SignatureCanvas penColor='blue' canvasProps={{ width: 400, height: 150, className: 'sigCanvasCliente' }} ref={sigCanvasClienteRef} />
                             </div>
-                            <button type="button" className="secondary" onClick={() => clearSignature(sigCanvasClienteRef)}>Cancella Disegno</button>
+                            <button type="button" className="secondary" onClick={() => clearSignature(sigCanvasClienteRef, 'cliente')}>Cancella Disegno</button>
                         </>
                     )}
                 </div>
                 <div>
                     <label>Firma Tecnico Responsabile:</label>
-                    {isEditMode && firmaTecnicoPreview && (!sigCanvasTecnicoRef.current || sigCanvasTecnicoRef.current.isEmpty()) && (
+                    <input type="file" accept="image/png,image/jpeg" onChange={handleTecnicoFile} />
+                    {(tecnicoFile || firmaTecnicoPreview) ? (
                         <div>
-                            <img src={firmaTecnicoPreview} alt="Firma Esistente" style={{border:'1px solid #ccc', maxWidth: '300px', maxHeight: '100px'}}/>
-                            <button type="button" className="secondary small" onClick={() => {setFirmaTecnicoPreview(null);}}>Ridisegna</button>
+                            <img src={firmaTecnicoPreview} alt="Firma Tecnico" style={{border:'1px solid #ccc', maxWidth: '300px', maxHeight: '100px'}}/>
+                            <button type="button" className="secondary small" onClick={() => clearSignature(sigCanvasTecnicoRef, 'tecnico')}>Rimuovi</button>
                         </div>
-                    )}
-                    {(!isEditMode || !firmaTecnicoPreview) && (
+                    ) : (
                         <>
                             <div className="signature-pad-container">
                                 <SignatureCanvas penColor='black' canvasProps={{ width: 400, height: 150, className: 'sigCanvasTecnico' }} ref={sigCanvasTecnicoRef} />
                             </div>
-                            <button type="button" className="secondary" onClick={() => clearSignature(sigCanvasTecnicoRef)}>Cancella Disegno</button>
+                            <button type="button" className="secondary" onClick={() => clearSignature(sigCanvasTecnicoRef, 'tecnico')}>Cancella Disegno</button>
                         </>
                     )}
                 </div>
