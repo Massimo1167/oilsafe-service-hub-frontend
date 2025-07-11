@@ -74,7 +74,7 @@ function ClientiManager({ session }) {
     useEffect(() => {
         setClienti([]);
         setPageLoading(false);
-    }, [session, canManage]);
+    }, [session?.user?.id, canManage]);
     useEffect(() => {
         const fetchIndirizzi = async () => {
             if (selectedCliente?.id) {
