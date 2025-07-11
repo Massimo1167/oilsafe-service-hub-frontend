@@ -25,3 +25,4 @@ L'applicazione visualizza la versione corrente e una breve descrizione nella das
 - Technicians must have a `user_id` linked to `public.profiles` to be selectable when compiling a service sheet.
 - `53. Alter tecnici add user_id.sql` creates a `user_id` field in `tecnici` referencing `public.profiles`.
 - `54. Alter interventi_assistenza add numero_tecnici.sql` adds a `numero_tecnici` column to `interventi_assistenza` with default 1.
+- The client registry now includes a button to export an Excel report of clients referenced in service sheets, orders or job orders. The exported spreadsheet lists the code of each sheet, order or job order in a dedicated column and shows the client headquarter address in a "sede cliente" column after the client name.
