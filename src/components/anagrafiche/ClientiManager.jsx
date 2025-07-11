@@ -350,7 +350,9 @@ function ClientiManager({ session }) {
 
             const { data: fogliData, error: fogliErr } = await supabase
                 .from('fogli_assistenza')
-                .select('id, cliente_id, numero_foglio');
+                .select(
+                    'id, cliente_id, numero_foglio, indirizzi_clienti!indirizzo_intervento_id (indirizzo_completo, descrizione)'
+                );
             if (fogliErr) throw fogliErr;
             const { data: ordiniData, error: ordiniErr } = await supabase
                 .from('ordini_cliente')
@@ -375,9 +377,15 @@ function ClientiManager({ session }) {
             (fogliData || []).forEach(f => {
                 const info = clientiMap.get(f.cliente_id);
                 if (info) {
+                    let sede = info.indirizzo;
+                    if (f.indirizzi_clienti && f.indirizzi_clienti.indirizzo_completo) {
+                        sede = f.indirizzi_clienti.descrizione
+                            ? `${f.indirizzi_clienti.descrizione}: ${f.indirizzi_clienti.indirizzo_completo}`
+                            : f.indirizzi_clienti.indirizzo_completo;
+                    }
                     rows.push({
                         nome_cliente: info.nome,
-                        sede_cliente: info.indirizzo,
+                        sede_cliente: sede,
                         origine: 'Foglio di lavoro',
                         codice: f.numero_foglio || f.id.substring(0, 8)
                     });
