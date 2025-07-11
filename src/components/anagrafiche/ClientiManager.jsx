@@ -339,6 +339,50 @@ function ClientiManager({ session }) {
         }
         setLoadingActions(false);
     };
+
+    const handleExportUtilizzoClienti = async () => {
+        setLoadingActions(true); setError(null); setSuccessMessage('');
+        try {
+            const { data: allClienti, error: clientiErr } = await supabase.from('clienti').select('id, nome_azienda');
+            if (clientiErr) throw clientiErr;
+
+            const { data: fogliData, error: fogliErr } = await supabase.from('fogli_assistenza').select('cliente_id');
+            if (fogliErr) throw fogliErr;
+            const { data: ordiniData, error: ordiniErr } = await supabase.from('ordini_cliente').select('cliente_id');
+            if (ordiniErr) throw ordiniErr;
+            const { data: commesseData, error: commesseErr } = await supabase.from('commesse').select('cliente_id');
+            if (commesseErr) throw commesseErr;
+
+            const fogliSet = new Set((fogliData || []).map(f => f.cliente_id).filter(Boolean));
+            const ordiniSet = new Set((ordiniData || []).map(o => o.cliente_id).filter(Boolean));
+            const commesseSet = new Set((commesseData || []).map(c => c.cliente_id).filter(Boolean));
+
+            const rows = [];
+            (allClienti || []).forEach(c => {
+                if (fogliSet.has(c.id)) rows.push({ nome_cliente: c.nome_azienda, origine: 'Foglio di lavoro' });
+                if (ordiniSet.has(c.id)) rows.push({ nome_cliente: c.nome_azienda, origine: 'Ordine cliente' });
+                if (commesseSet.has(c.id)) rows.push({ nome_cliente: c.nome_azienda, origine: 'Commessa' });
+            });
+
+            if (rows.length === 0) {
+                alert('Nessun cliente associato a fogli, ordini o commesse.');
+                setLoadingActions(false);
+                return;
+            }
+
+            const headers = ['nome_cliente', 'origine'];
+            const worksheet = XLSX.utils.json_to_sheet(rows, { header: headers });
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, 'UtilizzoClienti');
+            XLSX.writeFile(workbook, 'clienti_utilizzo.xlsx');
+            setSuccessMessage('Utilizzo clienti esportato in XLSX!');
+            setTimeout(() => setSuccessMessage(''), 3000);
+        } catch (expError) {
+            setError('Esportazione utilizzo fallita: ' + expError.message);
+            console.error('Errore esportazione utilizzo clienti:', expError);
+        }
+        setLoadingActions(false);
+    };
     const normalizeHeader = (header) => String(header || '').trim().toLowerCase().replace(/\s+/g, '_');
     const triggerFileInput = () => fileInputRef.current?.click();
 
@@ -591,6 +635,9 @@ function ClientiManager({ session }) {
                         </button>
                         <button onClick={() => handleExport('xlsx')} className="button secondary small" disabled={loadingActions || clienti.length === 0}>
                             Esporta XLSX
+                        </button>
+                        <button onClick={handleExportUtilizzoClienti} className="button secondary small" disabled={loadingActions}>
+                            Esporta Utilizzo (XLSX)
                         </button>
                     </div>
                 </div>
