@@ -51,7 +51,7 @@ function App() {
   useEffect(() => {
     sessionRef.current = session;
     // console.log("APP.JSX: sessionRef aggiornato. Nuovo ruolo in ref:", sessionRef.current?.user?.role);
-  }, [session]);
+  }, [session?.user?.id]);
 
   // useEffect per la sessione
   useEffect(() => {
@@ -217,7 +217,7 @@ function App() {
       }
     };
     fetchCommonData();
-  }, [session]); 
+  }, [session?.user?.id]);
 
   // useEffect per Page Visibility API
   useEffect(() => { 

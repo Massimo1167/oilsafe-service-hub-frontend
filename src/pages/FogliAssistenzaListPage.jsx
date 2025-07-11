@@ -111,7 +111,7 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
             setFogli(processedFogli);
         }
         setLoadingFogli(false);
-    }, [session, loadingAnagrafiche, userRole, currentUserId, filtroDataDa, filtroDataA, allClienti, allCommesse, allOrdini, allTecnici]); 
+    }, [loadingAnagrafiche, userRole, currentUserId, filtroDataDa, filtroDataA, allClienti, allCommesse, allOrdini, allTecnici]);
 
     // useEffect per il fetch con debounce (per i filtri data)
     useEffect(() => {

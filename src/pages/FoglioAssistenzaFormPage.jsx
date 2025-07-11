@@ -241,7 +241,7 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
         } else if (!isEditMode) {
             setPageLoading(false);
         }
-    }, [isEditMode, foglioIdParam, session]);
+    }, [isEditMode, foglioIdParam, currentUserId]);
 
     useEffect(() => {
         const checkTecnico = async () => {
@@ -258,7 +258,7 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
             }
         };
         checkTecnico();
-    }, [isEditMode, foglioIdParam, session, currentUserEmail, formAssignedTecnicoId, currentUserId]);
+    }, [isEditMode, foglioIdParam, currentUserEmail, formAssignedTecnicoId, currentUserId]);
 
     useEffect(() => {
         const fetchTecnici = async () => {
@@ -267,7 +267,7 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
             else console.error('Errore fetch tecnici:', error);
         };
         fetchTecnici();
-    }, [session]);
+    }, [currentUserId]);
 
     const handleClienteFile = (e) => {
         const file = e.target.files && e.target.files[0];
