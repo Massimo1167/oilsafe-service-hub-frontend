@@ -73,7 +73,7 @@ function TecniciManager({ session }) {
     useEffect(() => {
         setTecnici([]);
         setPageLoading(false);
-    }, [session, canManage]);
+    }, [session?.user?.id, canManage]);
 
     useEffect(() => {
         if (!canManage) return;

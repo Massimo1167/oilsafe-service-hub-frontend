@@ -145,7 +145,7 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
           setInterventi(interventiData || []); 
         }
         setLoadingPage(false);
-    }, [foglioId, session]);
+    }, [foglioId, currentUserId]);
 
     useEffect(() => {
         fetchFoglioData();
