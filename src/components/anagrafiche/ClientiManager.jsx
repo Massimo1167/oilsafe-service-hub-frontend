@@ -339,6 +339,83 @@ function ClientiManager({ session }) {
         }
         setLoadingActions(false);
     };
+
+    const handleExportUtilizzoClienti = async () => {
+        setLoadingActions(true); setError(null); setSuccessMessage('');
+        try {
+            const { data: clientiData, error: clientiErr } = await supabase
+                .from('clienti')
+                .select('id, nome_azienda');
+            if (clientiErr) throw clientiErr;
+
+            const { data: fogliData, error: fogliErr } = await supabase
+                .from('fogli_assistenza')
+                .select('id, cliente_id, numero_foglio');
+            if (fogliErr) throw fogliErr;
+            const { data: ordiniData, error: ordiniErr } = await supabase
+                .from('ordini_cliente')
+                .select('id, cliente_id, numero_ordine_cliente');
+            if (ordiniErr) throw ordiniErr;
+            const { data: commesseData, error: commesseErr } = await supabase
+                .from('commesse')
+                .select('id, cliente_id, codice_commessa');
+            if (commesseErr) throw commesseErr;
+
+            const clientiMap = new Map(
+                (clientiData || []).map(c => [c.id, c.nome_azienda])
+            );
+
+            const rows = [];
+            (fogliData || []).forEach(f => {
+                const nome = clientiMap.get(f.cliente_id);
+                if (nome) {
+                    rows.push({
+                        nome_cliente: nome,
+                        origine: 'Foglio di lavoro',
+                        codice: f.numero_foglio || f.id.substring(0, 8)
+                    });
+                }
+            });
+            (ordiniData || []).forEach(o => {
+                const nome = clientiMap.get(o.cliente_id);
+                if (nome) {
+                    rows.push({
+                        nome_cliente: nome,
+                        origine: 'Ordine cliente',
+                        codice: o.numero_ordine_cliente || o.id.substring(0, 8)
+                    });
+                }
+            });
+            (commesseData || []).forEach(c => {
+                const nome = clientiMap.get(c.cliente_id);
+                if (nome) {
+                    rows.push({
+                        nome_cliente: nome,
+                        origine: 'Commessa',
+                        codice: c.codice_commessa || c.id.substring(0, 8)
+                    });
+                }
+            });
+
+            if (rows.length === 0) {
+                alert('Nessun cliente associato a fogli, ordini o commesse.');
+                setLoadingActions(false);
+                return;
+            }
+
+            const headers = ['nome_cliente', 'origine', 'codice'];
+            const worksheet = XLSX.utils.json_to_sheet(rows, { header: headers });
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, 'UtilizzoClienti');
+            XLSX.writeFile(workbook, 'clienti_utilizzo.xlsx');
+            setSuccessMessage('Utilizzo clienti esportato in XLSX!');
+            setTimeout(() => setSuccessMessage(''), 3000);
+        } catch (expError) {
+            setError('Esportazione utilizzo fallita: ' + expError.message);
+            console.error('Errore esportazione utilizzo clienti:', expError);
+        }
+        setLoadingActions(false);
+    };
     const normalizeHeader = (header) => String(header || '').trim().toLowerCase().replace(/\s+/g, '_');
     const triggerFileInput = () => fileInputRef.current?.click();
 
@@ -591,6 +668,9 @@ function ClientiManager({ session }) {
                         </button>
                         <button onClick={() => handleExport('xlsx')} className="button secondary small" disabled={loadingActions || clienti.length === 0}>
                             Esporta XLSX
+                        </button>
+                        <button onClick={handleExportUtilizzoClienti} className="button secondary small" disabled={loadingActions}>
+                            Esporta Utilizzo (XLSX)
                         </button>
                     </div>
                 </div>
