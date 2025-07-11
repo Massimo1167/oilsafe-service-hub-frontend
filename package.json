@@ -1,8 +1,8 @@
 {
   "name": "oilsafe-service-hub-frontend",
   "private": true,
-  "version": "0.8.2",
-  "description": "Data 11/07/2025 :PR#105 - Esportazione su excel utilizzo clienti in commesse,ordini,fogli di lavoro",
+  "version": "0.8.3",
+  "description": "Data 11/07/2025 :PR#107 - La pagina non viene più caricata con renew sessione ma solo con cambio utente o modifica filtri",
   "type": "module",
   "scripts": {
     "dev": "vite",
