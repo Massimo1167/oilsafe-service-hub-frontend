@@ -345,7 +345,7 @@ function ClientiManager({ session }) {
         try {
             const { data: clientiData, error: clientiErr } = await supabase
                 .from('clienti')
-                .select('id, nome_azienda');
+                .select('id, nome_azienda, indirizzi_clienti (indirizzo_completo, is_default)');
             if (clientiErr) throw clientiErr;
 
             const { data: fogliData, error: fogliErr } = await supabase
@@ -362,35 +362,44 @@ function ClientiManager({ session }) {
             if (commesseErr) throw commesseErr;
 
             const clientiMap = new Map(
-                (clientiData || []).map(c => [c.id, c.nome_azienda])
+                (clientiData || []).map(c => {
+                    const defaultAddr = (c.indirizzi_clienti || []).find(a => a.is_default) || (c.indirizzi_clienti || [])[0];
+                    return [c.id, {
+                        nome: c.nome_azienda,
+                        indirizzo: defaultAddr?.indirizzo_completo || ''
+                    }];
+                })
             );
 
             const rows = [];
             (fogliData || []).forEach(f => {
-                const nome = clientiMap.get(f.cliente_id);
-                if (nome) {
+                const info = clientiMap.get(f.cliente_id);
+                if (info) {
                     rows.push({
-                        nome_cliente: nome,
+                        nome_cliente: info.nome,
+                        sede_cliente: info.indirizzo,
                         origine: 'Foglio di lavoro',
                         codice: f.numero_foglio || f.id.substring(0, 8)
                     });
                 }
             });
             (ordiniData || []).forEach(o => {
-                const nome = clientiMap.get(o.cliente_id);
-                if (nome) {
+                const info = clientiMap.get(o.cliente_id);
+                if (info) {
                     rows.push({
-                        nome_cliente: nome,
+                        nome_cliente: info.nome,
+                        sede_cliente: info.indirizzo,
                         origine: 'Ordine cliente',
                         codice: o.numero_ordine_cliente || o.id.substring(0, 8)
                     });
                 }
             });
             (commesseData || []).forEach(c => {
-                const nome = clientiMap.get(c.cliente_id);
-                if (nome) {
+                const info = clientiMap.get(c.cliente_id);
+                if (info) {
                     rows.push({
-                        nome_cliente: nome,
+                        nome_cliente: info.nome,
+                        sede_cliente: info.indirizzo,
                         origine: 'Commessa',
                         codice: c.codice_commessa || c.id.substring(0, 8)
                     });
@@ -403,7 +412,7 @@ function ClientiManager({ session }) {
                 return;
             }
 
-            const headers = ['nome_cliente', 'origine', 'codice'];
+            const headers = ['nome_cliente', 'sede_cliente', 'origine', 'codice'];
             const worksheet = XLSX.utils.json_to_sheet(rows, { header: headers });
             const workbook = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(workbook, worksheet, 'UtilizzoClienti');
