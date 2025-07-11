@@ -343,25 +343,58 @@ function ClientiManager({ session }) {
     const handleExportUtilizzoClienti = async () => {
         setLoadingActions(true); setError(null); setSuccessMessage('');
         try {
-            const { data: allClienti, error: clientiErr } = await supabase.from('clienti').select('id, nome_azienda');
+            const { data: clientiData, error: clientiErr } = await supabase
+                .from('clienti')
+                .select('id, nome_azienda');
             if (clientiErr) throw clientiErr;
 
-            const { data: fogliData, error: fogliErr } = await supabase.from('fogli_assistenza').select('cliente_id');
+            const { data: fogliData, error: fogliErr } = await supabase
+                .from('fogli_assistenza')
+                .select('id, cliente_id, numero_foglio');
             if (fogliErr) throw fogliErr;
-            const { data: ordiniData, error: ordiniErr } = await supabase.from('ordini_cliente').select('cliente_id');
+            const { data: ordiniData, error: ordiniErr } = await supabase
+                .from('ordini_cliente')
+                .select('id, cliente_id, numero_ordine_cliente');
             if (ordiniErr) throw ordiniErr;
-            const { data: commesseData, error: commesseErr } = await supabase.from('commesse').select('cliente_id');
+            const { data: commesseData, error: commesseErr } = await supabase
+                .from('commesse')
+                .select('id, cliente_id, codice_commessa');
             if (commesseErr) throw commesseErr;
 
-            const fogliSet = new Set((fogliData || []).map(f => f.cliente_id).filter(Boolean));
-            const ordiniSet = new Set((ordiniData || []).map(o => o.cliente_id).filter(Boolean));
-            const commesseSet = new Set((commesseData || []).map(c => c.cliente_id).filter(Boolean));
+            const clientiMap = new Map(
+                (clientiData || []).map(c => [c.id, c.nome_azienda])
+            );
 
             const rows = [];
-            (allClienti || []).forEach(c => {
-                if (fogliSet.has(c.id)) rows.push({ nome_cliente: c.nome_azienda, origine: 'Foglio di lavoro' });
-                if (ordiniSet.has(c.id)) rows.push({ nome_cliente: c.nome_azienda, origine: 'Ordine cliente' });
-                if (commesseSet.has(c.id)) rows.push({ nome_cliente: c.nome_azienda, origine: 'Commessa' });
+            (fogliData || []).forEach(f => {
+                const nome = clientiMap.get(f.cliente_id);
+                if (nome) {
+                    rows.push({
+                        nome_cliente: nome,
+                        origine: 'Foglio di lavoro',
+                        codice: f.numero_foglio || f.id.substring(0, 8)
+                    });
+                }
+            });
+            (ordiniData || []).forEach(o => {
+                const nome = clientiMap.get(o.cliente_id);
+                if (nome) {
+                    rows.push({
+                        nome_cliente: nome,
+                        origine: 'Ordine cliente',
+                        codice: o.numero_ordine_cliente || o.id.substring(0, 8)
+                    });
+                }
+            });
+            (commesseData || []).forEach(c => {
+                const nome = clientiMap.get(c.cliente_id);
+                if (nome) {
+                    rows.push({
+                        nome_cliente: nome,
+                        origine: 'Commessa',
+                        codice: c.codice_commessa || c.id.substring(0, 8)
+                    });
+                }
             });
 
             if (rows.length === 0) {
@@ -370,7 +403,7 @@ function ClientiManager({ session }) {
                 return;
             }
 
-            const headers = ['nome_cliente', 'origine'];
+            const headers = ['nome_cliente', 'origine', 'codice'];
             const worksheet = XLSX.utils.json_to_sheet(rows, { header: headers });
             const workbook = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(workbook, worksheet, 'UtilizzoClienti');
