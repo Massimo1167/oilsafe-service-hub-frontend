@@ -2,7 +2,7 @@
   "name": "oilsafe-service-hub-frontend",
   "private": true,
   "version": "0.8.4",
-  "description": "Data 12/07/2025 :PR#110 - Univocità Cliente+Ordine",
+  "description": "Data 12/07/2025 :PR#110 - Univocità Cliente + Ordine (risolto renew sessione)",
   "type": "module",
   "scripts": {
     "dev": "vite",
