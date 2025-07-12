@@ -3,7 +3,7 @@
  * and job orders. Includes pagination, import/export and CRUD features
  * via Supabase. Visibility depends on user role.
  */
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { supabase } from '../../supabaseClient';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
@@ -26,7 +26,8 @@ function OrdiniClienteManager({ session, clienti, commesse }) {
     const [formDescrizioneOrdine, setFormDescrizioneOrdine] = useState('');
     const [formSelectedClienteIdOrdine, setFormSelectedClienteIdOrdine] = useState('');
     const [formSelectedCommessaIdOrdine, setFormSelectedCommessaIdOrdine] = useState('');
-    const [editingOrdine, setEditingOrdine] = useState(null); 
+    const [editingOrdine, setEditingOrdine] = useState(null);
+    const [filtroCliente, setFiltroCliente] = useState('');
 
     // Stati per la PAGINAZIONE
     const [currentPage, setCurrentPage] = useState(1);
@@ -45,6 +46,15 @@ function OrdiniClienteManager({ session, clienti, commesse }) {
     // Ref per input file e debounce
     const fileInputRef = useRef(null);
     const debounceTimeoutRef = useRef(null);
+
+    const clientiOrdinati = useMemo(
+        () => [...(clienti || [])].sort((a, b) => a.nome_azienda.localeCompare(b.nome_azienda)),
+        [clienti]
+    );
+    const clientiFiltrati = useMemo(
+        () => clientiOrdinati.filter(c => c.nome_azienda.toLowerCase().includes(filtroCliente.toLowerCase())),
+        [clientiOrdinati, filtroCliente]
+    );
 
     // --- FUNZIONI ---
 
@@ -362,7 +372,10 @@ function OrdiniClienteManager({ session, clienti, commesse }) {
 
                 if (ordiniPerUpsert.length > 0) {
                     console.log("Ordini pronti per upsert finale:", ordiniPerUpsert);
-                    const { data, error: upsertError } = await supabase.from('ordini_cliente').upsert(ordiniPerUpsert, { onConflict: 'numero_ordine_cliente' }).select();
+                    const { data, error: upsertError } = await supabase
+                        .from('ordini_cliente')
+                        .upsert(ordiniPerUpsert, { onConflict: 'numero_ordine_cliente,cliente_id' })
+                        .select();
                     if (upsertError) { errorsDetail.push(`Errore generale durante l'upsert degli ordini: ${upsertError.message}`); errorCount += ordiniPerUpsert.length - (data ? data.length : 0); console.error("Err upsert ordini:", upsertError); }
                     successCount = data ? data.length : 0;
                 }
@@ -437,7 +450,26 @@ function OrdiniClienteManager({ session, clienti, commesse }) {
             {canManage && (
                 <form onSubmit={handleSubmitForm} style={{ marginBottom: '20px', padding: '15px', border: '1px solid #eee', borderRadius: '5px' }}>
                     <h3>{editingOrdine ? 'Modifica Ordine Cliente' : 'Nuovo Ordine Cliente'}</h3>
-                    <div> <label htmlFor="formClienteOrdine">Cliente Associato (Obbligatorio):</label> <select id="formClienteOrdine" value={formSelectedClienteIdOrdine} onChange={e => { setFormSelectedClienteIdOrdine(e.target.value); setFormSelectedCommessaIdOrdine(''); }} required> <option value="">Seleziona Cliente</option> {(clienti || []).map(c => <option key={c.id} value={c.id}>{c.nome_azienda}</option>)} </select> </div>
+                    <div> <label htmlFor="formClienteOrdine">Cliente Associato (Obbligatorio):</label>
+                        <input
+                            type="text"
+                            placeholder="Filtra cliente..."
+                            value={filtroCliente}
+                            onChange={e => setFiltroCliente(e.target.value)}
+                            style={{ marginBottom: '5px', width: 'calc(100% - 22px)' }}
+                        />
+                        <select
+                            id="formClienteOrdine"
+                            value={formSelectedClienteIdOrdine}
+                            onChange={e => { setFormSelectedClienteIdOrdine(e.target.value); setFormSelectedCommessaIdOrdine(''); setFiltroCliente(''); }}
+                            required
+                        >
+                            <option value="">Seleziona Cliente ({clientiFiltrati.length})</option>
+                            {clientiFiltrati.map(c => (
+                                <option key={c.id} value={c.id}>{c.nome_azienda}</option>
+                            ))}
+                        </select>
+                    </div>
                     <div> <label htmlFor="formNumeroOrdine">Numero Ordine Cliente:</label> <input type="text" id="formNumeroOrdine" value={formNumeroOrdine} onChange={e => setFormNumeroOrdine(e.target.value)} required /> </div>
                     <div> <label htmlFor="formDataOrdine">Data Ordine:</label> <input type="date" id="formDataOrdine" value={formDataOrdine} onChange={e => setFormDataOrdine(e.target.value)} /> </div>
                     <div> <label htmlFor="formDescrizioneOrdine">Descrizione Ordine:</label> <input type="text" id="formDescrizioneOrdine" value={formDescrizioneOrdine} onChange={e => setFormDescrizioneOrdine(e.target.value)} /> </div>
