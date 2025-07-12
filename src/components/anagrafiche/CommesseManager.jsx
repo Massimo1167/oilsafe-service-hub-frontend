@@ -3,7 +3,7 @@
  * Uses Supabase for CRUD operations and supports import/export through
  * CSV/XLSX files. Requires the list of clients as prop for forms.
  */
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { supabase } from '../../supabaseClient';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
@@ -25,7 +25,8 @@ function CommesseManager({ session, clienti }) { // `clienti` prop è usato per 
     const [formDescrizioneCommessa, setFormDescrizioneCommessa] = useState('');
     const [formSelectedClienteId, setFormSelectedClienteId] = useState('');
     const [formStatoCommessa, setFormStatoCommessa] = useState('Aperta');
-    const [editingCommessa, setEditingCommessa] = useState(null); 
+    const [editingCommessa, setEditingCommessa] = useState(null);
+    const [filtroCliente, setFiltroCliente] = useState('');
 
     // Stati per la PAGINAZIONE
     const [currentPage, setCurrentPage] = useState(1);
@@ -44,6 +45,15 @@ function CommesseManager({ session, clienti }) { // `clienti` prop è usato per 
     // Ref per input file e debounce
     const fileInputRef = useRef(null);
     const debounceTimeoutRef = useRef(null);
+
+    const clientiOrdinati = useMemo(
+        () => [...(clienti || [])].sort((a, b) => a.nome_azienda.localeCompare(b.nome_azienda)),
+        [clienti]
+    );
+    const clientiFiltrati = useMemo(
+        () => clientiOrdinati.filter(c => c.nome_azienda.toLowerCase().includes(filtroCliente.toLowerCase())),
+        [clientiOrdinati, filtroCliente]
+    );
 
     // --- FUNZIONI ---
 
@@ -375,11 +385,24 @@ function CommesseManager({ session, clienti }) { // `clienti` prop è usato per 
                     <h3>{editingCommessa ? 'Modifica Commessa' : 'Nuova Commessa'}</h3>
                     <div> <label htmlFor="formCodiceCommessa">Codice Commessa:</label> <input type="text" id="formCodiceCommessa" value={formCodiceCommessa} onChange={e => setFormCodiceCommessa(e.target.value)} required /> </div>
                     <div> <label htmlFor="formDescrizioneCommessa">Descrizione Commessa:</label> <input type="text" id="formDescrizioneCommessa" value={formDescrizioneCommessa} onChange={e => setFormDescrizioneCommessa(e.target.value)} /> </div>
-                    <div> <label htmlFor="formClienteCommessa">Cliente Associato (Opzionale):</label> 
-                        <select id="formClienteCommessa" value={formSelectedClienteId} onChange={e => setFormSelectedClienteId(e.target.value)}> 
-                            <option value="">Nessun Cliente</option> 
-                            {(clienti || []).map(c => <option key={c.id} value={c.id}>{c.nome_azienda}</option>)} 
-                        </select> 
+                    <div> <label htmlFor="formClienteCommessa">Cliente Associato (Opzionale):</label>
+                        <input
+                            type="text"
+                            placeholder="Filtra cliente..."
+                            value={filtroCliente}
+                            onChange={e => setFiltroCliente(e.target.value)}
+                            style={{ marginBottom: '5px', width: 'calc(100% - 22px)' }}
+                        />
+                        <select
+                            id="formClienteCommessa"
+                            value={formSelectedClienteId}
+                            onChange={e => { setFormSelectedClienteId(e.target.value); setFiltroCliente(''); }}
+                        >
+                            <option value="">Nessun Cliente ({clientiFiltrati.length})</option>
+                            {clientiFiltrati.map(c => (
+                                <option key={c.id} value={c.id}>{c.nome_azienda}</option>
+                            ))}
+                        </select>
                     </div>
                     <div> <label htmlFor="formStatoCommessa">Stato Commessa:</label> <select id="formStatoCommessa" value={formStatoCommessa} onChange={e => setFormStatoCommessa(e.target.value)}> <option value="Aperta">Aperta</option> <option value="In Lavorazione">In Lavorazione</option> <option value="Chiusa">Chiusa</option> <option value="Annullata">Annullata</option> </select> </div>
                     <button type="submit" disabled={loadingActions}>{loadingActions ? 'Salvataggio...' : (editingCommessa ? 'Salva Modifiche' : 'Aggiungi Commessa')}</button>
