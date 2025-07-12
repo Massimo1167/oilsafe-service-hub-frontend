@@ -372,7 +372,10 @@ function OrdiniClienteManager({ session, clienti, commesse }) {
 
                 if (ordiniPerUpsert.length > 0) {
                     console.log("Ordini pronti per upsert finale:", ordiniPerUpsert);
-                    const { data, error: upsertError } = await supabase.from('ordini_cliente').upsert(ordiniPerUpsert, { onConflict: 'numero_ordine_cliente' }).select();
+                    const { data, error: upsertError } = await supabase
+                        .from('ordini_cliente')
+                        .upsert(ordiniPerUpsert, { onConflict: 'numero_ordine_cliente,cliente_id' })
+                        .select();
                     if (upsertError) { errorsDetail.push(`Errore generale durante l'upsert degli ordini: ${upsertError.message}`); errorCount += ordiniPerUpsert.length - (data ? data.length : 0); console.error("Err upsert ordini:", upsertError); }
                     successCount = data ? data.length : 0;
                 }
