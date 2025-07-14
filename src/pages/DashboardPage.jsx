@@ -3,14 +3,16 @@
  * using session data provided by `App.jsx`.
  */
 import React from 'react';
+import oilsafeLogo from '../assets/oilsafe-logo.png';
 
 // Componente per la pagina Dashboard.
 // Ora è una semplice pagina di benvenuto, ripulita dalla funzionalità di test del PDF.
 function DashboardPage({ session }) { // Riceve la sessione per personalizzare il saluto
   return (
     <div>
-      <h2>Dashboard</h2>
-      <p>Benvenuto in Oilsafe Service Hub!</p>
+        <h2>Dashboard</h2>
+        <img src={oilsafeLogo} alt="Oilsafe Service Hub logo" style={{ maxWidth: '250px', height: 'auto' }} />
+        <p>Benvenuto in Oilsafe Service Hub!</p>
       {/* Mostra un messaggio di benvenuto personalizzato se la sessione utente è attiva */}
       {session &&
         <p>
