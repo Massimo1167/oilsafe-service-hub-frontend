@@ -23,7 +23,6 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
     // Imposta il layout di stampa predefinito su quello dettagliato
     const [layoutStampa, setLayoutStampa] = useState('detailed');
     const [successMessage, setSuccessMessage] = useState('');
-    const [sendingEmailId, setSendingEmailId] = useState(null);
 
     // Stati per i campi di filtro
     const [filtroDataDa, setFiltroDataDa] = useState('');
@@ -58,6 +57,7 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                 profilo_tecnico_assegnato:profiles (full_name),
                 cliente_id, commessa_id, ordine_cliente_id,
                 email_report_cliente, email_report_interno,
+                motivo_intervento_generale,
                 interventi_assistenza!left(tecnico_id, tecnici (email))
             `)
             .order('data_apertura_foglio', { ascending: false });
@@ -106,6 +106,7 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                     cliente_nome_azienda: cliente?.nome_azienda || 'N/D',
                     commessa_codice: commessa?.codice_commessa || '-',
                     ordine_numero: ordine?.numero_ordine_cliente || '-',
+                    motivo_intervento_generale: foglio.motivo_intervento_generale,
                     nomi_tecnici_coinvolti: Array.from(tecniciNomiSet).join(', ') || 'Nessuno',
                     tecnico_assegnato_nome: tecnicoAssegnato ? `${tecnicoAssegnato.nome} ${tecnicoAssegnato.cognome}` : (foglio.profilo_tecnico_assegnato?.full_name || 'N/D'),
                 };
@@ -365,20 +366,6 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
         setExportLoading(false);
     };
 
-    const handleSendEmail = async (foglioId) => {
-        if (!window.confirm('Inviare il report di questo foglio via email?')) return;
-        setSendingEmailId(foglioId);
-        setError(null); setSuccessMessage('');
-        const { error: fnError } = await supabase.functions.invoke('invia-report-foglio', { body: { foglio_id: foglioId } });
-        if (fnError) {
-            console.error('Errore invio email:', fnError);
-            setError(fnError.message || 'Errore invio email');
-        } else {
-            setSuccessMessage('Email inviata.');
-            setTimeout(() => setSuccessMessage(''), 3000);
-        }
-        setSendingEmailId(null);
-    };
 
     const resetAllFilters = () => {
         setFiltroDataDa(''); setFiltroDataA('');
@@ -479,6 +466,7 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                                     title="Seleziona/Deseleziona tutti i risultati visualizzati"
                                 /> 
                             </th>
+                            <th>Azioni</th>
                             <th onClick={() => handleSort('numero_foglio')} style={{cursor:'pointer'}}>
                                 N. Foglio {sortConfig.column === 'numero_foglio' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}
                             </th>
@@ -496,8 +484,8 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                             <th onClick={() => handleSort('ordine_numero')} style={{cursor:'pointer'}}>
                                 Ordine Cl. {sortConfig.column === 'ordine_numero' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}
                             </th>
+                            <th>Motivo Intervento</th>
                             <th>Stato</th>
-                            <th>Azioni</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -510,6 +498,9 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                                         onChange={() => handleSelectFoglio(foglio.id)}
                                     />
                                 </td>
+                                <td className="actions">
+                                    <Link to={`/fogli-assistenza/${foglio.id}`} className="button small">Dettaglio</Link>
+                                </td>
                                 <td>{foglio.numero_foglio || `ID: ${foglio.id.substring(0,8)}`}</td>
                                 <td>{new Date(foglio.data_apertura_foglio).toLocaleDateString()}</td>
                                 <td>{foglio.cliente_nome_azienda}</td>
@@ -519,18 +510,10 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                                 </td>
                                 <td>{foglio.commessa_codice}</td>
                                 <td>{foglio.ordine_numero}</td>
-                                <td><span className={`status-badge status-${foglio.stato_foglio?.toLowerCase().replace(/\s+/g, '-')}`}>{foglio.stato_foglio}</span></td>
-                                <td className="actions">
-                                    <Link to={`/fogli-assistenza/${foglio.id}`} className="button small">Dettaglio</Link>
-                                    <button
-                                        className="button secondary small"
-                                        onClick={() => handleSendEmail(foglio.id)}
-                                        disabled={sendingEmailId === foglio.id}
-                                        style={{marginLeft:'5px'}}
-                                    >
-                                        {sendingEmailId === foglio.id ? 'Invio...' : 'Invia Email'}
-                                    </button>
+                                <td style={{maxWidth:'200px', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}} title={foglio.motivo_intervento_generale}>
+                                    {foglio.motivo_intervento_generale}
                                 </td>
+                                <td><span className={`status-badge status-${foglio.stato_foglio?.toLowerCase().replace(/\s+/g, '-')}`}>{foglio.stato_foglio}</span></td>
                             </tr>
                         ))}
                     </tbody>
