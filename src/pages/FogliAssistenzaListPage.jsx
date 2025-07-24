@@ -33,6 +33,8 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
     const [filtroCommessaTesto, setFiltroCommessaTesto] = useState('');
     const [filtroOrdineTesto, setFiltroOrdineTesto] = useState('');
     const [filtroStato, setFiltroStato] = useState(''); // NUOVO STATO PER IL FILTRO STATO ('' significa 'Tutti')
+
+    const [sortConfig, setSortConfig] = useState({ column: '', direction: 'asc' });
     
     const userRole = (session?.user?.role || '').trim().toLowerCase();
     const currentUserId = session?.user?.id;
@@ -142,6 +144,28 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
         return dataDaFiltrare;
     }, [fogli, filtroStato, filtroClienteTesto, filtroCommessaTesto, filtroOrdineTesto, filtroTecnicoTesto]);
 
+    const sortedFogli = useMemo(() => {
+        const sorted = [...fogliFiltrati];
+        if (sortConfig.column) {
+            sorted.sort((a, b) => {
+                let aVal = a[sortConfig.column];
+                let bVal = b[sortConfig.column];
+                if (sortConfig.column === 'data_apertura_foglio') {
+                    aVal = new Date(aVal);
+                    bVal = new Date(bVal);
+                } else {
+                    aVal = aVal === undefined || aVal === null ? '' : aVal.toString().toLowerCase();
+                    bVal = bVal === undefined || bVal === null ? '' : bVal.toString().toLowerCase();
+                }
+                if (aVal < bVal) return -1;
+                if (aVal > bVal) return 1;
+                return 0;
+            });
+            if (sortConfig.direction === 'desc') sorted.reverse();
+        }
+        return sorted;
+    }, [fogliFiltrati, sortConfig]);
+
     // Resetta la selezione quando i filtri cambiano
     useEffect(() => {
         setSelectedFogli(new Set());
@@ -159,6 +183,15 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
     const handleSelectAllFogli = (e) => {
         if (e.target.checked) { setSelectedFogli(new Set(fogliFiltrati.map(f => f.id))); }
         else { setSelectedFogli(new Set()); }
+    };
+
+    const handleSort = (column) => {
+        setSortConfig(prev => {
+            if (prev.column === column) {
+                return { column, direction: prev.direction === 'asc' ? 'desc' : 'asc' };
+            }
+            return { column, direction: 'asc' };
+        });
     };
 
     const handlePrintSelected = async () => {
@@ -446,19 +479,29 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                                     title="Seleziona/Deseleziona tutti i risultati visualizzati"
                                 /> 
                             </th>
-                            <th>N. Foglio</th>
-                            <th>Data Apertura</th>
-                            <th>Cliente</th>
+                            <th onClick={() => handleSort('numero_foglio')} style={{cursor:'pointer'}}>
+                                N. Foglio {sortConfig.column === 'numero_foglio' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}
+                            </th>
+                            <th onClick={() => handleSort('data_apertura_foglio')} style={{cursor:'pointer'}}>
+                                Data Apertura {sortConfig.column === 'data_apertura_foglio' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}
+                            </th>
+                            <th onClick={() => handleSort('cliente_nome_azienda')} style={{cursor:'pointer'}}>
+                                Cliente {sortConfig.column === 'cliente_nome_azienda' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}
+                            </th>
                             <th>Tecnico Assegnato</th>
                             <th>Tecnici Coinvolti</th>
-                            <th>Commessa</th>
-                            <th>Ordine Cl.</th>
+                            <th onClick={() => handleSort('commessa_codice')} style={{cursor:'pointer'}}>
+                                Commessa {sortConfig.column === 'commessa_codice' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}
+                            </th>
+                            <th onClick={() => handleSort('ordine_numero')} style={{cursor:'pointer'}}>
+                                Ordine Cl. {sortConfig.column === 'ordine_numero' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}
+                            </th>
                             <th>Stato</th>
                             <th>Azioni</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {fogliFiltrati.map((foglio) => (
+                        {sortedFogli.map((foglio) => (
                             <tr key={foglio.id} className={selectedFogli.has(foglio.id) ? 'selected-row' : ''}>
                                 <td>
                                     <input 
