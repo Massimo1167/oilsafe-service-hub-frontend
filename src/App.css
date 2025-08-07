@@ -7,7 +7,7 @@ html, body {
     overflow-x: auto;
 }
 .app-container { display: flex; flex-direction: column; min-height: 100vh; }
-header { background-color: #003366; color: white; padding: 1rem; }
+header { color: white; padding: 1rem; }
 header h1 { margin: 0; font-size: 1.5rem; }
 nav a { color: white; margin-right: 1rem; text-decoration: none; }
 nav a:hover { text-decoration: underline; }
