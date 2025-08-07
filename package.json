@@ -1,8 +1,8 @@
 {
   "name": "oilsafe-service-hub-frontend",
   "private": true,
-  "version": "0.8.7",
-  "description": "Data 24/07/2025 :PR#116-modifica lista tabella fogli (prev:Logo+ Univocità Cliente + Ordine ; risolto renew sessione;)",
+  "version": "0.8.8",
+  "description": "Data 07/08/2025 :PR#118-modifica colore banda rossa in debug (prev:lista tabella fogli + Logo+ Univocità Cliente + Ordine ; risolto renew sessione;)",
   "type": "module",
   "scripts": {
     "dev": "vite",
