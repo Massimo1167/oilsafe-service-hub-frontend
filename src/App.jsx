@@ -33,6 +33,14 @@ function ProtectedRoute({ session }) {
 }
 
 function App() {
+  const dbLabel = import.meta.env.VITE_SUPABASE_DB_LABEL;
+  const headerBgColor =
+    dbLabel === 'Oilsafe-Assistenza_main'
+      ? '#003366'
+      : dbLabel === 'Oilsafe-Assistenza_Debug'
+        ? 'red'
+        : undefined;
+
   const [session, setSession] = useState(null);
   const [loadingSession, setLoadingSession] = useState(true);
   const navigate = useNavigate();
@@ -270,7 +278,7 @@ function App() {
 
   return (
     <div className="app-container">
-      <header>
+      <header style={{ backgroundColor: headerBgColor }}>
         <h1>Oilsafe Service Hub ver.{__APP_VERSION__}</h1>
         {session && session.user && (
           <nav>
