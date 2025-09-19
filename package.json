@@ -1,8 +1,8 @@
 {
   "name": "oilsafe-service-hub-frontend",
   "private": true,
-  "version": "0.8.8",
-  "description": "Data 07/08/2025 :PR#118-modifica colore banda rossa in debug (prev:lista tabella fogli + Logo+ Univocità Cliente + Ordine ; risolto renew sessione;)",
+  "version": "0.8.9",
+  "description": "Data 19/09/2025 :PR#119-modifica stampa (prev:colore banda debug + lista tabella fogli + Logo+ Univocità Cliente + Ordine ; risolto renew sessione;)",
   "type": "module",
   "scripts": {
     "dev": "vite",

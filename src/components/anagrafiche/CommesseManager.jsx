@@ -25,6 +25,7 @@ function CommesseManager({ session, clienti }) { // `clienti` prop è usato per 
     const [formDescrizioneCommessa, setFormDescrizioneCommessa] = useState('');
     const [formSelectedClienteId, setFormSelectedClienteId] = useState('');
     const [formStatoCommessa, setFormStatoCommessa] = useState('Aperta');
+    const [formPercorsoSalvataggio, setFormPercorsoSalvataggio] = useState('');
     const [editingCommessa, setEditingCommessa] = useState(null);
     const [filtroCliente, setFiltroCliente] = useState('');
 
@@ -44,6 +45,7 @@ function CommesseManager({ session, clienti }) { // `clienti` prop è usato per 
 
     // Ref per input file e debounce
     const fileInputRef = useRef(null);
+    const directoryInputRef = useRef(null);
     const debounceTimeoutRef = useRef(null);
 
     const clientiOrdinati = useMemo(
@@ -90,10 +92,10 @@ function CommesseManager({ session, clienti }) { // `clienti` prop è usato per 
         // Se l'utente filtra per nome cliente è necessario usare un INNER JOIN
         // su "clienti" per applicare correttamente il filtro server-side.
         let selectColumns =
-            'id, codice_commessa, descrizione_commessa, stato, cliente_id, clienti (id, nome_azienda)';
+            'id, codice_commessa, descrizione_commessa, stato, cliente_id, percorso_salvataggio, clienti (id, nome_azienda)';
         if (filtroServerClienteNome) {
             selectColumns =
-                'id, codice_commessa, descrizione_commessa, stato, cliente_id, clienti!inner (id, nome_azienda)';
+                'id, codice_commessa, descrizione_commessa, stato, cliente_id, percorso_salvataggio, clienti!inner (id, nome_azienda)';
         }
 
         let query = supabase
@@ -154,21 +156,84 @@ function CommesseManager({ session, clienti }) { // `clienti` prop è usato per 
     };
 
     // Resetta i campi del form.
-    const resetForm = () => { 
-        setFormCodiceCommessa(''); setFormDescrizioneCommessa(''); 
-        setFormSelectedClienteId(''); setFormStatoCommessa('Aperta'); 
-        setEditingCommessa(null); 
+    const resetForm = () => {
+        setFormCodiceCommessa(''); setFormDescrizioneCommessa('');
+        setFormSelectedClienteId(''); setFormStatoCommessa('Aperta');
+        setFormPercorsoSalvataggio('');
+        setEditingCommessa(null);
     };
 
     // Prepara il form per la modifica di una commessa.
     const handleEditCommessa = (commessa) => {
         if (!canManage) { alert("Non hai i permessi per modificare."); return; }
-        setEditingCommessa(commessa); 
+        setEditingCommessa(commessa);
         setFormCodiceCommessa(commessa.codice_commessa);
-        setFormDescrizioneCommessa(commessa.descrizione_commessa || ''); 
+        setFormDescrizioneCommessa(commessa.descrizione_commessa || '');
         setFormSelectedClienteId(commessa.cliente_id || '');
-        setFormStatoCommessa(commessa.stato || 'Aperta'); 
+        setFormStatoCommessa(commessa.stato || 'Aperta');
+        setFormPercorsoSalvataggio(commessa.percorso_salvataggio || '');
         window.scrollTo(0, 0);
+    };
+
+    // Funzione per sfogliare directory usando webkitdirectory
+    const handleSelectDirectory = () => {
+        // Usa l'input nascosto per sfogliare le directory
+        if (directoryInputRef.current) {
+            directoryInputRef.current.click();
+        }
+    };
+
+    // Gestisce la selezione directory senza upload effettivo
+    const handleDirectorySelected = (event) => {
+        const files = event.target.files;
+
+        if (files && files.length > 0) {
+            // Ottiene il primo file per estrarre il percorso della directory
+            const firstFile = files[0];
+
+            // Estrae il percorso della directory dal webkitRelativePath
+            const relativePath = firstFile.webkitRelativePath;
+
+            if (relativePath) {
+                // Estrae solo il nome della directory principale
+                const directoryName = relativePath.split('/')[0];
+
+                // **IMPORTANTE: Ferma immediatamente la propagazione per evitare upload**
+                event.preventDefault();
+                event.stopPropagation();
+
+                // Svuota immediatamente l'input per evitare upload accidentali
+                event.target.value = '';
+
+                // Mostra dialog per completare il percorso
+                const fullPath = prompt(
+                    `📁 Directory selezionata: "${directoryName}"\n\n` +
+                    `Inserisci il percorso completo della directory:\n\n` +
+                    `💡 Esempi:\n` +
+                    `• Locale: C:\\Documenti\\${directoryName}\\\n` +
+                    `• Desktop: C:\\Users\\TuoNome\\Desktop\\${directoryName}\\\n` +
+                    `• Rete: \\\\Server\\Share\\${directoryName}\\\n` +
+                    `• Mappata: Z:\\Progetti\\${directoryName}\\`,
+                    `C:\\Documenti\\${directoryName}\\`
+                );
+
+                if (fullPath && fullPath.trim()) {
+                    // Normalizza il percorso aggiungendo backslash finale se mancante
+                    const normalizedPath = fullPath.trim().endsWith('\\') ? fullPath.trim() : fullPath.trim() + '\\';
+                    setFormPercorsoSalvataggio(normalizedPath);
+                }
+            }
+        }
+
+        // Assicurati che l'input sia sempre pulito dopo l'uso
+        if (event.target) {
+            event.target.value = '';
+        }
+    };
+
+    // Funzioni per inserire percorsi comuni predefiniti
+    const handleSetCommonPath = (path) => {
+        setFormPercorsoSalvataggio(path);
     };
 
     // Gestisce il submit del form (aggiunta o modifica).
@@ -178,10 +243,11 @@ function CommesseManager({ session, clienti }) { // `clienti` prop è usato per 
         if (!formCodiceCommessa.trim()) { alert("Codice commessa obbligatorio."); return; }
         setLoadingActions(true); setError(null); setSuccessMessage('');
         const commessaData = {
-            codice_commessa: formCodiceCommessa.trim(), 
+            codice_commessa: formCodiceCommessa.trim(),
             descrizione_commessa: formDescrizioneCommessa.trim() || null,
-            cliente_id: formSelectedClienteId || null, 
+            cliente_id: formSelectedClienteId || null,
             stato: formStatoCommessa,
+            percorso_salvataggio: formPercorsoSalvataggio.trim() || null,
         };
         let opError;
         if (editingCommessa) { 
@@ -240,14 +306,15 @@ function CommesseManager({ session, clienti }) { // `clienti` prop è usato per 
         // if(allErr) { /* gestisci errore */ return; }
         // const dataToUse = allCommesseData;
 
-        const headers = ["id_commessa", "codice_commessa", "descrizione_commessa", "cliente_id", "cliente_nome_azienda", "stato", "created_at"];
+        const headers = ["id_commessa", "codice_commessa", "descrizione_commessa", "cliente_id", "cliente_nome_azienda", "stato", "percorso_salvataggio", "created_at"];
         const dataToExport = commesse.map(c => ({ // Usa 'commesse' (dati paginati)
             id_commessa: c.id,
             codice_commessa: c.codice_commessa,
             descrizione_commessa: c.descrizione_commessa || '',
             cliente_id: c.cliente_id || '',
-            cliente_nome_azienda: c.clienti?.nome_azienda || '', 
+            cliente_nome_azienda: c.clienti?.nome_azienda || '',
             stato: c.stato,
+            percorso_salvataggio: c.percorso_salvataggio || '',
             created_at: c.created_at ? new Date(c.created_at).toLocaleString('it-IT') : ''
         }));
         try {
@@ -316,9 +383,10 @@ function CommesseManager({ session, clienti }) { // `clienti` prop è usato per 
                     }
 
                     const commessaPayload = { codice_commessa: codiceCommessa };
-                    if (row.hasOwnProperty('descrizione_commessa')) commessaPayload.descrizione_commessa = String(row.descrizione_commessa || '').trim() || null;
+                    if (Object.prototype.hasOwnProperty.call(row, 'descrizione_commessa')) commessaPayload.descrizione_commessa = String(row.descrizione_commessa || '').trim() || null;
                     if (clienteIdPerCommessa) commessaPayload.cliente_id = clienteIdPerCommessa;
-                    if (row.hasOwnProperty('stato')) commessaPayload.stato = String(row.stato || 'Aperta').trim();
+                    if (Object.prototype.hasOwnProperty.call(row, 'stato')) commessaPayload.stato = String(row.stato || 'Aperta').trim();
+                    if (Object.prototype.hasOwnProperty.call(row, 'percorso_salvataggio')) commessaPayload.percorso_salvataggio = String(row.percorso_salvataggio || '').trim() || null;
                     commessePerUpsert.push(commessaPayload);
                 }
 
@@ -405,6 +473,76 @@ function CommesseManager({ session, clienti }) { // `clienti` prop è usato per 
                         </select>
                     </div>
                     <div> <label htmlFor="formStatoCommessa">Stato Commessa:</label> <select id="formStatoCommessa" value={formStatoCommessa} onChange={e => setFormStatoCommessa(e.target.value)}> <option value="Aperta">Aperta</option> <option value="In Lavorazione">In Lavorazione</option> <option value="Chiusa">Chiusa</option> <option value="Annullata">Annullata</option> </select> </div>
+                    <div>
+                        <label htmlFor="formPercorsoSalvataggio">Percorso Salvataggio PDF (Opzionale):</label>
+                        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '5px' }}>
+                            <input
+                                type="text"
+                                id="formPercorsoSalvataggio"
+                                value={formPercorsoSalvataggio}
+                                onChange={e => setFormPercorsoSalvataggio(e.target.value)}
+                                placeholder="Es: C:\Documenti\Commesse o \\Server\Share\Progetti"
+                                style={{ flex: 1 }}
+                            />
+                            <button
+                                type="button"
+                                onClick={handleSelectDirectory}
+                                disabled={loadingActions}
+                                style={{ padding: '5px 10px', fontSize: '12px' }}
+                                title="Sfoglia directory nel PC/rete"
+                            >
+                                Sfoglia
+                            </button>
+                        </div>
+                        <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+                            <small style={{ marginRight: '10px' }}>Rapidi:</small>
+                            <button
+                                type="button"
+                                onClick={() => handleSetCommonPath('C:\\Documenti\\')}
+                                disabled={loadingActions}
+                                style={{ padding: '2px 6px', fontSize: '11px', background: '#f0f0f0', border: '1px solid #ccc' }}
+                            >
+                                Documenti
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => handleSetCommonPath('C:\\Documenti\\Fogli_Lavoro\\')}
+                                disabled={loadingActions}
+                                style={{ padding: '2px 6px', fontSize: '11px', background: '#f0f0f0', border: '1px solid #ccc' }}
+                            >
+                                Fogli Lavoro
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => handleSetCommonPath('\\\\Server\\Share\\Progetti\\')}
+                                disabled={loadingActions}
+                                style={{ padding: '2px 6px', fontSize: '11px', background: '#f0f0f0', border: '1px solid #ccc' }}
+                            >
+                                Server di Rete
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setFormPercorsoSalvataggio('')}
+                                disabled={loadingActions}
+                                style={{ padding: '2px 6px', fontSize: '11px', background: '#ffe6e6', border: '1px solid #ccc' }}
+                            >
+                                Cancella
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Input nascosto per selezione directory */}
+                    <input
+                        type="file"
+                        ref={directoryInputRef}
+                        onChange={handleDirectorySelected}
+                        webkitdirectory=""
+                        directory=""
+                        multiple
+                        style={{ display: 'none' }}
+                        accept="*/*"
+                    />
+
                     <button type="submit" disabled={loadingActions}>{loadingActions ? 'Salvataggio...' : (editingCommessa ? 'Salva Modifiche' : 'Aggiungi Commessa')}</button>
                     {editingCommessa && ( <button type="button" className="secondary" onClick={resetForm} disabled={loadingActions} style={{marginLeft:'10px'}}> Annulla Modifica </button> )}
                 </form>
