@@ -393,7 +393,52 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, op
         addPageFooter(doc, i, totalPages);
     }
 
-    const fileName = `FoglioAssistenza_${foglioData.numero_foglio || foglioData.id.substring(0,8)}.pdf`;
+    const codiceCommessa = foglioData.commesse?.codice_commessa || 'COMMESSA';
+    const numeroFoglio = foglioData.numero_foglio || foglioData.id.substring(0,8);
+
+    // Nuovo formato nome file: NUMERO_COMMESSA.pdf (senza "FoglioAssistenza")
+    const fileName = `${numeroFoglio}_${codiceCommessa}.pdf`;
+    const baseName = `${numeroFoglio}_${codiceCommessa}`;
+
+    const percorsoSalvataggio = foglioData.commesse?.percorso_salvataggio;
+
+    // Salva sempre il PDF con il nome semplificato
     doc.save(fileName);
+
+    // Se è specificato un percorso di destinazione, crea anche il file TXT
+    if (percorsoSalvataggio && percorsoSalvataggio.trim()) {
+        createDestinationFile(baseName, percorsoSalvataggio.trim());
+    }
+};
+
+// Funzione per creare il file TXT con il percorso di destinazione
+function createDestinationFile(baseName, destinationPath) {
+    try {
+        // Contenuto del file TXT con il percorso di destinazione
+        const content = destinationPath;
+
+        // Crea un blob con il contenuto
+        const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+
+        // Crea un URL temporaneo per il blob
+        const url = URL.createObjectURL(blob);
+
+        // Crea un elemento anchor per il download
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${baseName}.txt`;
+
+        // Aggiunge il link al DOM, fa click e lo rimuove
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        // Pulisce l'URL temporaneo
+        URL.revokeObjectURL(url);
+
+    } catch (error) {
+        console.error('Errore nella creazione del file di destinazione:', error);
+        // Non interrompe il processo se il file TXT fallisce
+    }
 };
 
