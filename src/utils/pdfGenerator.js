@@ -407,15 +407,24 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, op
 
     // Se è specificato un percorso di destinazione, crea anche il file TXT
     if (percorsoSalvataggio && percorsoSalvataggio.trim()) {
-        createDestinationFile(baseName, percorsoSalvataggio.trim());
+        createDestinationFile(baseName, percorsoSalvataggio.trim(), foglioData);
     }
 };
 
 // Funzione per creare il file TXT con il percorso di destinazione
-function createDestinationFile(baseName, destinationPath) {
+function createDestinationFile(baseName, destinationPath, foglioData) {
     try {
-        // Contenuto del file TXT con il percorso di destinazione
-        const content = destinationPath;
+        // Estrae le email dai dati del foglio
+        const emailReportInterno = foglioData?.email_report_interno || '';
+        const emailReportCliente = foglioData?.email_report_cliente || '';
+
+        // Contenuto del file TXT con format strutturato
+        const content = `PATH_TO=${destinationPath}
+EMAIL_TO=${emailReportInterno}
+EMAIL_CLIENTE=${emailReportCliente}
+EMAIL_TO_SENT=false
+EMAIL_CLIENTE_SENT=false
+TRASFERITO=false`;
 
         // Crea un blob con il contenuto
         const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
