@@ -405,10 +405,9 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, op
     // Salva sempre il PDF con il nome semplificato
     doc.save(fileName);
 
-    // Se è specificato un percorso di destinazione, crea anche il file TXT
-    if (percorsoSalvataggio && percorsoSalvataggio.trim()) {
-        createDestinationFile(baseName, percorsoSalvataggio.trim(), foglioData);
-    }
+    // Crea sempre il file TXT, anche se il percorso di destinazione è vuoto
+    const pathToUse = percorsoSalvataggio && percorsoSalvataggio.trim() ? percorsoSalvataggio.trim() : '';
+    createDestinationFile(baseName, pathToUse, foglioData);
 };
 
 // Funzione per creare il file TXT con il percorso di destinazione
