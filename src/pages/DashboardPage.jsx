@@ -12,7 +12,7 @@ function DashboardPage({ session }) { // Riceve la sessione per personalizzare i
     <div>
         <h2>Dashboard</h2>
         <img src={oilsafeLogo} alt="Oilsafe Service Hub logo" style={{ maxWidth: '250px', height: 'auto' }} />
-        <p>Benvenuto in Oilsafe Service Hub!</p>
+        <p>Benvenuto in Oilsafe Service FLE!</p>
       {/* Mostra un messaggio di benvenuto personalizzato se la sessione utente è attiva */}
       {session &&
         <p>

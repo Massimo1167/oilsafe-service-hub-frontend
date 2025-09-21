@@ -279,7 +279,7 @@ function App() {
   return (
     <div className="app-container">
       <header style={{ backgroundColor: headerBgColor }}>
-        <h1>Oilsafe Service Hub ver.{__APP_VERSION__}</h1>
+        <h1>Oilsafe Service FLE ver.{__APP_VERSION__}</h1>
         {session && session.user && (
           <nav>
             <Link to="/">Dashboard</Link>
