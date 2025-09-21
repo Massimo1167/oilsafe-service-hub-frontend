@@ -1,8 +1,8 @@
 {
-  "name": "oilsafe-service-hub-frontend",
+  "name": "oilsafe-service-frontend",
   "private": true,
-  "version": "0.8.9",
-  "description": "Data 19/09/2025 :PR#119-modifica stampa (prev:colore banda debug + lista tabella fogli + Logo+ Univocità Cliente + Ordine ; risolto renew sessione;)",
+  "version": "0.8.10",
+  "description": "Data 21/09/2025 :PR#21-modifica invio email (prev:colore banda debug + lista tabella fogli + Logo+ Univocità Cliente + Ordine ; risolto renew sessione;)",
   "type": "module",
   "scripts": {
     "dev": "vite",

@@ -110,7 +110,7 @@ function SignupPage() {
 
   return (
     <div style={{ maxWidth: '400px', margin: '50px auto', padding: '20px', border: '1px solid #ccc', borderRadius: '8px', boxShadow: '0 0 10px rgba(0,0,0,0.1)' }}>
-      <h2>Registrati a Oilsafe Service Hub</h2>
+      <h2>Registrati a Oilsafe Service FLE</h2>
       <form onSubmit={handleSignup}>
         <div>
           <label htmlFor="fullName">Nome Completo:</label>

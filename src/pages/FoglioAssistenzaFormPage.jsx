@@ -558,11 +558,13 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
                 </div>
                 <div>
                     <label htmlFor="formEmailCliente">Email Cliente per Report (opzionale):</label>
-                    <input type="email" id="formEmailCliente" value={formEmailCliente} onChange={e => setFormEmailCliente(e.target.value)} />
+                    <input type="text" id="formEmailCliente" value={formEmailCliente} onChange={e => setFormEmailCliente(e.target.value)} placeholder="email1@example.com;email2@example.com" />
+                    <small style={{color:'#666', fontSize:'0.9em'}}>Per più email, separale con il punto e virgola (;)</small>
                 </div>
                 <div>
                     <label htmlFor="formEmailInterno">Email Interna per Report (opzionale):</label>
-                    <input type="email" id="formEmailInterno" value={formEmailInterno} onChange={e => setFormEmailInterno(e.target.value)} />
+                    <input type="text" id="formEmailInterno" value={formEmailInterno} onChange={e => setFormEmailInterno(e.target.value)} placeholder="email1@example.com;email2@example.com" />
+                    <small style={{color:'#666', fontSize:'0.9em'}}>Per più email, separale con il punto e virgola (;)</small>
                 </div>
                 <div>
                     <label htmlFor="formMotivoGenerale">Motivo Intervento Generale:</label>
