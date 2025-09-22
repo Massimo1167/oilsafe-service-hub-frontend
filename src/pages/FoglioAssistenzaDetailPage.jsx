@@ -23,7 +23,6 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
     const [editingIntervento, setEditingIntervento] = useState(null);
     const [interventoFormReadOnly, setInterventoFormReadOnly] = useState(false);
     const [stampaSingolaLoading, setStampaSingolaLoading] = useState(false);
-    const [sendingEmail, setSendingEmail] = useState(false);
     // Il layout di stampa predefinito diventa quello dettagliato
     const [layoutStampa, setLayoutStampa] = useState('detailed');
     const [isSmallScreen, setIsSmallScreen] = useState(false);
@@ -273,19 +272,6 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
         setStampaSingolaLoading(false);
     };
 
-    const handleSendEmail = async () => {
-        if (!window.confirm('Inviare il report di questo foglio via email?')) return;
-        setSendingEmail(true);
-        setError(null);
-        const { error: fnError } = await supabase.functions.invoke('invia-report-foglio', { body: { foglio_id: foglioId } });
-        if (fnError) {
-            console.error('Errore invio email:', fnError);
-            setError(fnError.message || 'Errore invio email');
-        } else {
-            alert('Email inviata.');
-        }
-        setSendingEmail(false);
-    };
 
     if (loadingPage) return <p>Caricamento dati foglio di assistenza...</p>;
     if (error && !foglio) return <p style={{ color: 'red', fontWeight:'bold' }}>ERRORE: {error}</p>;
@@ -309,15 +295,6 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
                             disabled={stampaSingolaLoading || !foglio || actionLoading}
                         >
                             {stampaSingolaLoading ? 'Stampa in corso...' : 'Stampa Foglio'}
-                        </button>
-                    )}
-                    {canViewThisFoglio && (
-                        <button
-                            onClick={handleSendEmail}
-                            className="button secondary"
-                            disabled={sendingEmail || actionLoading}
-                        >
-                            {sendingEmail ? 'Invio...' : 'Invia Email'}
                         </button>
                     )}
                     {canEditThisFoglioOverall && (
