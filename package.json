@@ -1,8 +1,8 @@
 {
   "name": "oilsafe-service-frontend",
   "private": true,
-  "version": "0.8.10",
-  "description": "Data 22/09/2025 :PR#123-Salvataggio dati su txt per invio email (prev:colore banda debug + lista tabella fogli + Logo+ Univocità Cliente + Ordine ; risolto renew sessione;)",
+  "version": "0.8.11",
+  "description": "Data 22/09/2025 :PR#127-Salvataggio dati su txt per invio email (prev:colore banda debug + lista tabella fogli + Logo+ Univocità Cliente + Ordine ; risolto renew sessione;)",
   "type": "module",
   "scripts": {
     "dev": "vite",
