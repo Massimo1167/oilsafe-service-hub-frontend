@@ -114,7 +114,7 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
             assegnato_a_user_id,
             profilo_tecnico_assegnato:profiles (full_name),
             clienti (id, nome_azienda),
-            commesse (id, codice_commessa, descrizione_commessa),
+            commesse (*),
             ordini_cliente (id, numero_ordine_cliente, descrizione_ordine),
             indirizzi_clienti!indirizzo_intervento_id (id, indirizzo_completo, descrizione)
           `)
