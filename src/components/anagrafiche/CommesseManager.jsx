@@ -498,27 +498,27 @@ function CommesseManager({ session, clienti }) { // `clienti` prop è usato per 
                             <small style={{ marginRight: '10px' }}>Rapidi:</small>
                             <button
                                 type="button"
-                                onClick={() => handleSetCommonPath('C:\\Documenti\\')}
+                                onClick={() => handleSetCommonPath('Z:\\COMMESSE\\OSP- PRODUZIONE\\')}
                                 disabled={loadingActions}
                                 style={{ padding: '2px 6px', fontSize: '11px', background: '#f0f0f0', border: '1px solid #ccc' }}
                             >
-                                Documenti
+                                OSP-
                             </button>
                             <button
                                 type="button"
-                                onClick={() => handleSetCommonPath('C:\\Documenti\\Fogli_Lavoro\\')}
+                                onClick={() => handleSetCommonPath('Z:\\COMMESSE\\OSS - SERVICE\\')}
                                 disabled={loadingActions}
                                 style={{ padding: '2px 6px', fontSize: '11px', background: '#f0f0f0', border: '1px solid #ccc' }}
                             >
-                                Fogli Lavoro
+                                OSS-
                             </button>
                             <button
                                 type="button"
-                                onClick={() => handleSetCommonPath('\\\\Server\\Share\\Progetti\\')}
+                                onClick={() => handleSetCommonPath('Z:\\COMMESSE\\OSR- RICAMBI\\')}
                                 disabled={loadingActions}
                                 style={{ padding: '2px 6px', fontSize: '11px', background: '#f0f0f0', border: '1px solid #ccc' }}
                             >
-                                Server di Rete
+                                OSR-
                             </button>
                             <button
                                 type="button"
