@@ -4,7 +4,7 @@
  * tecnici, commesse, ordini) with the pages. Uses React Router for
  * navigation and shows different pages based on authentication.
  */
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Routes, Route, Link, useNavigate, Navigate, Outlet } from 'react-router-dom';
 import { supabase } from './supabaseClient';
 
@@ -227,6 +227,40 @@ function App() {
     fetchCommonData();
   }, [session?.user?.id]);
 
+  // NUOVO: Funzione per ricaricare tutte le anagrafiche quando vengono modificate dai Manager
+  const reloadAnagrafiche = useCallback(async () => {
+    console.log('APP.JSX: Ricaricamento anagrafiche richiesto...');
+    if (session && session.user) {
+      setLoadingAnagrafiche(true);
+      try {
+        const [clientiRes, tecniciRes, commesseRes, ordiniRes] = await Promise.all([
+          supabase.from('clienti').select('*').order('nome_azienda'),
+          supabase.from('tecnici').select('*').order('cognome'),
+          supabase.from('commesse').select('*').order('codice_commessa'),
+          supabase.from('ordini_cliente').select('*').order('numero_ordine_cliente')
+        ]);
+
+        setClienti(clientiRes.data || []);
+        if(clientiRes.error) console.error("APP.JSX: Errore ricarica clienti:", clientiRes.error.message);
+
+        setTecnici(tecniciRes.data || []);
+        if(tecniciRes.error) console.error("APP.JSX: Errore ricarica tecnici:", tecniciRes.error.message);
+
+        setCommesse(commesseRes.data || []);
+        if(commesseRes.error) console.error("APP.JSX: Errore ricarica commesse:", commesseRes.error.message);
+
+        setOrdini(ordiniRes.data || []);
+        if(ordiniRes.error) console.error("APP.JSX: Errore ricarica ordini:", ordiniRes.error.message);
+
+        console.log('APP.JSX: Anagrafiche ricaricate con successo');
+      } catch (e) {
+        console.error("APP.JSX: Eccezione durante ricaricamento anagrafiche:", e);
+      } finally {
+        setLoadingAnagrafiche(false);
+      }
+    }
+  }, [session?.user?.id]);
+
   // useEffect per Page Visibility API
   useEffect(() => { 
     let visibilityTimeoutId = null;
@@ -348,10 +382,10 @@ function App() {
             />
             {(userRole === 'admin' || userRole === 'manager') && (
               <>
-                <Route path="/clienti" element={<ClientiManager session={session} />} />
-                <Route path="/tecnici" element={<TecniciManager session={session} />} />
-                <Route path="/commesse" element={<CommesseManager session={session} clienti={clienti} />} />
-                <Route path="/ordini" element={<OrdiniClienteManager session={session} clienti={clienti} commesse={commesse} />} />
+                <Route path="/clienti" element={<ClientiManager session={session} onDataChanged={reloadAnagrafiche} />} />
+                <Route path="/tecnici" element={<TecniciManager session={session} onDataChanged={reloadAnagrafiche} />} />
+                <Route path="/commesse" element={<CommesseManager session={session} clienti={clienti} onDataChanged={reloadAnagrafiche} />} />
+                <Route path="/ordini" element={<OrdiniClienteManager session={session} clienti={clienti} commesse={commesse} onDataChanged={reloadAnagrafiche} />} />
               </>
             )}
           </Route>

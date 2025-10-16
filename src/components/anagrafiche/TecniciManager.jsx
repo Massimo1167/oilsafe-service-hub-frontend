@@ -9,7 +9,7 @@ import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import { Navigate } from 'react-router-dom';
 
-function TecniciManager({ session }) {
+function TecniciManager({ session, onDataChanged }) {
     const [tecnici, setTecnici] = useState([]);
     const [loadingActions, setLoadingActions] = useState(false);
     const [pageLoading, setPageLoading] = useState(true);
@@ -132,11 +132,12 @@ function TecniciManager({ session }) {
         if (opError) { 
             setError(opError.message); 
             alert((editingTecnico ? 'Modifica tecnico fallita: ' : 'Inserimento tecnico fallito: ') + opError.message); 
-        } else { 
+        } else {
             resetForm();
             await fetchTecnici(filtroNome.trim(), filtroCognome.trim());
+            if (onDataChanged) onDataChanged();
             setSuccessMessage(editingTecnico ? 'Tecnico modificato con successo!' : 'Tecnico aggiunto con successo!');
-            setTimeout(()=> setSuccessMessage(''), 3000); 
+            setTimeout(()=> setSuccessMessage(''), 3000);
         }
         setLoadingActions(false);
     };
@@ -149,10 +150,11 @@ function TecniciManager({ session }) {
             if (delError) { 
                 setError(delError.message); 
                 alert("Eliminazione fallita: " + delError.message); 
-            } else { 
+            } else {
                 await fetchTecnici(filtroNome.trim(), filtroCognome.trim());
+                if (onDataChanged) onDataChanged();
                 if (editingTecnico && editingTecnico.id === tecnicoId) resetForm();
-                setSuccessMessage('Tecnico eliminato con successo!'); 
+                setSuccessMessage('Tecnico eliminato con successo!');
                 setTimeout(()=> setSuccessMessage(''), 3000);
             }
             setLoadingActions(false);
@@ -251,6 +253,7 @@ function TecniciManager({ session }) {
                 if (errorCount > 0) { finalMessage += ` ${errorCount} errori.`; setError(`Errori import. ${errorsDetail.slice(0,3).join('; ')}... Vedi console.`); console.error("Err import tecnici:", errorsDetail); }
                 setSuccessMessage(finalMessage); setTimeout(()=> { setSuccessMessage(''); setError(null); }, 10000);
                 await fetchTecnici(filtroNome.trim(), filtroCognome.trim());
+                if (onDataChanged && successCount > 0) onDataChanged();
             } catch (parseOrProcessError) { setError("Errore critico import: " + parseOrProcessError.message); console.error("Err critico import tecnici:", parseOrProcessError); }
             finally { setLoadingActions(false); setImportProgress(''); if(fileInputRef.current) fileInputRef.current.value = ""; }
         };
