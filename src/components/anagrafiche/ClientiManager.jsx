@@ -12,7 +12,7 @@ import { Navigate } from 'react-router-dom';
 
 const RIGHE_PER_PAGINA_CLIENTI = 15;
 
-function ClientiManager({ session }) {
+function ClientiManager({ session, onDataChanged }) {
     const [clienti, setClienti] = useState([]);
     const [loadingActions, setLoadingActions] = useState(false); 
     const [pageLoading, setPageLoading] = useState(true); 
@@ -124,6 +124,7 @@ function ClientiManager({ session }) {
         } else {
             resetFormNuovoCliente();
             await fetchClienti(filtroNomeAzienda.trim());
+            if (onDataChanged) onDataChanged();
             setSuccessMessage('Cliente aggiunto con successo!');
             setTimeout(() => setSuccessMessage(''), 3000);
         }
@@ -144,6 +145,7 @@ function ClientiManager({ session }) {
             alert('Modifica fallita: ' + error.message);
         } else {
             await fetchClienti(filtroNomeAzienda.trim());
+            if (onDataChanged) onDataChanged();
             setSelectedCliente(prev => prev ? { ...prev, nome_azienda: formEditNomeAzienda.trim() } : null);
             setSuccessMessage('Nome cliente aggiornato!');
             setTimeout(() => setSuccessMessage(''), 3000);
@@ -169,6 +171,7 @@ function ClientiManager({ session }) {
             resetFormIndirizzi();
             await reloadIndirizziCliente(selectedCliente.id);
             await fetchClienti(filtroNomeAzienda.trim());
+            if (onDataChanged) onDataChanged();
             setSuccessMessage('Indirizzo aggiunto con successo!');
             setTimeout(() => setSuccessMessage(''), 3000);
         }
@@ -187,6 +190,7 @@ function ClientiManager({ session }) {
             if (editingIndirizzo && editingIndirizzo.id === indirizzoId) handleCancelEditIndirizzo();
             await reloadIndirizziCliente(selectedCliente.id);
             await fetchClienti(filtroNomeAzienda.trim());
+            if (onDataChanged) onDataChanged();
             setSuccessMessage('Indirizzo eliminato con successo!');
             setTimeout(() => setSuccessMessage(''), 3000);
         }
@@ -213,6 +217,7 @@ function ClientiManager({ session }) {
         } else {
             await reloadIndirizziCliente(clienteId);
             await fetchClienti(filtroNomeAzienda.trim());
+            if (onDataChanged) onDataChanged();
             setSuccessMessage('Indirizzo impostato come predefinito!');
             setTimeout(() => setSuccessMessage(''), 3000);
         }
@@ -250,6 +255,7 @@ function ClientiManager({ session }) {
             handleCancelEditIndirizzo();
             await reloadIndirizziCliente(selectedCliente.id);
             await fetchClienti(filtroNomeAzienda.trim());
+            if (onDataChanged) onDataChanged();
             setSuccessMessage('Indirizzo modificato con successo!');
             setTimeout(() => setSuccessMessage(''), 3000);
         }
@@ -270,6 +276,7 @@ function ClientiManager({ session }) {
                 resetFormIndirizzi();
             }
             await fetchClienti(filtroNomeAzienda.trim());
+            if (onDataChanged) onDataChanged();
             setSuccessMessage('Cliente eliminato con successo!');
             setTimeout(() => setSuccessMessage(''), 3000);
         }
@@ -632,6 +639,7 @@ function ClientiManager({ session }) {
                 setSuccessMessage(finalMessage);
                 setTimeout(()=> { setSuccessMessage(''); setError(null); }, 15000); // Più tempo per leggere
                 await fetchClienti(filtroNomeAzienda.trim());
+                if (onDataChanged && uniqueClienti > 0) onDataChanged();
 
             } catch (err) { 
                 setError("Errore critico durante l'importazione: " + err.message); 

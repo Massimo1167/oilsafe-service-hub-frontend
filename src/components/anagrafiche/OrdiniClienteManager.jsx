@@ -11,7 +11,7 @@ import { Navigate } from 'react-router-dom';
 
 const RIGHE_PER_PAGINA_ORDINI = 15; // Costante per il numero di righe per pagina
 
-function OrdiniClienteManager({ session, clienti, commesse }) {
+function OrdiniClienteManager({ session, clienti, commesse, onDataChanged }) {
     // --- STATI DEL COMPONENTE ---
     const [ordini, setOrdini] = useState([]); // Lista degli ordini per la pagina corrente
     const [loadingActions, setLoadingActions] = useState(false); // Per operazioni come add, update, delete, import, export
@@ -219,12 +219,13 @@ function OrdiniClienteManager({ session, clienti, commesse }) {
         if (opError) { 
             setError(opError.message); 
             alert((editingOrdine ? 'Modifica ordine fallita: ' : 'Inserimento ordine fallito: ') + opError.message); 
-        } else { 
-            resetForm(); 
+        } else {
+            resetForm();
             setCurrentPage(1); // Torna alla prima pagina dopo aggiunta/modifica per vedere il record
             await fetchOrdini(); // Ricarica la lista
-            setSuccessMessage(editingOrdine ? 'Ordine cliente modificato con successo!' : 'Ordine cliente aggiunto con successo!'); 
-            setTimeout(()=> setSuccessMessage(''), 3000); 
+            if (onDataChanged) onDataChanged();
+            setSuccessMessage(editingOrdine ? 'Ordine cliente modificato con successo!' : 'Ordine cliente aggiunto con successo!');
+            setTimeout(()=> setSuccessMessage(''), 3000);
         }
         setLoadingActions(false);
     };
@@ -238,15 +239,16 @@ function OrdiniClienteManager({ session, clienti, commesse }) {
             if (delError) { 
                 setError(delError.message); 
                 alert("Eliminazione fallita: " + delError.message); 
-            } else { 
+            } else {
                 if (ordini.length === 1 && currentPage > 1) { // Se era l'ultimo elemento di una pagina > 1
                     setCurrentPage(currentPage - 1); // Torna alla pagina precedente
                 } else {
                     await fetchOrdini(); // Altrimenti ricarica la pagina corrente
                 }
-                if (editingOrdine && editingOrdine.id === ordineId) resetForm(); 
-                setSuccessMessage('Ordine cliente eliminato con successo!'); 
-                setTimeout(()=> setSuccessMessage(''), 3000); 
+                if (onDataChanged) onDataChanged();
+                if (editingOrdine && editingOrdine.id === ordineId) resetForm();
+                setSuccessMessage('Ordine cliente eliminato con successo!');
+                setTimeout(()=> setSuccessMessage(''), 3000);
             }
             setLoadingActions(false);
         }
@@ -385,6 +387,7 @@ function OrdiniClienteManager({ session, clienti, commesse }) {
                 setSuccessMessage(finalMessage); setTimeout(()=> { setSuccessMessage(''); setError(null); }, 10000);
                 setCurrentPage(1); // Torna alla prima pagina dopo l'importazione
                 await fetchOrdini();
+                if (onDataChanged && successCount > 0) onDataChanged();
             } catch (parseOrProcessError) { 
                 setError("Errore critico durante l'importazione: " + parseOrProcessError.message); 
                 console.error("Errore critico importazione ordini:", parseOrProcessError);

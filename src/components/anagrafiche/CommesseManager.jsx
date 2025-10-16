@@ -11,7 +11,7 @@ import { Navigate } from 'react-router-dom';
 
 const RIGHE_PER_PAGINA = 15; // Numero di commesse da visualizzare per pagina
 
-function CommesseManager({ session, clienti }) { // `clienti` prop è usato per il dropdown nel form di modifica/aggiunta
+function CommesseManager({ session, clienti, onDataChanged }) { // `clienti` prop è usato per il dropdown nel form di modifica/aggiunta
     // --- STATI DEL COMPONENTE ---
     const [commesse, setCommesse] = useState([]); // Lista delle commesse per la pagina corrente
     const [loadingActions, setLoadingActions] = useState(false); // Per operazioni come add, update, delete, import, export
@@ -260,12 +260,13 @@ function CommesseManager({ session, clienti }) { // `clienti` prop è usato per 
         if (opError) { 
             setError(opError.message); 
             alert((editingCommessa ? 'Modifica commessa fallita: ' : 'Inserimento commessa fallito: ') + opError.message); 
-        } else { 
-            resetForm(); 
+        } else {
+            resetForm();
             setCurrentPage(1); // Torna alla prima pagina dopo aggiunta/modifica per vedere il record
             await fetchCommesse(); // Ricarica la lista
-            setSuccessMessage(editingCommessa ? 'Commessa modificata con successo!' : 'Commessa aggiunta con successo!'); 
-            setTimeout(()=> setSuccessMessage(''), 3000); 
+            if (onDataChanged) onDataChanged();
+            setSuccessMessage(editingCommessa ? 'Commessa modificata con successo!' : 'Commessa aggiunta con successo!');
+            setTimeout(()=> setSuccessMessage(''), 3000);
         }
         setLoadingActions(false);
     };
@@ -279,7 +280,7 @@ function CommesseManager({ session, clienti }) { // `clienti` prop è usato per 
             if (delError) { 
                 setError(delError.message); 
                 alert("Eliminazione fallita: " + delError.message); 
-            } else { 
+            } else {
                 // Se l'elemento eliminato era nell'ultima pagina e quella pagina ora è vuota,
                 // torna alla pagina precedente se possibile.
                 if (commesse.length === 1 && currentPage > 1) {
@@ -287,9 +288,10 @@ function CommesseManager({ session, clienti }) { // `clienti` prop è usato per 
                 } else {
                     await fetchCommesse(); // Altrimenti ricarica la pagina corrente
                 }
-                if (editingCommessa && editingCommessa.id === commessaId) resetForm(); 
-                setSuccessMessage('Commessa eliminata con successo!'); 
-                setTimeout(()=> setSuccessMessage(''), 3000); 
+                if (onDataChanged) onDataChanged();
+                if (editingCommessa && editingCommessa.id === commessaId) resetForm();
+                setSuccessMessage('Commessa eliminata con successo!');
+                setTimeout(()=> setSuccessMessage(''), 3000);
             }
             setLoadingActions(false);
         }
@@ -400,6 +402,7 @@ function CommesseManager({ session, clienti }) { // `clienti` prop è usato per 
                 if (errorCount > 0) { finalMessage += ` ${errorCount} errori.`; setError(`Errori import. ${errorsDetail.slice(0,3).join('; ')}... Vedi console.`); console.error("Err import commesse:", errorsDetail); }
                 setSuccessMessage(finalMessage); setTimeout(()=> { setSuccessMessage(''); setError(null); }, 10000);
                 await fetchCommesse();
+                if (onDataChanged && successCount > 0) onDataChanged();
             } catch (err) { setError("Errore critico import: " + err.message); console.error("Err critico import commesse:", err); } 
             finally { setLoadingActions(false); setImportProgress(''); if(fileInputRef.current) fileInputRef.current.value = ""; }
         };
