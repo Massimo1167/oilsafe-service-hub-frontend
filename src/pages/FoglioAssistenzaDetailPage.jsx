@@ -27,6 +27,10 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
     const [layoutStampa, setLayoutStampa] = useState('detailed');
     const [isSmallScreen, setIsSmallScreen] = useState(false);
 
+    // Stati per gestione copia/incolla interventi
+    const [selectedInterventi, setSelectedInterventi] = useState([]);
+    const [copiedInterventi, setCopiedInterventi] = useState([]);
+
     const userRole = (session?.user?.role || '').trim().toLowerCase();
     const currentUserId = session?.user?.id;
     const currentUserEmail = session?.user?.email?.toLowerCase();
@@ -151,6 +155,19 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
         fetchFoglioData();
     }, [fetchFoglioData]);
 
+    // Carica interventi copiati dal localStorage all'avvio
+    useEffect(() => {
+        const stored = localStorage.getItem('copiedInterventi');
+        if (stored) {
+            try {
+                setCopiedInterventi(JSON.parse(stored));
+            } catch (e) {
+                console.error('Errore parsing interventi copiati:', e);
+                localStorage.removeItem('copiedInterventi');
+            }
+        }
+    }, []);
+
     useEffect(() => {
         const handleResize = () => {
             setIsSmallScreen(window.innerWidth <= 768);
@@ -242,6 +259,96 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
             alert("Firma cliente rimossa.");
         }
         setActionLoading(false);
+    };
+
+    // Gestione selezione interventi
+    const handleToggleSelectIntervento = (interventoId) => {
+        setSelectedInterventi(prev => {
+            if (prev.includes(interventoId)) {
+                return prev.filter(id => id !== interventoId);
+            } else {
+                return [...prev, interventoId];
+            }
+        });
+    };
+
+    const handleSelectAllInterventi = () => {
+        if (selectedInterventi.length === interventi.length) {
+            setSelectedInterventi([]);
+        } else {
+            setSelectedInterventi(interventi.map(i => i.id));
+        }
+    };
+
+    // Copia interventi selezionati
+    const handleCopyInterventi = () => {
+        if (selectedInterventi.length === 0) {
+            alert("Seleziona almeno un intervento da copiare.");
+            return;
+        }
+
+        const interventiToCopy = interventi
+            .filter(i => selectedInterventi.includes(i.id))
+            .map(intervento => {
+                // Estrai solo i campi dati, escludi id e campi di sistema
+                // eslint-disable-next-line no-unused-vars
+                const { id, created_at, updated_at, foglio_assistenza_id, tecnici, ...interventoData } = intervento;
+                return interventoData;
+            });
+
+        setCopiedInterventi(interventiToCopy);
+        localStorage.setItem('copiedInterventi', JSON.stringify(interventiToCopy));
+        alert(`${interventiToCopy.length} intervento/i copiato/i in memoria.`);
+        setSelectedInterventi([]); // Deseleziona dopo la copia
+    };
+
+    // Incolla interventi dalla memoria
+    const handlePasteInterventi = async () => {
+        if (!canModifyInterventi) {
+            alert("Non hai i permessi per aggiungere interventi a questo foglio.");
+            return;
+        }
+
+        if (copiedInterventi.length === 0) {
+            alert("Nessun intervento in memoria da incollare.");
+            return;
+        }
+
+        const conferma = window.confirm(
+            `Incollare ${copiedInterventi.length} intervento/i in questo foglio?\n\n` +
+            "Gli interventi saranno aggiunti mantenendo tutti i dati originali."
+        );
+
+        if (!conferma) return;
+
+        setActionLoading(true);
+        setError(null);
+
+        try {
+            // Prepara i dati per l'inserimento
+            const interventiToInsert = copiedInterventi.map(intervento => ({
+                ...intervento,
+                foglio_assistenza_id: foglioId, // Assegna al foglio corrente
+            }));
+
+            const { error: insertError } = await supabase
+                .from('interventi_assistenza')
+                .insert(interventiToInsert);
+
+            if (insertError) {
+                throw insertError;
+            }
+
+            await fetchFoglioData(); // Ricarica i dati
+            alert(`${interventiToInsert.length} intervento/i incollato/i con successo!`);
+            setSelectedInterventi([]);
+        } catch (err) {
+            console.error("Errore incolla interventi:", err);
+            setError("Errore durante l'incolla: " + err.message);
+            alert("Errore durante l'incolla degli interventi: " + err.message);
+        } finally {
+            setActionLoading(false);
+        }
     };
 
     const handlePrintSingleFoglio = async () => {
@@ -371,9 +478,25 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
             <hr style={{margin:'30px 0'}}/>
             <h3 id="intervento-form-section">Interventi di Assistenza Associati</h3>
             {canModifyInterventi && (
-                <button onClick={() => handleOpenInterventoForm(null)} disabled={actionLoading || showInterventoForm} style={{marginBottom:'1rem'}}>
-                    Aggiungi Nuovo Intervento
-                </button>
+                <div style={{display:'flex', gap:'10px', marginBottom:'1rem', flexWrap:'wrap', alignItems:'center'}}>
+                    <button onClick={() => handleOpenInterventoForm(null)} disabled={actionLoading || showInterventoForm}>
+                        Aggiungi Nuovo Intervento
+                    </button>
+                    <button
+                        onClick={handleCopyInterventi}
+                        disabled={actionLoading || selectedInterventi.length === 0}
+                        className="button secondary"
+                    >
+                        Copia Selezionati ({selectedInterventi.length})
+                    </button>
+                    <button
+                        onClick={handlePasteInterventi}
+                        disabled={actionLoading || copiedInterventi.length === 0}
+                        className="button secondary"
+                    >
+                        Incolla ({copiedInterventi.length})
+                    </button>
+                </div>
             )}
 
             {showInterventoForm && (
@@ -402,6 +525,8 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
                                 onEdit={() => handleOpenInterventoForm(intervento)}
                                 onDelete={() => handleDeleteIntervento(intervento.id)}
                                 onView={() => handleOpenInterventoForm(intervento, true)}
+                                isSelected={selectedInterventi.includes(intervento.id)}
+                                onToggleSelect={handleToggleSelectIntervento}
                             />
                         ))}
                     </div>
@@ -410,6 +535,16 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
                 <table>
                     <thead>
                         <tr>
+                            {canModifyInterventi && (
+                                <th style={{width:'50px'}}>
+                                    <input
+                                        type="checkbox"
+                                        checked={interventi.length > 0 && selectedInterventi.length === interventi.length}
+                                        onChange={handleSelectAllInterventi}
+                                        title="Seleziona tutti"
+                                    />
+                                </th>
+                            )}
                             <th>Data</th>
                             <th>Tecnico</th>
                             <th>N. Tecnici</th>
@@ -426,6 +561,15 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
                     <tbody>
                         {interventi.map(intervento => (
                         <tr key={intervento.id}>
+                            {canModifyInterventi && (
+                                <td style={{textAlign:'center'}}>
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedInterventi.includes(intervento.id)}
+                                        onChange={() => handleToggleSelectIntervento(intervento.id)}
+                                    />
+                                </td>
+                            )}
                             <td>{new Date(intervento.data_intervento_effettivo).toLocaleDateString()}</td>
                             <td>{intervento.tecnici ? `${intervento.tecnici.nome} ${intervento.tecnici.cognome}` : 'N/D'}</td>
                             <td>{intervento.numero_tecnici || '-'}</td>

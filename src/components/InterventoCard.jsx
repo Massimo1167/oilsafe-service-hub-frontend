@@ -1,13 +1,25 @@
 import React from 'react';
 
-function InterventoCard({ intervento, canModify, onEdit, onDelete, onView }) {
+function InterventoCard({ intervento, canModify, onEdit, onDelete, onView, isSelected, onToggleSelect }) {
     if (!intervento) return null;
     const formatDate = (d) => d ? new Date(d).toLocaleDateString() : '-';
     const tecnicoNome = intervento.tecnici
         ? `${intervento.tecnici.nome} ${intervento.tecnici.cognome}`
         : 'N/D';
     return (
-        <div className="intervento-card">
+        <div className="intervento-card" style={{position: 'relative', paddingTop: canModify ? '30px' : '10px'}}>
+            {canModify && onToggleSelect && (
+                <div style={{position: 'absolute', top: '10px', right: '10px'}}>
+                    <label style={{display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer'}}>
+                        <input
+                            type="checkbox"
+                            checked={isSelected || false}
+                            onChange={() => onToggleSelect(intervento.id)}
+                        />
+                        <span style={{fontSize: '0.9em'}}>Seleziona</span>
+                    </label>
+                </div>
+            )}
             <table>
                 <tbody>
                     <tr>
