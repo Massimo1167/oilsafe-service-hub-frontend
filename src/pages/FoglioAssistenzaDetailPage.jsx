@@ -160,10 +160,21 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
         const stored = localStorage.getItem('copiedInterventi');
         if (stored) {
             try {
-                setCopiedInterventi(JSON.parse(stored));
+                const parsed = JSON.parse(stored);
+                // Supporta sia il vecchio formato (array) che il nuovo formato (oggetto con foglioId)
+                if (Array.isArray(parsed)) {
+                    // Vecchio formato: solo array di interventi
+                    setCopiedInterventi(parsed);
+                } else if (parsed && parsed.interventi && Array.isArray(parsed.interventi)) {
+                    // Nuovo formato: oggetto con foglioId e interventi
+                    setCopiedInterventi(parsed.interventi);
+                } else {
+                    setCopiedInterventi([]);
+                }
             } catch (e) {
                 console.error('Errore parsing interventi copiati:', e);
                 localStorage.removeItem('copiedInterventi');
+                setCopiedInterventi([]);
             }
         }
     }, []);
@@ -240,6 +251,53 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
         }
     };
 
+    // Elimina interventi multipli selezionati
+    const handleDeleteMultipleInterventi = async () => {
+        if (!canModifyInterventi) {
+            alert("Non hai i permessi per eliminare interventi da questo foglio.");
+            return;
+        }
+
+        if (selectedInterventi.length === 0) {
+            alert("Seleziona almeno un intervento da eliminare.");
+            return;
+        }
+
+        const numeroInterventi = selectedInterventi.length;
+        const interventoPlural = numeroInterventi === 1 ? "intervento" : "interventi";
+
+        const conferma = window.confirm(
+            `ATTENZIONE: Sei sicuro di voler eliminare ${numeroInterventi} ${interventoPlural} selezionato/i?\n\n` +
+            "L'azione è IRREVERSIBILE."
+        );
+
+        if (!conferma) return;
+
+        setActionLoading(true);
+        setError(null);
+
+        try {
+            const { error: deleteError } = await supabase
+                .from('interventi_assistenza')
+                .delete()
+                .in('id', selectedInterventi);
+
+            if (deleteError) {
+                throw deleteError;
+            }
+
+            await fetchFoglioData(); // Ricarica i dati
+            setSelectedInterventi([]); // Resetta la selezione
+            alert(`${numeroInterventi} ${interventoPlural} eliminato/i con successo!`);
+        } catch (err) {
+            console.error("Errore eliminazione multipla interventi:", err);
+            setError("Errore durante l'eliminazione: " + err.message);
+            alert("Errore durante l'eliminazione degli interventi: " + err.message);
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
     // Permette la rimozione della firma cliente già salvata.
     // Aggiorna il record su Supabase impostando `firma_cliente_url` a null
     // e ricarica i dati del foglio dopo l'operazione.
@@ -296,8 +354,14 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
                 return interventoData;
             });
 
+        // Salva sia gli interventi che l'ID del foglio di origine
+        const dataToSave = {
+            foglioId: foglioId,
+            interventi: interventiToCopy
+        };
+
         setCopiedInterventi(interventiToCopy);
-        localStorage.setItem('copiedInterventi', JSON.stringify(interventiToCopy));
+        localStorage.setItem('copiedInterventi', JSON.stringify(dataToSave));
         alert(`${interventiToCopy.length} intervento/i copiato/i in memoria.`);
         setSelectedInterventi([]); // Deseleziona dopo la copia
     };
@@ -314,10 +378,25 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
             return;
         }
 
-        const conferma = window.confirm(
-            `Incollare ${copiedInterventi.length} intervento/i in questo foglio?\n\n` +
-            "Gli interventi saranno aggiunti mantenendo tutti i dati originali."
-        );
+        // Verifica se stiamo incollando nello stesso foglio da cui sono stati copiati
+        let isStessoFoglio = false;
+        try {
+            const storedData = JSON.parse(localStorage.getItem('copiedInterventi'));
+            isStessoFoglio = storedData?.foglioId === foglioId;
+        } catch {
+            // Se non riesce a parsare, assume formato vecchio (foglio diverso)
+            isStessoFoglio = false;
+        }
+
+        // Messaggio di conferma diverso se incolla nello stesso foglio
+        const interventoPlural = copiedInterventi.length === 1 ? "intervento" : "interventi";
+        const messaggioConferma = isStessoFoglio
+            ? `Incollare ${copiedInterventi.length} ${interventoPlural} in QUESTO STESSO foglio?\n\n` +
+              `Gli interventi saranno marcati con "** COPIA **" nelle osservazioni.`
+            : `Incollare ${copiedInterventi.length} ${interventoPlural} in questo foglio?\n\n` +
+              "Gli interventi saranno aggiunti mantenendo tutti i dati originali.";
+
+        const conferma = window.confirm(messaggioConferma);
 
         if (!conferma) return;
 
@@ -326,10 +405,22 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
 
         try {
             // Prepara i dati per l'inserimento
-            const interventiToInsert = copiedInterventi.map(intervento => ({
-                ...intervento,
-                foglio_assistenza_id: foglioId, // Assegna al foglio corrente
-            }));
+            const interventiToInsert = copiedInterventi.map(intervento => {
+                let osservazioni = intervento.osservazioni_intervento || '';
+
+                // Aggiungi "** COPIA **" solo se incolla nello stesso foglio
+                if (isStessoFoglio) {
+                    osservazioni = osservazioni.trim()
+                        ? `** COPIA **\n${osservazioni}`
+                        : '** COPIA **';
+                }
+
+                return {
+                    ...intervento,
+                    foglio_assistenza_id: foglioId, // Assegna al foglio corrente
+                    osservazioni_intervento: osservazioni
+                };
+            });
 
             const { error: insertError } = await supabase
                 .from('interventi_assistenza')
@@ -340,7 +431,10 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
             }
 
             await fetchFoglioData(); // Ricarica i dati
-            alert(`${interventiToInsert.length} intervento/i incollato/i con successo!`);
+            const successMessage = isStessoFoglio
+                ? `${interventiToInsert.length} ${interventoPlural} incollato/i con successo!\nOsservazioni marcate con "** COPIA **".`
+                : `${interventiToInsert.length} ${interventoPlural} incollato/i con successo!`;
+            alert(successMessage);
             setSelectedInterventi([]);
         } catch (err) {
             console.error("Errore incolla interventi:", err);
@@ -495,6 +589,13 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
                         className="button secondary"
                     >
                         Incolla ({copiedInterventi.length})
+                    </button>
+                    <button
+                        onClick={handleDeleteMultipleInterventi}
+                        disabled={actionLoading || selectedInterventi.length === 0}
+                        className="button danger"
+                    >
+                        Elimina Selezionati ({selectedInterventi.length})
                     </button>
                 </div>
             )}
