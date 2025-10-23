@@ -6,7 +6,8 @@
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 // Importa l'immagine del logo dal percorso assets. Assicurati che il logo sia in 'src/assets/'.
-import oilsafeLogo from '../assets/oilsafe-logo.png'; 
+import oilsafeLogo from '../assets/oilsafe-logo.png';
+import { parseFormattedText, stripMarkdown } from './textFormatter'; 
 
 // Funzione helper per caricare immagini da URL (per le firme) e convertirle in DataURL
 const loadImageAsDataURL = (url) => {
@@ -118,6 +119,65 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, op
         yPosition += textDimensions.h + (options.marginBottom || 2);
     };
 
+    // Renderizza una singola linea di testo con stili misti (grassetto, corsivo, ecc.)
+    const renderLineWithStyles = (currentDoc, lineSegments, x, y) => {
+        let currentX = x;
+        lineSegments.forEach(seg => {
+            currentDoc.setFont(undefined, seg.style);
+            currentDoc.text(seg.text, currentX, y);
+            currentX += currentDoc.getTextWidth(seg.text);
+        });
+    };
+
+    // Aggiunge testo formattato con supporto markdown (grassetto, corsivo)
+    const addFormattedTextWithMarkdown = (currentDoc, text, x, maxWidth) => {
+        if (!text || String(text).trim() === '') {
+            currentDoc.setFont(undefined, 'normal');
+            currentDoc.text('-', x, yPosition);
+            yPosition += 5;
+            return;
+        }
+
+        const segments = parseFormattedText(String(text));
+        const fontSize = 10;
+        const lineHeight = fontSize / 2.83465 * 1.2;
+
+        let currentLine = [];
+        let currentLineWidth = 0;
+
+        segments.forEach(segment => {
+            const words = segment.text.split(/(\s+)/); // Mantiene anche gli spazi
+
+            words.forEach((word) => {
+                if (!word) return; // Skip empty strings
+
+                currentDoc.setFont(undefined, segment.style);
+                const wordWidth = currentDoc.getTextWidth(word);
+
+                // Se la parola non entra nella linea corrente, stampa la linea e vai a capo
+                if (currentLineWidth + wordWidth > maxWidth && currentLine.length > 0) {
+                    checkAndAddPage(currentDoc, lineHeight);
+                    renderLineWithStyles(currentDoc, currentLine, x, yPosition);
+                    yPosition += lineHeight;
+                    currentLine = [];
+                    currentLineWidth = 0;
+                }
+
+                currentLine.push({ text: word, style: segment.style });
+                currentLineWidth += wordWidth;
+            });
+        });
+
+        // Stampa l'ultima linea rimanente
+        if (currentLine.length > 0) {
+            checkAndAddPage(currentDoc, lineHeight);
+            renderLineWithStyles(currentDoc, currentLine, x, yPosition);
+            yPosition += lineHeight;
+        }
+
+        yPosition += 2; // Margine dopo blocco di testo
+    };
+
     // Aggiunge etichetta (bold) e valore, cercando di tenerli uniti
     const addLabelAndValue = (currentDoc, label, value, x, labelWidth = 45) => {
         const labelFontSize = 10;
@@ -130,7 +190,6 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, op
         let valueLines = ['-']; 
 
         if (value !== null && typeof value !== 'undefined' && String(value).trim() !== '') {
-            const valueX = x + labelWidth + 2; 
             const calculatedValueMaxWidth = contentWidth - (labelWidth + 2);
             valueLines = currentDoc.splitTextToSize(String(value), calculatedValueMaxWidth);
             valueTextHeight = currentDoc.getTextDimensions(valueLines, {fontSize: valueFontSize}).h;
@@ -146,10 +205,9 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, op
         currentDoc.setFontSize(valueFontSize);
         currentDoc.setFont(undefined, 'normal');
         if (value !== null && typeof value !== 'undefined' && String(value).trim() !== '') {
-             const valueX = x + labelWidth + 2;
              const calculatedValueMaxWidth = contentWidth - (labelWidth + 2);
              const currentValLines = currentDoc.splitTextToSize(String(value), calculatedValueMaxWidth);
-             currentDoc.text(currentValLines, valueX, yPosition);
+             currentDoc.text(currentValLines, x + labelWidth + 2, yPosition);
         }
         yPosition += Math.max(labelTextHeight, valueTextHeight) + interlineaPiccola;
     };
@@ -211,21 +269,21 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, op
         addLabelAndValue(doc, 'Nota Stato Foglio:', foglioData.nota_stato_foglio, marginLeft);
     }
     if (foglioData.creato_da_user_id) addLabelAndValue(doc, 'Rif. Utente Oilsafe:', `${foglioData.creato_da_user_id.substring(0,8)}...`, marginLeft);
-    yPosition += 3; 
+    yPosition += 3;
 
-    // Funzione interna per blocchi di testo con titolo, per non separare titolo e contenuto
-    const renderBlock = (label, value) => {
+    // Funzione per blocchi di testo con supporto formattazione markdown
+    const renderBlockWithFormatting = (label, value) => {
         const labelHeight = doc.getTextDimensions(label, {fontSize: 10, fontStyle: 'bold'}).h;
-        const valueLines = doc.splitTextToSize(String(value || '-'), contentWidth);
-        const valueHeight = doc.getTextDimensions(valueLines, {fontSize: 10}).h;
-        checkAndAddPage(doc, labelHeight + valueHeight + 5);
+        const estimatedHeight = 30; // Stima per check pagina iniziale
+        checkAndAddPage(doc, labelHeight + estimatedHeight);
+
         addFormattedText(doc, label, marginLeft, {fontStyle: 'bold', marginBottom: 1});
-        addFormattedText(doc, value || 'N/D', marginLeft, { maxWidth: contentWidth, marginBottom: 2 });
+        addFormattedTextWithMarkdown(doc, value || 'N/D', marginLeft, contentWidth);
     };
 
-    // MOTIVO, DESCRIZIONE, MATERIALI, OSSERVAZIONI
-    renderBlock('Motivo Intervento Generale:', foglioData.motivo_intervento_generale);
-    renderBlock('Descrizione Lavoro Generale:', foglioData.descrizione_lavoro_generale);
+    // MOTIVO, DESCRIZIONE, MATERIALI, OSSERVAZIONI (con supporto formattazione markdown)
+    renderBlockWithFormatting('Motivo Intervento Generale:', foglioData.motivo_intervento_generale);
+    renderBlockWithFormatting('Descrizione Lavoro Generale:', foglioData.descrizione_lavoro_generale);
     yPosition += 3;
 
     // Calcolo totali interventi
@@ -257,8 +315,8 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, op
                 int.ore_lavoro_effettive || '-',
                 int.ore_viaggio || '-',
                 int.km_percorsi || '-',
-                int.descrizione_attivita_svolta_intervento || '-',
-                int.osservazioni_intervento || '-',
+                stripMarkdown(int.descrizione_attivita_svolta_intervento) || '-',
+                stripMarkdown(int.osservazioni_intervento) || '-',
                 [(int.vitto ? 'V' : ''), (int.autostrada ? 'A' : ''), (int.alloggio ? 'H' : '')].filter(Boolean).join('/') || '-'
             ]);
 
@@ -327,8 +385,21 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, op
                     ? doc.autoTable.previous.finalY + rowHeightSpace
                     : yPosition;
 
-                addLabelAndValue(doc, 'Descrizione Attività:', int.descrizione_attivita_svolta_intervento || '-', marginLeft + 2);
-                addLabelAndValue(doc, 'Osservazioni:', int.osservazioni_intervento || '-', marginLeft + 2);
+                // Descrizione Attività con formattazione markdown
+                doc.setFontSize(10);
+                doc.setFont(undefined, 'bold');
+                checkAndAddPage(doc, 5);
+                doc.text('Descrizione Attività:', marginLeft + 2, yPosition);
+                yPosition += 5;
+                addFormattedTextWithMarkdown(doc, int.descrizione_attivita_svolta_intervento, marginLeft + 2, contentWidth - 2);
+
+                // Osservazioni con formattazione markdown
+                doc.setFontSize(10);
+                doc.setFont(undefined, 'bold');
+                checkAndAddPage(doc, 5);
+                doc.text('Osservazioni:', marginLeft + 2, yPosition);
+                yPosition += 5;
+                addFormattedTextWithMarkdown(doc, int.osservazioni_intervento, marginLeft + 2, contentWidth - 2);
             });
             yPosition += 3;
         }
@@ -337,8 +408,8 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, op
     }
 
     addLine(doc);
-    renderBlock(`Materiali Forniti (Generale):`, foglioData.materiali_forniti_generale || 'Nessuno');
-    renderBlock(`Osservazioni Generali (Foglio):`, foglioData.osservazioni_generali || 'Nessuna');
+    renderBlockWithFormatting(`Materiali Forniti (Generale):`, foglioData.materiali_forniti_generale || 'Nessuno');
+    renderBlockWithFormatting(`Osservazioni Generali (Foglio):`, foglioData.osservazioni_generali || 'Nessuna');
     yPosition += 5;
 
     addLine(doc);

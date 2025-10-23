@@ -235,6 +235,9 @@ function InterventoAssistenzaForm({
                   }
                 />
               </div>
+              <small style={{ color: '#666', fontSize: '0.85em', marginTop: '3px', display: 'block' }}>
+                💡 Formattazione: **grassetto**, *corsivo*, ***grassetto corsivo***
+              </small>
             </div>
 
             {formTipoIntervento === 'In Loco' && (
@@ -280,6 +283,9 @@ function InterventoAssistenzaForm({
                   }
                 />
               </div>
+              <small style={{ color: '#666', fontSize: '0.85em', marginTop: '3px', display: 'block' }}>
+                💡 Formattazione: **grassetto**, *corsivo*, ***grassetto corsivo***
+              </small>
             </div>
             </fieldset>
 
