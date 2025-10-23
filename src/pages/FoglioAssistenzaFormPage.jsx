@@ -572,6 +572,9 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
                         <textarea id="formMotivoGenerale" value={formMotivoGenerale} onChange={(e) => setFormMotivoGenerale(e.target.value)} />
                         <VoiceInputButton onTranscript={txt => setFormMotivoGenerale(prev => (prev ? prev + ' ' : '') + txt)} />
                     </div>
+                    <small style={{ color: '#666', fontSize: '0.85em', marginTop: '3px', display: 'block' }}>
+                        💡 Formattazione: **grassetto**, *corsivo*, ***grassetto corsivo***
+                    </small>
                 </div>
                 <div>
                     <label htmlFor="formDescrizioneGenerale">Descrizione Lavoro Generale:</label>
@@ -579,6 +582,9 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
                         <textarea id="formDescrizioneGenerale" value={formDescrizioneGenerale} onChange={(e) => setFormDescrizioneGenerale(e.target.value)} />
                         <VoiceInputButton onTranscript={txt => setFormDescrizioneGenerale(prev => (prev ? prev + ' ' : '') + txt)} />
                     </div>
+                    <small style={{ color: '#666', fontSize: '0.85em', marginTop: '3px', display: 'block' }}>
+                        💡 Formattazione: **grassetto**, *corsivo*, ***grassetto corsivo***
+                    </small>
                 </div>
                 <div>
                     <label htmlFor="formMaterialiForniti">Materiali Forniti (Generale):</label>
@@ -586,6 +592,9 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
                         <textarea id="formMaterialiForniti" value={formMaterialiForniti} onChange={(e) => setFormMaterialiForniti(e.target.value)} />
                         <VoiceInputButton onTranscript={txt => setFormMaterialiForniti(prev => (prev ? prev + ' ' : '') + txt)} />
                     </div>
+                    <small style={{ color: '#666', fontSize: '0.85em', marginTop: '3px', display: 'block' }}>
+                        💡 Formattazione: **grassetto**, *corsivo*, ***grassetto corsivo***
+                    </small>
                 </div>
                 <div>
                     <label htmlFor="formOsservazioniGenerali">Osservazioni Generali:</label>
@@ -593,6 +602,9 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
                         <textarea id="formOsservazioniGenerali" value={formOsservazioniGenerali} onChange={(e) => setFormOsservazioniGenerali(e.target.value)} />
                         <VoiceInputButton onTranscript={txt => setFormOsservazioniGenerali(prev => (prev ? prev + ' ' : '') + txt)} />
                     </div>
+                    <small style={{ color: '#666', fontSize: '0.85em', marginTop: '3px', display: 'block' }}>
+                        💡 Formattazione: **grassetto**, *corsivo*, ***grassetto corsivo***
+                    </small>
                 </div>
                 <div>
                     <label>Firma Cliente:</label>
