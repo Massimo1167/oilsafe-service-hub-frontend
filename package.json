@@ -1,8 +1,8 @@
 {
   "name": "oilsafe-service-frontend",
   "private": true,
-  "version": "0.8.15",
-  "description": "Data 22/10/2025 : Cancellazione interventi multipli (prev: Copia ed Incolla interventi su fogli; Auto update anagrafiche; Salvataggio dati su txt per invio email; colore banda debug + lista tabella fogli + Logo+ Univocità Cliente + Ordine ; risolto renew sessione;)",
+  "version": "0.8.16",
+  "description": "23/10/2025: Formattazione Markdown (grassetto/corsivo) nei PDF; Cancellazione interventi multipli; Copia ed Incolla interventi su fogli con marcatore COPIA; Auto update anagrafiche; Salvataggio dati su txt per invio email; Colore banda debug + lista tabella fogli + Logo; Univocità Cliente + Ordine; Risolto renew sessione",
   "type": "module",
   "scripts": {
     "dev": "vite",

@@ -23,11 +23,18 @@ function DashboardPage({ session }) { // Riceve la sessione per personalizzare i
    
       }
       <p style={{ fontStyle: 'italic', marginTop: '1em' }}>
-        Versione: {__APP_VERSION__} - 
+        {/* eslint-disable-next-line no-undef */}
+        Versione: {__APP_VERSION__}
       </p>
-      <p style={{ fontStyle: 'italic', marginTop: '1em' }}>
-        Descrizione: {__APP_DESCRIPTION__}
-      </p>
+      <div style={{ fontStyle: 'italic', marginTop: '1em' }}>
+        <p style={{ marginBottom: '0.5em', fontWeight: 'bold' }}>Modifiche recenti:</p>
+        <ul style={{ marginTop: '0.5em', paddingLeft: '20px', lineHeight: '1.6' }}>
+          {/* eslint-disable-next-line no-undef */}
+          {__APP_DESCRIPTION__.split(';').map((item, idx) => (
+            <li key={idx}>{item.trim()}</li>
+          ))}
+        </ul>
+      </div>
       <p>DB collegato: {import.meta.env.VITE_SUPABASE_DB_LABEL}</p>
       <p style={{ fontStyle: 'italic', marginTop: '1em' }}>
         Sviluppato da Massimo Centrella 
