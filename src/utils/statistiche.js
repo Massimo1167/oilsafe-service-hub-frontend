@@ -349,3 +349,103 @@ export const getTopTechnicians = async (limit = 5) => {
     return [];
   }
 };
+
+/**
+ * Get temporal trend data for charts
+ * Returns daily/weekly counts for the specified period
+ */
+export const getTrendData = async (periodo = 'mese_corrente') => {
+  const dates = getDateRanges();
+  let startDate, endDate, groupBy;
+
+  switch (periodo) {
+    case 'settimana_corrente':
+    case 'settimana_precedente':
+      startDate = periodo === 'settimana_corrente'
+        ? dates.inizioSettimanaCorrente
+        : dates.inizioSettimanaPrecedente;
+      endDate = periodo === 'settimana_corrente'
+        ? dates.oggi
+        : dates.fineSettimanaPrecedente;
+      groupBy = 'day';
+      break;
+    case 'mese_corrente':
+    case 'mese_precedente':
+      startDate = periodo === 'mese_corrente'
+        ? dates.inizioMeseCorrente
+        : dates.inizioMesePrecedente;
+      endDate = periodo === 'mese_corrente'
+        ? dates.oggi
+        : dates.fineMesePrecedente;
+      groupBy = 'week';
+      break;
+    case 'anno_corrente':
+      startDate = dates.inizioAnnoCorrente;
+      endDate = dates.oggi;
+      groupBy = 'month';
+      break;
+    default:
+      startDate = dates.inizioMeseCorrente;
+      endDate = dates.oggi;
+      groupBy = 'week';
+  }
+
+  try {
+    // Recupera tutti i fogli nel periodo
+    const { data, error } = await supabase
+      .from('fogli_assistenza')
+      .select('data_apertura_foglio, stato_foglio')
+      .gte('data_apertura_foglio', formatDateForQuery(startDate))
+      .lte('data_apertura_foglio', formatDateForQuery(endDate))
+      .order('data_apertura_foglio');
+
+    if (error) {
+      console.error('Errore getTrendData:', error);
+      return [];
+    }
+
+    // Raggruppa i dati per periodo
+    const grouped = {};
+
+    data.forEach(item => {
+      const date = new Date(item.data_apertura_foglio);
+      let key;
+
+      if (groupBy === 'day') {
+        key = formatDateForQuery(date);
+      } else if (groupBy === 'week') {
+        // Calcola inizio settimana
+        const weekStart = new Date(date);
+        const day = weekStart.getDay() || 7;
+        weekStart.setDate(date.getDate() - day + 1);
+        key = formatDateForQuery(weekStart);
+      } else { // month
+        key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      }
+
+      if (!grouped[key]) {
+        grouped[key] = {
+          periodo: key,
+          totale: 0,
+          aperti: 0,
+          completati: 0,
+          inLavorazione: 0
+        };
+      }
+
+      grouped[key].totale++;
+
+      if (item.stato_foglio === 'Aperto') grouped[key].aperti++;
+      if (item.stato_foglio === 'Completato') grouped[key].completati++;
+      if (item.stato_foglio === 'In Lavorazione') grouped[key].inLavorazione++;
+    });
+
+    // Converti in array e ordina
+    return Object.values(grouped).sort((a, b) =>
+      a.periodo.localeCompare(b.periodo)
+    );
+  } catch (error) {
+    console.error('Errore getTrendData:', error);
+    return [];
+  }
+};
