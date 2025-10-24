@@ -13,10 +13,12 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.49.8",
     "@types/papaparse": "^5.3.16",
+    "date-fns": "^4.1.0",
     "jspdf": "~2.5.1",
     "jspdf-autotable": "~3.8.2",
     "papaparse": "^5.5.3",
     "react": "^19.1.0",
+    "react-datepicker": "^8.8.0",
     "react-dom": "^19.1.0",
     "react-router-dom": "^7.6.1",
     "react-signature-canvas": "^1.0.6",

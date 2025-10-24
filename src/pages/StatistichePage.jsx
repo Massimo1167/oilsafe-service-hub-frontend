@@ -7,6 +7,7 @@ import { getStatsByTimePeriod, getTopClients, getTopTechnicians, getTrendData } 
 import { STATO_FOGLIO_STEPS } from '../utils/statoFoglio';
 import FogliPerStatoChart from '../components/charts/FogliPerStatoChart';
 import TrendTemporaleChart from '../components/charts/TrendTemporaleChart';
+import DateRangePicker from '../components/DateRangePicker';
 import {
   exportStatsByPeriodToExcel,
   exportTopClientsToExcel,
@@ -17,6 +18,8 @@ import {
 
 function StatistichePage({ session }) {
   const [selectedPeriod, setSelectedPeriod] = useState('mese_corrente');
+  const [isCustomPeriod, setIsCustomPeriod] = useState(false);
+  const [customDateRange, setCustomDateRange] = useState({ start: null, end: null });
   const [statsPeriod, setStatsPeriod] = useState(null);
   const [topClients, setTopClients] = useState([]);
   const [topTechs, setTopTechs] = useState([]);
@@ -28,12 +31,17 @@ function StatistichePage({ session }) {
     const fetchStatistics = async () => {
       setLoading(true);
       try {
-        // Carica statistiche per periodo selezionato
-        const periodData = await getStatsByTimePeriod(selectedPeriod);
+        // Determina il range da usare
+        const customRange = isCustomPeriod && customDateRange.start && customDateRange.end
+          ? customDateRange
+          : null;
+
+        // Carica statistiche per periodo selezionato o custom
+        const periodData = await getStatsByTimePeriod(selectedPeriod, customRange);
         setStatsPeriod(periodData);
 
         // Carica trend temporale
-        const trend = await getTrendData(selectedPeriod);
+        const trend = await getTrendData(selectedPeriod, customRange);
         setTrendData(trend);
 
         // Carica top clienti e tecnici
@@ -51,10 +59,27 @@ function StatistichePage({ session }) {
     if (session) {
       fetchStatistics();
     }
-  }, [session, selectedPeriod]);
+  }, [session, selectedPeriod, isCustomPeriod, customDateRange]);
 
   const handlePeriodChange = (e) => {
-    setSelectedPeriod(e.target.value);
+    const value = e.target.value;
+    setSelectedPeriod(value);
+
+    // Se seleziona "personalizzato", attiva il date picker
+    if (value === 'personalizzato') {
+      setIsCustomPeriod(true);
+      // Inizializza con mese corrente come default
+      const oggi = new Date();
+      const inizioMese = new Date(oggi.getFullYear(), oggi.getMonth(), 1);
+      setCustomDateRange({ start: inizioMese, end: oggi });
+    } else {
+      setIsCustomPeriod(false);
+      setCustomDateRange({ start: null, end: null });
+    }
+  };
+
+  const handleCustomRangeChange = (startDate, endDate) => {
+    setCustomDateRange({ start: startDate, end: endDate });
   };
 
   const getPeriodLabel = (period) => {
@@ -63,7 +88,8 @@ function StatistichePage({ session }) {
       'settimana_precedente': 'Settimana Precedente',
       'mese_corrente': 'Mese Corrente',
       'mese_precedente': 'Mese Precedente',
-      'anno_corrente': 'Anno Corrente'
+      'anno_corrente': 'Anno Corrente',
+      'personalizzato': 'Personalizzato'
     };
     return labels[period] || period;
   };
@@ -108,6 +134,7 @@ function StatistichePage({ session }) {
             <option value="mese_corrente">Mese Corrente</option>
             <option value="mese_precedente">Mese Precedente</option>
             <option value="anno_corrente">Anno Corrente</option>
+            <option value="personalizzato">📅 Personalizzato</option>
           </select>
 
           {/* Toggle Grafici/Tabelle */}
@@ -163,6 +190,15 @@ function StatistichePage({ session }) {
           </button>
         </div>
       </div>
+
+      {/* Date Range Picker - Mostrato solo se periodo personalizzato */}
+      {isCustomPeriod && (
+        <DateRangePicker
+          onRangeChange={handleCustomRangeChange}
+          initialStart={customDateRange.start}
+          initialEnd={customDateRange.end}
+        />
+      )}
 
       {loading ? (
         <div style={{ textAlign: 'center', padding: '2rem' }}>
