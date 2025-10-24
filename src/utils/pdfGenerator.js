@@ -299,6 +299,49 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, op
         });
     }
 
+    // Funzione per aggregare ore per tipo_intervento e mansione
+    const aggregaOrePerTipoEMansione = (interventi) => {
+        const aggregazione = {
+            'In Loco': {},  // Chiave corretta con L maiuscola (come nel DB)
+            'Remoto': {}
+        };
+
+        interventi.forEach(int => {
+            // Normalizza il tipo intervento per gestire case sensitivity
+            const tipoInterventoRaw = int.tipo_intervento || 'In Loco';
+            const tipoIntervento = (tipoInterventoRaw === 'In Loco' || tipoInterventoRaw === 'In loco')
+                ? 'In Loco'
+                : 'Remoto';
+
+            const mansione = int.mansioni?.ruolo || 'Non Specificato';
+            const numTec = parseFloat(int.numero_tecnici) || 1;
+            const oreLavoro = (parseFloat(int.ore_lavoro_effettive) || 0) * numTec;
+
+            // Inizializza se non esiste
+            if (!aggregazione[tipoIntervento]) {
+                aggregazione[tipoIntervento] = {};
+            }
+
+            // Aggiungi o somma ore
+            if (!aggregazione[tipoIntervento][mansione]) {
+                aggregazione[tipoIntervento][mansione] = 0;
+            }
+            aggregazione[tipoIntervento][mansione] += oreLavoro;
+        });
+
+        return aggregazione;
+    };
+
+    // Calcola aggregazione ore per tipo e mansione
+    const orePerTipoMansione = aggregaOrePerTipoEMansione(interventiData || []);
+
+    // Debug: log aggregazione per verificare dati
+    console.log('PDFGenerator: Aggregazione ore per tipo e mansione:', {
+        interventiTotali: interventiData?.length || 0,
+        aggregazione: orePerTipoMansione,
+        chiavi: Object.keys(orePerTipoMansione)
+    });
+
     // TABELLA INTERVENTI
     if (interventiData && interventiData.length > 0) {
         checkAndAddPage(doc, 20); 
@@ -419,6 +462,85 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, op
     addLabelAndValue(doc, 'Ore Lavoro x Tecnici:', totaleOreLavoroTecnici.toFixed(2), marginLeft);
     yPosition += 5;
 
+    // DETTAGLIO ORE PER TIPO INTERVENTO E MANSIONE
+    addFormattedText(doc, 'Dettaglio Ore per Tipo Intervento e Mansione:', marginLeft, {
+        fontSize: 10,
+        fontStyle: 'bold',
+        marginBottom: 3
+    });
+
+    // Funzione per renderizzare una sezione tipo intervento
+    const renderTipoInterventoSection = (currentDoc, tipoLabel, mansioniObj) => {
+        // Converti oggetto in array e ordina per ore decrescenti
+        const mansioniArray = Object.entries(mansioniObj)
+            .map(([mansione, ore]) => ({ mansione, ore }))
+            .sort((a, b) => b.ore - a.ore); // Ordine decrescente
+
+        if (mansioniArray.length === 0) {
+            return 0; // Nessuna mansione, non renderizzare
+        }
+
+        // Calcola totale per questo tipo
+        const totaleTipo = mansioniArray.reduce((sum, item) => sum + item.ore, 0);
+
+        // Check spazio per tabella (stima 8px per riga + header)
+        const estimatedHeight = (mansioniArray.length + 3) * 6;
+        checkAndAddPage(currentDoc, estimatedHeight);
+
+        // Header tipo intervento
+        currentDoc.setFontSize(9);
+        currentDoc.setFont(undefined, 'bold');
+        currentDoc.text(tipoLabel + ':', marginLeft + 5, yPosition);
+        yPosition += 5;
+
+        // Tabella mansioni
+        currentDoc.setFontSize(8);
+        currentDoc.setFont(undefined, 'normal');
+
+        mansioniArray.forEach(item => {
+            const mansioneText = `  • ${item.mansione}`;
+            const oreText = `${item.ore.toFixed(2)}h`;
+
+            currentDoc.text(mansioneText, marginLeft + 8, yPosition);
+            currentDoc.text(oreText, marginLeft + 85, yPosition, { align: 'right' });
+            yPosition += 4;
+        });
+
+        // Riga totale per tipo
+        yPosition += 1;
+        currentDoc.setFont(undefined, 'bold');
+        currentDoc.text(`Totale ${tipoLabel}:`, marginLeft + 8, yPosition);
+        currentDoc.text(`${totaleTipo.toFixed(2)}h`, marginLeft + 85, yPosition, { align: 'right' });
+        currentDoc.setFont(undefined, 'normal');
+        yPosition += 6;
+
+        return totaleTipo;
+    };
+
+    // Renderizza sezioni
+    let totaleInLoco = 0;
+    let totaleRemoto = 0;
+
+    if (orePerTipoMansione['In Loco'] && Object.keys(orePerTipoMansione['In Loco']).length > 0) {
+        totaleInLoco = renderTipoInterventoSection(doc, 'In Loco', orePerTipoMansione['In Loco']);
+    }
+
+    if (orePerTipoMansione['Remoto'] && Object.keys(orePerTipoMansione['Remoto']).length > 0) {
+        totaleRemoto = renderTipoInterventoSection(doc, 'Remoto', orePerTipoMansione['Remoto']);
+    }
+
+    // Verifica totale (per debug)
+    const totaleCalcolato = totaleInLoco + totaleRemoto;
+    if (Math.abs(totaleCalcolato - totaleOreLavoroTecnici) > 0.1) {
+        console.warn('PDFGenerator: Discrepanza totali ore:', {
+            totaleOreLavoroTecnici,
+            totaleCalcolato,
+            diff: Math.abs(totaleCalcolato - totaleOreLavoroTecnici)
+        });
+    }
+
+    yPosition += 3;
+
     // FIRME
     const signatureWidth = 52; 
     const signatureHeight = 26;
@@ -472,6 +594,11 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, op
     const baseName = `${numeroFoglio}_${codiceCommessa}`;
 
     const percorsoSalvataggio = foglioData.commesse?.percorso_salvataggio;
+
+    // Se è in modalità preview, ritorna il PDF come DataURL invece di salvarlo
+    if (options.preview) {
+        return doc.output('dataurlstring');
+    }
 
     // Salva sempre il PDF con il nome semplificato
     doc.save(fileName);
