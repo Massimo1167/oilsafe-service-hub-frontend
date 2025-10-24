@@ -183,35 +183,44 @@ export const getStatsForTechnician = async (technicianId) => {
 
 /**
  * Get time-based statistics (for advanced statistics page)
+ * @param {string} periodo - Predefined period or 'personalizzato'
+ * @param {object} customRange - {start: Date, end: Date} for custom period
  */
-export const getStatsByTimePeriod = async (periodo = 'mese_corrente') => {
+export const getStatsByTimePeriod = async (periodo = 'mese_corrente', customRange = null) => {
   const dates = getDateRanges();
   let startDate, endDate;
 
-  switch (periodo) {
-    case 'settimana_corrente':
-      startDate = dates.inizioSettimanaCorrente;
-      endDate = dates.oggi;
-      break;
-    case 'settimana_precedente':
-      startDate = dates.inizioSettimanaPrecedente;
-      endDate = dates.fineSettimanaPrecedente;
-      break;
-    case 'mese_corrente':
-      startDate = dates.inizioMeseCorrente;
-      endDate = dates.oggi;
-      break;
-    case 'mese_precedente':
-      startDate = dates.inizioMesePrecedente;
-      endDate = dates.fineMesePrecedente;
-      break;
-    case 'anno_corrente':
-      startDate = dates.inizioAnnoCorrente;
-      endDate = dates.oggi;
-      break;
-    default:
-      startDate = dates.inizioMeseCorrente;
-      endDate = dates.oggi;
+  // Se customRange è specificato, usa quelle date
+  if (customRange && customRange.start && customRange.end) {
+    startDate = customRange.start;
+    endDate = customRange.end;
+  } else {
+    // Altrimenti usa il periodo predefinito
+    switch (periodo) {
+      case 'settimana_corrente':
+        startDate = dates.inizioSettimanaCorrente;
+        endDate = dates.oggi;
+        break;
+      case 'settimana_precedente':
+        startDate = dates.inizioSettimanaPrecedente;
+        endDate = dates.fineSettimanaPrecedente;
+        break;
+      case 'mese_corrente':
+        startDate = dates.inizioMeseCorrente;
+        endDate = dates.oggi;
+        break;
+      case 'mese_precedente':
+        startDate = dates.inizioMesePrecedente;
+        endDate = dates.fineMesePrecedente;
+        break;
+      case 'anno_corrente':
+        startDate = dates.inizioAnnoCorrente;
+        endDate = dates.oggi;
+        break;
+      default:
+        startDate = dates.inizioMeseCorrente;
+        endDate = dates.oggi;
+    }
   }
 
   try {
@@ -353,41 +362,62 @@ export const getTopTechnicians = async (limit = 5) => {
 /**
  * Get temporal trend data for charts
  * Returns daily/weekly counts for the specified period
+ * @param {string} periodo - Predefined period or 'personalizzato'
+ * @param {object} customRange - {start: Date, end: Date} for custom period
  */
-export const getTrendData = async (periodo = 'mese_corrente') => {
+export const getTrendData = async (periodo = 'mese_corrente', customRange = null) => {
   const dates = getDateRanges();
   let startDate, endDate, groupBy;
 
-  switch (periodo) {
-    case 'settimana_corrente':
-    case 'settimana_precedente':
-      startDate = periodo === 'settimana_corrente'
-        ? dates.inizioSettimanaCorrente
-        : dates.inizioSettimanaPrecedente;
-      endDate = periodo === 'settimana_corrente'
-        ? dates.oggi
-        : dates.fineSettimanaPrecedente;
+  // Se customRange è specificato, usa quelle date e determina groupBy in base al range
+  if (customRange && customRange.start && customRange.end) {
+    startDate = customRange.start;
+    endDate = customRange.end;
+
+    // Calcola la differenza in giorni per determinare il raggruppamento
+    const diffTime = Math.abs(endDate - startDate);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays <= 14) {
       groupBy = 'day';
-      break;
-    case 'mese_corrente':
-    case 'mese_precedente':
-      startDate = periodo === 'mese_corrente'
-        ? dates.inizioMeseCorrente
-        : dates.inizioMesePrecedente;
-      endDate = periodo === 'mese_corrente'
-        ? dates.oggi
-        : dates.fineMesePrecedente;
+    } else if (diffDays <= 90) {
       groupBy = 'week';
-      break;
-    case 'anno_corrente':
-      startDate = dates.inizioAnnoCorrente;
-      endDate = dates.oggi;
+    } else {
       groupBy = 'month';
-      break;
-    default:
-      startDate = dates.inizioMeseCorrente;
-      endDate = dates.oggi;
-      groupBy = 'week';
+    }
+  } else {
+    // Altrimenti usa il periodo predefinito
+    switch (periodo) {
+      case 'settimana_corrente':
+      case 'settimana_precedente':
+        startDate = periodo === 'settimana_corrente'
+          ? dates.inizioSettimanaCorrente
+          : dates.inizioSettimanaPrecedente;
+        endDate = periodo === 'settimana_corrente'
+          ? dates.oggi
+          : dates.fineSettimanaPrecedente;
+        groupBy = 'day';
+        break;
+      case 'mese_corrente':
+      case 'mese_precedente':
+        startDate = periodo === 'mese_corrente'
+          ? dates.inizioMeseCorrente
+          : dates.inizioMesePrecedente;
+        endDate = periodo === 'mese_corrente'
+          ? dates.oggi
+          : dates.fineMesePrecedente;
+        groupBy = 'week';
+        break;
+      case 'anno_corrente':
+        startDate = dates.inizioAnnoCorrente;
+        endDate = dates.oggi;
+        groupBy = 'month';
+        break;
+      default:
+        startDate = dates.inizioMeseCorrente;
+        endDate = dates.oggi;
+        groupBy = 'week';
+    }
   }
 
   try {
