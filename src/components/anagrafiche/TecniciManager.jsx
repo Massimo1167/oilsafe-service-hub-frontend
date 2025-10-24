@@ -24,9 +24,12 @@ function TecniciManager({ session, onDataChanged }) {
     const [formCognome, setFormCognome] = useState('');
     const [formEmail, setFormEmail] = useState('');
     const [formUserId, setFormUserId] = useState('');
+    const [formMansioneId, setFormMansioneId] = useState('');
     const [editingTecnico, setEditingTecnico] = useState(null);
     const [users, setUsers] = useState([]);
+    const [mansioni, setMansioni] = useState([]);
     const [filterUser, setFilterUser] = useState('');
+    const [filterMansione, setFilterMansione] = useState('');
 
     const userRole = (session?.user?.role || '').trim().toLowerCase();
     const canManage = userRole === 'admin' || userRole === 'manager';
@@ -37,6 +40,14 @@ function TecniciManager({ session, onDataChanged }) {
             (u.full_name || '').toLowerCase().includes(filterUser.toLowerCase())
         ),
         [users, filterUser]
+    );
+
+    const filteredMansioni = useMemo(
+        () => mansioni.filter(m =>
+            (m.ruolo || '').toLowerCase().includes(filterMansione.toLowerCase()) ||
+            (m.categoria || '').toLowerCase().includes(filterMansione.toLowerCase())
+        ),
+        [mansioni, filterMansione]
     );
 
     const fetchTecnici = async (nomeFiltro, cognomeFiltro) => {
@@ -90,12 +101,32 @@ function TecniciManager({ session, onDataChanged }) {
         fetchUsers();
     }, [canManage]);
 
+    useEffect(() => {
+        if (!canManage) return;
+        const fetchMansioni = async () => {
+            const { data, error: mansioniError } = await supabase
+                .from('mansioni')
+                .select('id, ruolo, categoria, livello')
+                .eq('attivo', true)
+                .order('categoria')
+                .order('livello')
+                .order('ruolo');
+            if (mansioniError) {
+                console.error('Errore fetch mansioni:', mansioniError);
+            }
+            setMansioni(data || []);
+        };
+        fetchMansioni();
+    }, [canManage]);
+
     const resetForm = () => {
         setFormNome('');
         setFormCognome('');
         setFormEmail('');
         setFormUserId('');
+        setFormMansioneId('');
         setFilterUser('');
+        setFilterMansione('');
         setEditingTecnico(null);
     };
     
@@ -106,7 +137,9 @@ function TecniciManager({ session, onDataChanged }) {
         setFormCognome(tecnico.cognome);
         setFormEmail(tecnico.email || '');
         setFormUserId(tecnico.user_id || '');
+        setFormMansioneId(tecnico.mansione_id || '');
         setFilterUser('');
+        setFilterMansione('');
         window.scrollTo(0, 0);
     };
 
@@ -119,7 +152,8 @@ function TecniciManager({ session, onDataChanged }) {
             nome: formNome.trim(),
             cognome: formCognome.trim(),
             email: formEmail.trim() || null,
-            user_id: formUserId.trim() || null
+            user_id: formUserId.trim() || null,
+            mansione_id: formMansioneId.trim() || null
         };
         let opError;
         if (editingTecnico) { 
@@ -344,6 +378,29 @@ function TecniciManager({ session, onDataChanged }) {
                             {filteredUsers.map(u => (
                                 <option key={u.id} value={u.id}>
                                     {u.full_name ? `${u.full_name} (${u.username})` : u.username}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                    <div>
+                        <label htmlFor="formMansioneTecnico">Mansione/Qualifica:</label>
+                        <input
+                            type="text"
+                            id="filterMansioneTecnico"
+                            value={filterMansione}
+                            onChange={e => setFilterMansione(e.target.value)}
+                            placeholder="Filtra per ruolo o categoria..."
+                            style={{marginBottom:'5px'}}
+                        />
+                        <select
+                            id="formMansioneTecnico"
+                            value={formMansioneId}
+                            onChange={e => { setFormMansioneId(e.target.value); setFilterMansione(''); }}
+                        >
+                            <option value="">Nessuna mansione ({filteredMansioni.length} trovate)</option>
+                            {filteredMansioni.map(m => (
+                                <option key={m.id} value={m.id}>
+                                    {m.ruolo} ({m.categoria} - {m.livello})
                                 </option>
                             ))}
                         </select>
