@@ -1,8 +1,8 @@
 {
   "name": "oilsafe-service-frontend",
   "private": true,
-  "version": "0.8.19",
-  "description": "24/10/2025: Statistiche con date custom; 23/10/2025: Formattazione Markdown (grassetto/corsivo) nei PDF; Cancellazione interventi multipli; Copia ed Incolla interventi su fogli con marcatore COPIA; Auto update anagrafiche; Salvataggio dati su txt per invio email; Colore banda debug + lista tabella fogli + Logo; Univocità Cliente + Ordine; Risolto renew sessione",
+  "version": "0.9.1",
+  "description": "25/10/2025: Gestione mansioni, stampa con mansioni, preview di stampa; 24/10/2025: Statistiche con date custom; 23/10/2025: Formattazione Markdown (grassetto/corsivo) nei PDF; Cancellazione interventi multipli; Copia ed Incolla interventi su fogli con marcatore COPIA; Auto update anagrafiche; Salvataggio dati su txt per invio email; Colore banda debug + lista tabella fogli + Logo; Univocità Cliente + Ordine; Risolto renew sessione",
   "type": "module",
   "scripts": {
     "dev": "vite",
