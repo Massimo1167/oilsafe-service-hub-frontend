@@ -24,6 +24,7 @@ function InterventoAssistenzaForm({
     // Stati del form
     const [formDataIntervento, setFormDataIntervento] = useState(new Date().toISOString().split('T')[0]);
     const [formSelectedTecnicoId, setFormSelectedTecnicoId] = useState('');
+    const [formMansioneId, setFormMansioneId] = useState(''); // Mansione storicizzata per calcolo costi
     const [formTipoIntervento, setFormTipoIntervento] = useState('In Loco');
     const [formNumeroTecnici, setFormNumeroTecnici] = useState('1');
     const [formOraInizioLavoro, setFormOraInizioLavoro] = useState('');
@@ -50,6 +51,7 @@ function InterventoAssistenzaForm({
         if (isEditMode && interventoToEdit) {
             setFormDataIntervento(interventoToEdit.data_intervento_effettivo ? new Date(interventoToEdit.data_intervento_effettivo).toISOString().split('T')[0] : '');
             setFormSelectedTecnicoId(interventoToEdit.tecnico_id || '');
+            setFormMansioneId(interventoToEdit.mansione_id || ''); // Carica mansione storicizzata
             setFormTipoIntervento(interventoToEdit.tipo_intervento || 'In Loco');
             setFormNumeroTecnici(interventoToEdit.numero_tecnici?.toString() || '1');
             setFormOraInizioLavoro(interventoToEdit.ora_inizio_lavoro || '');
@@ -78,6 +80,19 @@ function InterventoAssistenzaForm({
         }
     }, [interventoToEdit, isEditMode, tecniciList]);
 
+    // Auto-popola mansione_id quando cambia il tecnico selezionato
+    useEffect(() => {
+        if (formSelectedTecnicoId && tecniciList) {
+            const tecnicoSelezionato = tecniciList.find(t => t.id === formSelectedTecnicoId);
+            if (tecnicoSelezionato && tecnicoSelezionato.mansione_id) {
+                // Storicizza la mansione del tecnico nell'intervento
+                setFormMansioneId(tecnicoSelezionato.mansione_id);
+            } else {
+                // Se il tecnico non ha mansione, imposta null
+                setFormMansioneId('');
+            }
+        }
+    }, [formSelectedTecnicoId, tecniciList]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -100,6 +115,7 @@ function InterventoAssistenzaForm({
           foglio_assistenza_id: foglioAssistenzaId,
           data_intervento_effettivo: formDataIntervento,
           tecnico_id: formSelectedTecnicoId,
+          mansione_id: formMansioneId || null, // Storicizza mansione per calcolo costi
           tipo_intervento: formTipoIntervento,
           numero_tecnici: parseInt(formNumeroTecnici, 10) || 1,
           ora_inizio_lavoro: formOraInizioLavoro || null,

@@ -22,6 +22,7 @@ import ClientiManager from './components/anagrafiche/ClientiManager';
 import TecniciManager from './components/anagrafiche/TecniciManager';
 import CommesseManager from './components/anagrafiche/CommesseManager';
 import OrdiniClienteManager from './components/anagrafiche/OrdiniClienteManager';
+import MansioniManager from './components/anagrafiche/MansioniManager';
 
 import './App.css';
 
@@ -54,6 +55,7 @@ function App() {
   const [tecnici, setTecnici] = useState([]);
   const [commesse, setCommesse] = useState([]);
   const [ordini, setOrdini] = useState([]);
+  const [mansioni, setMansioni] = useState([]);
 
   const initialSessionCheckTriggered = useRef(false);
   const sessionRef = useRef(session); 
@@ -196,27 +198,31 @@ function App() {
       if (session && session.user) {
         setLoadingAnagrafiche(true); 
         try {
-            const [clientiRes, tecniciRes, commesseRes, ordiniRes] = await Promise.all([
+            const [clientiRes, tecniciRes, commesseRes, ordiniRes, mansioniRes] = await Promise.all([
                 supabase.from('clienti').select('*').order('nome_azienda'),
                 supabase.from('tecnici').select('*').order('cognome'),
                 supabase.from('commesse').select('*').order('codice_commessa'),
-                supabase.from('ordini_cliente').select('*').order('numero_ordine_cliente')
+                supabase.from('ordini_cliente').select('*').order('numero_ordine_cliente'),
+                supabase.from('mansioni').select('*').eq('attivo', true).order('categoria').order('livello')
             ]);
-            
-            setClienti(clientiRes.data || []); 
+
+            setClienti(clientiRes.data || []);
             if(clientiRes.error) console.error("APP.JSX: Errore fetch clienti:", clientiRes.error.message);
-            
+
             setTecnici(tecniciRes.data || []);
             if(tecniciRes.error) console.error("APP.JSX: Errore fetch tecnici:", tecniciRes.error.message);
 
             setCommesse(commesseRes.data || []);
             if(commesseRes.error) console.error("APP.JSX: Errore fetch commesse:", commesseRes.error.message);
-            
+
             setOrdini(ordiniRes.data || []);
             if(ordiniRes.error) console.error("APP.JSX: Errore fetch ordini:", ordiniRes.error.message);
+
+            setMansioni(mansioniRes.data || []);
+            if(mansioniRes.error) console.error("APP.JSX: Errore fetch mansioni:", mansioniRes.error.message);
         } catch (e) {
             console.error("APP.JSX: Eccezione imprevista durante fetchCommonData:", e);
-            setClienti([]); setTecnici([]); setCommesse([]); setOrdini([]);
+            setClienti([]); setTecnici([]); setCommesse([]); setOrdini([]); setMansioni([]);
         } finally {
             setLoadingAnagrafiche(false);
         }
@@ -234,11 +240,12 @@ function App() {
     if (session && session.user) {
       setLoadingAnagrafiche(true);
       try {
-        const [clientiRes, tecniciRes, commesseRes, ordiniRes] = await Promise.all([
+        const [clientiRes, tecniciRes, commesseRes, ordiniRes, mansioniRes] = await Promise.all([
           supabase.from('clienti').select('*').order('nome_azienda'),
           supabase.from('tecnici').select('*').order('cognome'),
           supabase.from('commesse').select('*').order('codice_commessa'),
-          supabase.from('ordini_cliente').select('*').order('numero_ordine_cliente')
+          supabase.from('ordini_cliente').select('*').order('numero_ordine_cliente'),
+          supabase.from('mansioni').select('*').eq('attivo', true).order('categoria').order('livello')
         ]);
 
         setClienti(clientiRes.data || []);
@@ -252,6 +259,9 @@ function App() {
 
         setOrdini(ordiniRes.data || []);
         if(ordiniRes.error) console.error("APP.JSX: Errore ricarica ordini:", ordiniRes.error.message);
+
+        setMansioni(mansioniRes.data || []);
+        if(mansioniRes.error) console.error("APP.JSX: Errore ricarica mansioni:", mansioniRes.error.message);
 
         console.log('APP.JSX: Anagrafiche ricaricate con successo');
       } catch (e) {
@@ -325,6 +335,7 @@ function App() {
                 <Link to="/tecnici">Tecnici</Link>
                 <Link to="/commesse">Commesse</Link>
                 <Link to="/ordini">Ordini</Link>
+                <Link to="/mansioni">Mansioni</Link>
               </>
             )}
             {userRole === 'admin' && (
@@ -390,6 +401,7 @@ function App() {
                 <Route path="/tecnici" element={<TecniciManager session={session} onDataChanged={reloadAnagrafiche} />} />
                 <Route path="/commesse" element={<CommesseManager session={session} clienti={clienti} onDataChanged={reloadAnagrafiche} />} />
                 <Route path="/ordini" element={<OrdiniClienteManager session={session} clienti={clienti} commesse={commesse} onDataChanged={reloadAnagrafiche} />} />
+                <Route path="/mansioni" element={<MansioniManager session={session} onDataChanged={reloadAnagrafiche} />} />
               </>
             )}
             {userRole === 'admin' && (

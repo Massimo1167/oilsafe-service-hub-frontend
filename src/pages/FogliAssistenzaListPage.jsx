@@ -23,6 +23,10 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
     // Imposta il layout di stampa predefinito su quello dettagliato
     const [layoutStampa, setLayoutStampa] = useState('detailed');
     const [successMessage, setSuccessMessage] = useState('');
+    // Stati per la preview PDF
+    const [previewPdfUrl, setPreviewPdfUrl] = useState(null);
+    const [showPreview, setShowPreview] = useState(false);
+    const [previewLoading, setPreviewLoading] = useState(false);
 
     // Stati per i campi di filtro
     const [filtroDataDa, setFiltroDataDa] = useState('');
@@ -199,25 +203,54 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
         if (selectedFogli.size === 0) { alert("Seleziona almeno un foglio di assistenza da stampare."); return; }
         setStampaLoading(true); setError(null); setSuccessMessage('');
         let printErrors = [];
-        for (const foglioId of Array.from(selectedFogli)) { 
+        for (const foglioId of Array.from(selectedFogli)) {
             try {
                 const { data: foglioData, error: foglioError } = await supabase.from('fogli_assistenza').select(`*, assegnato_a_user_id, profilo_tecnico_assegnato:profiles (full_name), clienti (*), commesse (*), ordini_cliente (*), indirizzi_clienti!indirizzo_intervento_id (*)`).eq('id', foglioId).single();
                 if (foglioError || !foglioData) throw new Error(foglioError?.message || `Foglio ${foglioId} non trovato.`);
                 const tecnicoAss = (allTecnici || []).find(t => t.user_id === foglioData.assegnato_a_user_id);
                 foglioData.tecnico_assegnato_nome = tecnicoAss ? `${tecnicoAss.nome} ${tecnicoAss.cognome}` : foglioData.profilo_tecnico_assegnato?.full_name || null;
-                
-                const { data: interventiData, error: interventiError } = await supabase.from('interventi_assistenza').select(`*, tecnici (*)`) .eq('foglio_assistenza_id', foglioId).order('data_intervento_effettivo');
+
+                const { data: interventiData, error: interventiError } = await supabase.from('interventi_assistenza').select(`*, tecnici (*), mansioni (ruolo)`) .eq('foglio_assistenza_id', foglioId).order('data_intervento_effettivo');
                 if (interventiError) console.warn(`Attenzione: Errore nel recuperare gli interventi per il foglio ${foglioId}: ${interventiError.message}`);
-                
+
                 await generateFoglioAssistenzaPDF(foglioData, interventiData || [], { layout: layoutStampa });
-            } catch (err) { 
-                console.error(`Errore durante la generazione del PDF per il foglio ${foglioId}:`, err); 
+            } catch (err) {
+                console.error(`Errore durante la generazione del PDF per il foglio ${foglioId}:`, err);
                 printErrors.push(`Foglio ${foglioId.substring(0,8)}: ${err.message}`);
             }
         }
         if (printErrors.length > 0) { setError(`Si sono verificati errori durante la stampa:\n${printErrors.join('\n')}`); }
         else { setSuccessMessage(`Operazione di stampa PDF completata per ${selectedFogli.size} fogli.`); setTimeout(() => setSuccessMessage(''), 3000); }
         setStampaLoading(false); setSelectedFogli(new Set());
+    };
+
+    const handlePreviewSelected = async () => {
+        if (selectedFogli.size === 0) { alert("Seleziona almeno un foglio di assistenza per la preview."); return; }
+        setPreviewLoading(true); setError(null);
+
+        // Prendi solo il primo foglio selezionato per la preview
+        const foglioId = Array.from(selectedFogli)[0];
+
+        try {
+            const { data: foglioData, error: foglioError } = await supabase.from('fogli_assistenza').select(`*, assegnato_a_user_id, profilo_tecnico_assegnato:profiles (full_name), clienti (*), commesse (*), ordini_cliente (*), indirizzi_clienti!indirizzo_intervento_id (*)`).eq('id', foglioId).single();
+            if (foglioError || !foglioData) throw new Error(foglioError?.message || `Foglio ${foglioId} non trovato.`);
+            const tecnicoAss = (allTecnici || []).find(t => t.user_id === foglioData.assegnato_a_user_id);
+            foglioData.tecnico_assegnato_nome = tecnicoAss ? `${tecnicoAss.nome} ${tecnicoAss.cognome}` : foglioData.profilo_tecnico_assegnato?.full_name || null;
+
+            const { data: interventiData, error: interventiError } = await supabase.from('interventi_assistenza').select(`*, tecnici (*), mansioni (ruolo)`) .eq('foglio_assistenza_id', foglioId).order('data_intervento_effettivo');
+            if (interventiError) console.warn(`Attenzione: Errore nel recuperare gli interventi per il foglio ${foglioId}: ${interventiError.message}`);
+
+            // Genera PDF in modalità preview (ritorna DataURL invece di salvare)
+            const pdfDataUrl = await generateFoglioAssistenzaPDF(foglioData, interventiData || [], { layout: layoutStampa, preview: true });
+
+            setPreviewPdfUrl(pdfDataUrl);
+            setShowPreview(true);
+        } catch (err) {
+            console.error(`Errore durante la generazione della preview per il foglio ${foglioId}:`, err);
+            setError(`Errore durante la generazione della preview: ${err.message}`);
+        }
+
+        setPreviewLoading(false);
     };
 
     const handleCopySelected = async () => {
@@ -422,6 +455,15 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
 
                 {fogliFiltrati.length > 0 && (
                     <button
+                        onClick={handlePreviewSelected}
+                        disabled={selectedFogli.size === 0 || previewLoading || loadingFogli}
+                        className="button secondary"
+                    >
+                        {previewLoading ? 'Caricamento...' : `Preview (${selectedFogli.size > 0 ? '1' : '0'})`}
+                    </button>
+                )}
+                {fogliFiltrati.length > 0 && (
+                    <button
                         onClick={handlePrintSelected}
                         disabled={selectedFogli.size === 0 || stampaLoading || loadingFogli}
                         className="button primary"
@@ -518,6 +560,64 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                         ))}
                     </tbody>
                 </table>
+            )}
+
+            {/* Modal Preview PDF */}
+            {showPreview && previewPdfUrl && (
+                <div
+                    style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        backgroundColor: 'rgba(0, 0, 0, 0.85)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        zIndex: 9999,
+                        padding: '20px'
+                    }}
+                >
+                    <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        marginBottom: '15px',
+                        gap: '10px'
+                    }}>
+                        <h2 style={{ margin: 0, color: '#fff' }}>Preview PDF</h2>
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                            <button
+                                onClick={() => {
+                                    const printWindow = window.open(previewPdfUrl);
+                                    if (printWindow) printWindow.print();
+                                }}
+                                className="button primary"
+                            >
+                                Stampa
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setShowPreview(false);
+                                    setPreviewPdfUrl(null);
+                                }}
+                                className="button secondary"
+                            >
+                                Chiudi
+                            </button>
+                        </div>
+                    </div>
+                    <iframe
+                        src={previewPdfUrl}
+                        style={{
+                            flex: 1,
+                            border: 'none',
+                            backgroundColor: '#fff',
+                            borderRadius: '4px'
+                        }}
+                        title="PDF Preview"
+                    />
+                </div>
             )}
         </div>
     );
