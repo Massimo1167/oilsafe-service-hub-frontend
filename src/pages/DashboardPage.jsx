@@ -1,20 +1,18 @@
 /**
  * Simple landing page shown after login. Displays a welcome message
  * using session data provided by `App.jsx`.
+ * Shows role-based statistics: user sees their assigned sheets, admin sees all sheets.
  */
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import oilsafeLogo from '../assets/oilsafe-logo.png';
+import { getStatsByStatus, getStatsForTechnician } from '../utils/statistiche';
 
 // Componente per la pagina Dashboard.
 // Ora è una semplice pagina di benvenuto, ripulita dalla funzionalità di test del PDF.
-function DashboardPage({ session }) { // Riceve la sessione per personalizzare il saluto
-  const [stats, setStats] = useState({
-    totale: 0,
-    ultimaSettimana: 0,
-    meseCorrente: 0,
-    mesePrecedente: 0
-  });
+function DashboardPage({ session, userRole }) { // Riceve la sessione e il ruolo per personalizzare il saluto e le statistiche
+  const [statsUser, setStatsUser] = useState(null); // Statistiche per user
+  const [statsAdmin, setStatsAdmin] = useState(null); // Statistiche per admin
   const [loadingStats, setLoadingStats] = useState(true);
 
   useEffect(() => {
@@ -22,45 +20,36 @@ function DashboardPage({ session }) { // Riceve la sessione per personalizzare i
       try {
         setLoadingStats(true);
 
-        // Date di riferimento
-        const oggi = new Date();
-        const setteGiorniFa = new Date(oggi);
-        setteGiorniFa.setDate(oggi.getDate() - 7);
+        const role = (userRole || '').trim().toLowerCase();
 
-        const inizioMeseCorrente = new Date(oggi.getFullYear(), oggi.getMonth(), 1);
-        const inizioMesePrecedente = new Date(oggi.getFullYear(), oggi.getMonth() - 1, 1);
-        const fineMesePrecedente = new Date(oggi.getFullYear(), oggi.getMonth(), 0);
+        if (role === 'user') {
+          // Per utenti di tipo user: statistiche dei fogli con loro interventi
+          // Prima trova il tecnico corrispondente all'utente loggato
+          const { data: tecnico, error: tecnicoError } = await supabase
+            .from('tecnici')
+            .select('id')
+            .eq('user_id', session.user.id)
+            .single();
 
-        // Query 1: Totale fogli
-        const { count: totale } = await supabase
-          .from('fogli_assistenza')
-          .select('*', { count: 'exact', head: true });
-
-        // Query 2: Ultima settimana
-        const { count: ultimaSettimana } = await supabase
-          .from('fogli_assistenza')
-          .select('*', { count: 'exact', head: true })
-          .gte('data_apertura_foglio', setteGiorniFa.toISOString().split('T')[0]);
-
-        // Query 3: Mese corrente
-        const { count: meseCorrente } = await supabase
-          .from('fogli_assistenza')
-          .select('*', { count: 'exact', head: true })
-          .gte('data_apertura_foglio', inizioMeseCorrente.toISOString().split('T')[0]);
-
-        // Query 4: Mese precedente
-        const { count: mesePrecedente } = await supabase
-          .from('fogli_assistenza')
-          .select('*', { count: 'exact', head: true })
-          .gte('data_apertura_foglio', inizioMesePrecedente.toISOString().split('T')[0])
-          .lte('data_apertura_foglio', fineMesePrecedente.toISOString().split('T')[0]);
-
-        setStats({
-          totale: totale || 0,
-          ultimaSettimana: ultimaSettimana || 0,
-          meseCorrente: meseCorrente || 0,
-          mesePrecedente: mesePrecedente || 0
-        });
+          if (tecnicoError || !tecnico) {
+            console.warn('Nessun tecnico associato a questo utente');
+            setStatsUser({
+              aperti: 0,
+              inLavorazione: 0,
+              attesaFirma: 0,
+              completati: 0,
+              completatiMeseCorrente: 0,
+              completatiMesePrecedente: 0
+            });
+          } else {
+            const userStats = await getStatsForTechnician(tecnico.id);
+            setStatsUser(userStats);
+          }
+        } else if (role === 'admin' || role === 'manager') {
+          // Per admin/manager: statistiche globali per stato
+          const adminStats = await getStatsByStatus();
+          setStatsAdmin(adminStats);
+        }
       } catch (error) {
         console.error('Errore caricamento statistiche:', error);
       } finally {
@@ -71,7 +60,7 @@ function DashboardPage({ session }) { // Riceve la sessione per personalizzare i
     if (session) {
       fetchStats();
     }
-  }, [session]);
+  }, [session, userRole]);
 
   return (
     <div>
@@ -102,7 +91,7 @@ function DashboardPage({ session }) { // Riceve la sessione per personalizzare i
             Ruolo: <strong>{session.user.role}</strong>
           </p>
 
-          {/* Sezione Statistiche Fogli Assistenza */}
+          {/* Sezione Statistiche Fogli Assistenza - Basata sul ruolo */}
           <div style={{
             marginTop: '1.5rem',
             marginBottom: '1.5rem',
@@ -118,39 +107,133 @@ function DashboardPage({ session }) { // Riceve la sessione per personalizzare i
             {loadingStats ? (
               <p style={{ fontStyle: 'italic', color: '#666' }}>Caricamento statistiche...</p>
             ) : (
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
-                gap: '1rem'
-              }}>
-                <div style={{ textAlign: 'center', padding: '0.5rem' }}>
-                  <div style={{ fontSize: '2em', fontWeight: 'bold', color: '#007bff' }}>
-                    {stats.totale}
-                  </div>
-                  <div style={{ fontSize: '0.9em', color: '#666' }}>Totale fogli</div>
-                </div>
+              <>
+                {/* Statistiche per utente USER */}
+                {(userRole || '').toLowerCase() === 'user' && statsUser && (
+                  <div>
+                    <p style={{ fontSize: '0.9em', fontStyle: 'italic', marginBottom: '1rem', color: '#555' }}>
+                      I tuoi fogli di assistenza
+                    </p>
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+                      gap: '1rem'
+                    }}>
+                      <div style={{ textAlign: 'center', padding: '0.5rem' }}>
+                        <div style={{ fontSize: '2em', fontWeight: 'bold', color: '#17a2b8' }}>
+                          {statsUser.aperti}
+                        </div>
+                        <div style={{ fontSize: '0.85em', color: '#666' }}>Aperti</div>
+                      </div>
 
-                <div style={{ textAlign: 'center', padding: '0.5rem' }}>
-                  <div style={{ fontSize: '2em', fontWeight: 'bold', color: '#28a745' }}>
-                    {stats.ultimaSettimana}
-                  </div>
-                  <div style={{ fontSize: '0.9em', color: '#666' }}>Ultima settimana</div>
-                </div>
+                      <div style={{ textAlign: 'center', padding: '0.5rem' }}>
+                        <div style={{ fontSize: '2em', fontWeight: 'bold', color: '#ffc107' }}>
+                          {statsUser.inLavorazione}
+                        </div>
+                        <div style={{ fontSize: '0.85em', color: '#666' }}>In Lavorazione</div>
+                      </div>
 
-                <div style={{ textAlign: 'center', padding: '0.5rem' }}>
-                  <div style={{ fontSize: '2em', fontWeight: 'bold', color: '#ffc107' }}>
-                    {stats.meseCorrente}
-                  </div>
-                  <div style={{ fontSize: '0.9em', color: '#666' }}>Mese corrente</div>
-                </div>
+                      <div style={{ textAlign: 'center', padding: '0.5rem' }}>
+                        <div style={{ fontSize: '2em', fontWeight: 'bold', color: '#fd7e14' }}>
+                          {statsUser.attesaFirma}
+                        </div>
+                        <div style={{ fontSize: '0.85em', color: '#666' }}>Attesa Firma</div>
+                      </div>
 
-                <div style={{ textAlign: 'center', padding: '0.5rem' }}>
-                  <div style={{ fontSize: '2em', fontWeight: 'bold', color: '#6c757d' }}>
-                    {stats.mesePrecedente}
+                      <div style={{ textAlign: 'center', padding: '0.5rem' }}>
+                        <div style={{ fontSize: '2em', fontWeight: 'bold', color: '#28a745' }}>
+                          {statsUser.completati}
+                        </div>
+                        <div style={{ fontSize: '0.85em', color: '#666' }}>Completati</div>
+                      </div>
+
+                      <div style={{ textAlign: 'center', padding: '0.5rem' }}>
+                        <div style={{ fontSize: '2em', fontWeight: 'bold', color: '#007bff' }}>
+                          {statsUser.completatiMeseCorrente}
+                        </div>
+                        <div style={{ fontSize: '0.85em', color: '#666' }}>Completati mese corrente</div>
+                      </div>
+
+                      <div style={{ textAlign: 'center', padding: '0.5rem' }}>
+                        <div style={{ fontSize: '2em', fontWeight: 'bold', color: '#6c757d' }}>
+                          {statsUser.completatiMesePrecedente}
+                        </div>
+                        <div style={{ fontSize: '0.85em', color: '#666' }}>Completati mese precedente</div>
+                      </div>
+                    </div>
                   </div>
-                  <div style={{ fontSize: '0.9em', color: '#666' }}>Mese precedente</div>
-                </div>
-              </div>
+                )}
+
+                {/* Statistiche per utente ADMIN/MANAGER */}
+                {((userRole || '').toLowerCase() === 'admin' || (userRole || '').toLowerCase() === 'manager') && statsAdmin && (
+                  <div>
+                    <p style={{ fontSize: '0.9em', fontStyle: 'italic', marginBottom: '1rem', color: '#555' }}>
+                      Tutti i fogli di assistenza
+                    </p>
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+                      gap: '0.8rem'
+                    }}>
+                      <div style={{ textAlign: 'center', padding: '0.5rem' }}>
+                        <div style={{ fontSize: '1.8em', fontWeight: 'bold', color: '#17a2b8' }}>
+                          {statsAdmin['Aperto'] || 0}
+                        </div>
+                        <div style={{ fontSize: '0.8em', color: '#666' }}>Aperti</div>
+                      </div>
+
+                      <div style={{ textAlign: 'center', padding: '0.5rem' }}>
+                        <div style={{ fontSize: '1.8em', fontWeight: 'bold', color: '#ffc107' }}>
+                          {statsAdmin['In Lavorazione'] || 0}
+                        </div>
+                        <div style={{ fontSize: '0.8em', color: '#666' }}>In Lavorazione</div>
+                      </div>
+
+                      <div style={{ textAlign: 'center', padding: '0.5rem' }}>
+                        <div style={{ fontSize: '1.8em', fontWeight: 'bold', color: '#fd7e14' }}>
+                          {statsAdmin['Attesa Firma'] || 0}
+                        </div>
+                        <div style={{ fontSize: '0.8em', color: '#666' }}>Attesa Firma</div>
+                      </div>
+
+                      <div style={{ textAlign: 'center', padding: '0.5rem' }}>
+                        <div style={{ fontSize: '1.8em', fontWeight: 'bold', color: '#28a745' }}>
+                          {statsAdmin['Completato'] || 0}
+                        </div>
+                        <div style={{ fontSize: '0.8em', color: '#666' }}>Completati</div>
+                      </div>
+
+                      <div style={{ textAlign: 'center', padding: '0.5rem' }}>
+                        <div style={{ fontSize: '1.8em', fontWeight: 'bold', color: '#20c997' }}>
+                          {statsAdmin['Consuntivato'] || 0}
+                        </div>
+                        <div style={{ fontSize: '0.8em', color: '#666' }}>Consuntivati</div>
+                      </div>
+
+                      <div style={{ textAlign: 'center', padding: '0.5rem' }}>
+                        <div style={{ fontSize: '1.8em', fontWeight: 'bold', color: '#007bff' }}>
+                          {statsAdmin['Inviato'] || 0}
+                        </div>
+                        <div style={{ fontSize: '0.8em', color: '#666' }}>Inviati</div>
+                      </div>
+
+                      <div style={{ textAlign: 'center', padding: '0.5rem' }}>
+                        <div style={{ fontSize: '1.8em', fontWeight: 'bold', color: '#6f42c1' }}>
+                          {statsAdmin['In attesa accettazione'] || 0}
+                        </div>
+                        <div style={{ fontSize: '0.8em', color: '#666' }}>In attesa accettazione</div>
+                      </div>
+
+                      <div style={{ textAlign: 'center', padding: '0.5rem' }}>
+                        <div style={{ fontSize: '1.8em', fontWeight: 'bold', color: '#343a40' }}>
+                          {statsAdmin['Fatturato'] || 0}
+                        </div>
+                        <div style={{ fontSize: '0.8em', color: '#666' }}>Fatturati</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </>
