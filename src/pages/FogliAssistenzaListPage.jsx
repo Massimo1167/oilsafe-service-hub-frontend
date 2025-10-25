@@ -210,7 +210,7 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                 const tecnicoAss = (allTecnici || []).find(t => t.user_id === foglioData.assegnato_a_user_id);
                 foglioData.tecnico_assegnato_nome = tecnicoAss ? `${tecnicoAss.nome} ${tecnicoAss.cognome}` : foglioData.profilo_tecnico_assegnato?.full_name || null;
 
-                const { data: interventiData, error: interventiError } = await supabase.from('interventi_assistenza').select(`*, tecnici (*), mansioni (ruolo)`) .eq('foglio_assistenza_id', foglioId).order('data_intervento_effettivo');
+                const { data: interventiData, error: interventiError } = await supabase.from('interventi_assistenza').select(`*, tecnici (*), mansioni (*)`) .eq('foglio_assistenza_id', foglioId).order('data_intervento_effettivo');
                 if (interventiError) console.warn(`Attenzione: Errore nel recuperare gli interventi per il foglio ${foglioId}: ${interventiError.message}`);
 
                 await generateFoglioAssistenzaPDF(foglioData, interventiData || [], { layout: layoutStampa });
@@ -237,7 +237,7 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
             const tecnicoAss = (allTecnici || []).find(t => t.user_id === foglioData.assegnato_a_user_id);
             foglioData.tecnico_assegnato_nome = tecnicoAss ? `${tecnicoAss.nome} ${tecnicoAss.cognome}` : foglioData.profilo_tecnico_assegnato?.full_name || null;
 
-            const { data: interventiData, error: interventiError } = await supabase.from('interventi_assistenza').select(`*, tecnici (*), mansioni (ruolo)`) .eq('foglio_assistenza_id', foglioId).order('data_intervento_effettivo');
+            const { data: interventiData, error: interventiError } = await supabase.from('interventi_assistenza').select(`*, tecnici (*), mansioni (*)`) .eq('foglio_assistenza_id', foglioId).order('data_intervento_effettivo');
             if (interventiError) console.warn(`Attenzione: Errore nel recuperare gli interventi per il foglio ${foglioId}: ${interventiError.message}`);
 
             // Genera PDF in modalità preview (ritorna DataURL invece di salvare)
@@ -451,6 +451,7 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                 <select value={layoutStampa} onChange={e => setLayoutStampa(e.target.value)}>
                     <option value="table">Layout Compatto</option>
                     <option value="detailed">Layout Dettagliato</option>
+                    {userRole === 'admin' && <option value="detailed_with_costs">Layout Dettagliato con costi</option>}
                 </select>
 
                 {fogliFiltrati.length > 0 && (
