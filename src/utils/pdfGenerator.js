@@ -299,7 +299,7 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, op
         });
     }
 
-    // Funzione per aggregare ore per tipo_intervento e mansione
+    // Funzione per aggregare ore per tipo_intervento e mansione (senza costi)
     const aggregaOrePerTipoEMansione = (interventi) => {
         const aggregazione = {
             'In Loco': {},  // Chiave corretta con L maiuscola (come nel DB)
@@ -332,12 +332,111 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, op
         return aggregazione;
     };
 
-    // Calcola aggregazione ore per tipo e mansione
-    const orePerTipoMansione = aggregaOrePerTipoEMansione(interventiData || []);
+    // Funzione per aggregare ore E COSTI per tipo_intervento e mansione con calcolo straordinari
+    const aggregaOreECostiPerTipoEMansione = (interventi) => {
+        const aggregazione = {
+            'In Loco': {},
+            'Remoto': {}
+        };
+
+        // Step 1: Raggruppa interventi per tecnico+data per calcolare straordinari giornalieri
+        const interventiPerTecnicoGiorno = {};
+
+        interventi.forEach(int => {
+            const tecnicoId = int.tecnico_id;
+            const data = int.data_intervento_effettivo;
+            const key = `${tecnicoId}_${data}`;
+
+            if (!interventiPerTecnicoGiorno[key]) {
+                interventiPerTecnicoGiorno[key] = [];
+            }
+            interventiPerTecnicoGiorno[key].push(int);
+        });
+
+        // Step 2: Per ogni gruppo giornaliero, calcola ore normali e straordinarie
+        Object.values(interventiPerTecnicoGiorno).forEach(interventiGiorno => {
+            // Calcola totale ore giornaliere
+            const oreTotaliGiorno = interventiGiorno.reduce((sum, int) => {
+                const numTec = parseFloat(int.numero_tecnici) || 1;
+                const ore = (parseFloat(int.ore_lavoro_effettive) || 0) * numTec;
+                return sum + ore;
+            }, 0);
+
+            // Determina split normale/straordinario
+            const oreNormaliGiorno = Math.min(oreTotaliGiorno, 8);
+            const oreStraordinarioGiorno = Math.max(0, oreTotaliGiorno - 8);
+
+            // Step 3: Proporziona ore normali/straordinarie a ciascun intervento
+            interventiGiorno.forEach(int => {
+                const tipoInterventoRaw = int.tipo_intervento || 'In Loco';
+                const tipoIntervento = (tipoInterventoRaw === 'In Loco' || tipoInterventoRaw === 'In loco')
+                    ? 'In Loco'
+                    : 'Remoto';
+
+                const mansione = int.mansioni?.ruolo || 'Non Specificato';
+                const mansioneData = int.mansioni; // Dati completi mansione con costi
+                const numTec = parseFloat(int.numero_tecnici) || 1;
+                const oreIntervento = (parseFloat(int.ore_lavoro_effettive) || 0) * numTec;
+
+                // Proporziona ore normali e straordinarie
+                const propOreNormali = oreTotaliGiorno > 0
+                    ? (oreIntervento / oreTotaliGiorno) * oreNormaliGiorno
+                    : 0;
+                const propOreStraord = oreTotaliGiorno > 0
+                    ? (oreIntervento / oreTotaliGiorno) * oreStraordinarioGiorno
+                    : 0;
+
+                // Determina costi orari dalla mansione
+                const costoNormale = tipoIntervento === 'In Loco'
+                    ? (parseFloat(mansioneData?.costo_orario_sede) || 0)
+                    : (parseFloat(mansioneData?.costo_orario_trasferta) || 0);
+
+                const costoStraord = tipoIntervento === 'In Loco'
+                    ? (parseFloat(mansioneData?.costo_straordinario_sede) || 0)
+                    : (parseFloat(mansioneData?.costo_straordinario_trasferta) || 0);
+
+                // Calcola costi
+                const importoNormale = propOreNormali * costoNormale;
+                const importoStraord = propOreStraord * costoStraord;
+
+                // Inizializza struttura se non esiste
+                if (!aggregazione[tipoIntervento][mansione]) {
+                    aggregazione[tipoIntervento][mansione] = {
+                        ore_normali: 0,
+                        costo_normale: 0,
+                        ore_straordinarie: 0,
+                        costo_straordinario: 0,
+                        ore_totali: 0,
+                        costo_totale: 0,
+                        has_costo: costoNormale > 0 || costoStraord > 0
+                    };
+                }
+
+                // Accumula valori
+                aggregazione[tipoIntervento][mansione].ore_normali += propOreNormali;
+                aggregazione[tipoIntervento][mansione].costo_normale += importoNormale;
+                aggregazione[tipoIntervento][mansione].ore_straordinarie += propOreStraord;
+                aggregazione[tipoIntervento][mansione].costo_straordinario += importoStraord;
+                aggregazione[tipoIntervento][mansione].ore_totali += oreIntervento;
+                aggregazione[tipoIntervento][mansione].costo_totale += (importoNormale + importoStraord);
+            });
+        });
+
+        return aggregazione;
+    };
+
+    // Determina se mostrare costi basato sul layout
+    const showCosts = (layoutType === 'detailed_with_costs');
+
+    // Calcola aggregazione ore per tipo e mansione (con o senza costi)
+    const orePerTipoMansione = showCosts
+        ? aggregaOreECostiPerTipoEMansione(interventiData || [])
+        : aggregaOrePerTipoEMansione(interventiData || []);
 
     // Debug: log aggregazione per verificare dati
     console.log('PDFGenerator: Aggregazione ore per tipo e mansione:', {
         interventiTotali: interventiData?.length || 0,
+        showCosts,
         aggregazione: orePerTipoMansione,
         chiavi: Object.keys(orePerTipoMansione)
     });
@@ -469,74 +568,166 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, op
         marginBottom: 3
     });
 
-    // Funzione per renderizzare una sezione tipo intervento
-    const renderTipoInterventoSection = (currentDoc, tipoLabel, mansioniObj) => {
-        // Converti oggetto in array e ordina per ore decrescenti
+    // Funzione per renderizzare una sezione tipo intervento (con o senza costi)
+    const renderTipoInterventoSection = (currentDoc, tipoLabel, mansioniObj, showCosts = false) => {
+        // Converti oggetto in array e ordina per ore totali decrescenti
         const mansioniArray = Object.entries(mansioniObj)
-            .map(([mansione, ore]) => ({ mansione, ore }))
-            .sort((a, b) => b.ore - a.ore); // Ordine decrescente
+            .map(([mansione, data]) => ({
+                mansione,
+                data: showCosts ? data : { ore_totali: data }
+            }))
+            .sort((a, b) => {
+                const oreA = showCosts ? a.data.ore_totali : a.data.ore_totali;
+                const oreB = showCosts ? b.data.ore_totali : b.data.ore_totali;
+                return oreB - oreA;
+            });
 
         if (mansioniArray.length === 0) {
-            return 0; // Nessuna mansione, non renderizzare
+            return showCosts ? { ore: 0, costo: 0 } : 0;
         }
 
-        // Calcola totale per questo tipo
-        const totaleTipo = mansioniArray.reduce((sum, item) => sum + item.ore, 0);
+        if (!showCosts) {
+            // Rendering semplice (senza costi) - comportamento originale
+            const totaleTipo = mansioniArray.reduce((sum, item) => sum + item.data.ore_totali, 0);
 
-        // Check spazio per tabella (stima 8px per riga + header)
-        const estimatedHeight = (mansioniArray.length + 3) * 6;
-        checkAndAddPage(currentDoc, estimatedHeight);
+            const estimatedHeight = (mansioniArray.length + 3) * 6;
+            checkAndAddPage(currentDoc, estimatedHeight);
 
-        // Header tipo intervento
-        currentDoc.setFontSize(9);
-        currentDoc.setFont(undefined, 'bold');
-        currentDoc.text(tipoLabel + ':', marginLeft + 5, yPosition);
-        yPosition += 5;
+            currentDoc.setFontSize(9);
+            currentDoc.setFont(undefined, 'bold');
+            currentDoc.text(tipoLabel + ':', marginLeft + 5, yPosition);
+            yPosition += 5;
 
-        // Tabella mansioni
-        currentDoc.setFontSize(8);
-        currentDoc.setFont(undefined, 'normal');
+            currentDoc.setFontSize(8);
+            currentDoc.setFont(undefined, 'normal');
 
-        mansioniArray.forEach(item => {
-            const mansioneText = `  • ${item.mansione}`;
-            const oreText = `${item.ore.toFixed(2)}h`;
+            mansioniArray.forEach(item => {
+                const mansioneText = `  • ${item.mansione}`;
+                const oreText = `${item.data.ore_totali.toFixed(2)}h`;
 
-            currentDoc.text(mansioneText, marginLeft + 8, yPosition);
-            currentDoc.text(oreText, marginLeft + 85, yPosition, { align: 'right' });
+                currentDoc.text(mansioneText, marginLeft + 8, yPosition);
+                currentDoc.text(oreText, marginLeft + 85, yPosition, { align: 'right' });
+                yPosition += 4;
+            });
+
+            yPosition += 1;
+            currentDoc.setFont(undefined, 'bold');
+            currentDoc.text(`Totale ${tipoLabel}:`, marginLeft + 8, yPosition);
+            currentDoc.text(`${totaleTipo.toFixed(2)}h`, marginLeft + 85, yPosition, { align: 'right' });
+            currentDoc.setFont(undefined, 'normal');
+            yPosition += 6;
+
+            return totaleTipo;
+        } else {
+            // Rendering con costi (tabellare esteso)
+            const totaleTipoOre = mansioniArray.reduce((sum, item) => sum + item.data.ore_totali, 0);
+            const totaleTipoCosto = mansioniArray.reduce((sum, item) => sum + item.data.costo_totale, 0);
+
+            const estimatedHeight = (mansioniArray.length + 4) * 7;
+            checkAndAddPage(currentDoc, estimatedHeight);
+
+            currentDoc.setFontSize(9);
+            currentDoc.setFont(undefined, 'bold');
+            currentDoc.text(tipoLabel + ':', marginLeft + 5, yPosition);
+            yPosition += 5;
+
+            // Header tabella con costi
+            currentDoc.setFontSize(7);
+            currentDoc.setFont(undefined, 'bold');
+            currentDoc.text('Mansione', marginLeft + 8, yPosition);
+            currentDoc.text('Ore Norm.', marginLeft + 55, yPosition, { align: 'right' });
+            currentDoc.text('Costo Norm.', marginLeft + 82, yPosition, { align: 'right' });
+            currentDoc.text('Ore Straord.', marginLeft + 112, yPosition, { align: 'right' });
+            currentDoc.text('Costo Straord.', marginLeft + 142, yPosition, { align: 'right' });
+            currentDoc.text('Ore Tot.', marginLeft + 166, yPosition, { align: 'right' });
+            currentDoc.text('Costo Tot.', marginLeft + 195, yPosition, { align: 'right' });
             yPosition += 4;
-        });
 
-        // Riga totale per tipo
-        yPosition += 1;
-        currentDoc.setFont(undefined, 'bold');
-        currentDoc.text(`Totale ${tipoLabel}:`, marginLeft + 8, yPosition);
-        currentDoc.text(`${totaleTipo.toFixed(2)}h`, marginLeft + 85, yPosition, { align: 'right' });
-        currentDoc.setFont(undefined, 'normal');
-        yPosition += 6;
+            currentDoc.setFont(undefined, 'normal');
 
-        return totaleTipo;
+            mansioniArray.forEach(item => {
+                const mansione = item.mansione;
+                const d = item.data;
+
+                // Formatta valori con "N/D" se non hanno costo
+                const costoNormText = d.has_costo ? `€${d.costo_normale.toFixed(2)}` : 'N/D';
+                const costoStraordText = d.has_costo ? `€${d.costo_straordinario.toFixed(2)}` : 'N/D';
+                const costoTotText = d.has_costo ? `€${d.costo_totale.toFixed(2)}` : 'N/D';
+
+                currentDoc.text(mansione.substring(0, 20), marginLeft + 8, yPosition);
+                currentDoc.text(`${d.ore_normali.toFixed(2)}h`, marginLeft + 55, yPosition, { align: 'right' });
+                currentDoc.text(costoNormText, marginLeft + 82, yPosition, { align: 'right' });
+                currentDoc.text(`${d.ore_straordinarie.toFixed(2)}h`, marginLeft + 112, yPosition, { align: 'right' });
+                currentDoc.text(costoStraordText, marginLeft + 142, yPosition, { align: 'right' });
+                currentDoc.text(`${d.ore_totali.toFixed(2)}h`, marginLeft + 166, yPosition, { align: 'right' });
+                currentDoc.text(costoTotText, marginLeft + 195, yPosition, { align: 'right' });
+                yPosition += 4;
+            });
+
+            // Riga totale
+            yPosition += 1;
+            currentDoc.setFont(undefined, 'bold');
+            currentDoc.text(`Totale ${tipoLabel}:`, marginLeft + 8, yPosition);
+            currentDoc.text(`${totaleTipoOre.toFixed(2)}h`, marginLeft + 166, yPosition, { align: 'right' });
+            currentDoc.text(`€${totaleTipoCosto.toFixed(2)}`, marginLeft + 195, yPosition, { align: 'right' });
+            currentDoc.setFont(undefined, 'normal');
+            yPosition += 6;
+
+            return { ore: totaleTipoOre, costo: totaleTipoCosto };
+        }
     };
 
     // Renderizza sezioni
-    let totaleInLoco = 0;
-    let totaleRemoto = 0;
+    let totaleInLoco = showCosts ? { ore: 0, costo: 0 } : 0;
+    let totaleRemoto = showCosts ? { ore: 0, costo: 0 } : 0;
 
     if (orePerTipoMansione['In Loco'] && Object.keys(orePerTipoMansione['In Loco']).length > 0) {
-        totaleInLoco = renderTipoInterventoSection(doc, 'In Loco', orePerTipoMansione['In Loco']);
+        totaleInLoco = renderTipoInterventoSection(doc, 'In Loco', orePerTipoMansione['In Loco'], showCosts);
     }
 
     if (orePerTipoMansione['Remoto'] && Object.keys(orePerTipoMansione['Remoto']).length > 0) {
-        totaleRemoto = renderTipoInterventoSection(doc, 'Remoto', orePerTipoMansione['Remoto']);
+        totaleRemoto = renderTipoInterventoSection(doc, 'Remoto', orePerTipoMansione['Remoto'], showCosts);
     }
 
-    // Verifica totale (per debug)
-    const totaleCalcolato = totaleInLoco + totaleRemoto;
-    if (Math.abs(totaleCalcolato - totaleOreLavoroTecnici) > 0.1) {
-        console.warn('PDFGenerator: Discrepanza totali ore:', {
-            totaleOreLavoroTecnici,
-            totaleCalcolato,
-            diff: Math.abs(totaleCalcolato - totaleOreLavoroTecnici)
-        });
+    // Se showCosts, aggiungi totale generale e nota
+    if (showCosts) {
+        checkAndAddPage(doc, 25);
+        yPosition += 2;
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'bold');
+        doc.text('TOTALE GENERALE:', marginLeft + 5, yPosition);
+        yPosition += 5;
+
+        doc.setFontSize(9);
+        doc.setFont(undefined, 'normal');
+        const totaleOreGenerale = (totaleInLoco.ore || 0) + (totaleRemoto.ore || 0);
+        const totaleCostoGenerale = (totaleInLoco.costo || 0) + (totaleRemoto.costo || 0);
+
+        doc.text(`Ore Totali: ${totaleOreGenerale.toFixed(2)}h`, marginLeft + 8, yPosition);
+        yPosition += 4;
+        doc.text(`Costo Totale: €${totaleCostoGenerale.toFixed(2)}`, marginLeft + 8, yPosition);
+        yPosition += 8;
+
+        // Nota esplicativa straordinari
+        doc.setFontSize(7);
+        doc.setFont(undefined, 'italic');
+        const notaText = 'Nota: Le ore straordinarie sono calcolate aggregando tutti gli interventi dello stesso tecnico ' +
+            'nella stessa giornata per il cliente specificato. Quando le ore totali giornaliere superano 8 ore, ' +
+            'le ore eccedenti sono considerate straordinarie e fatturate con il relativo maggiorazione.';
+        const notaLines = doc.splitTextToSize(notaText, pageWidth - (2 * marginLeft));
+        doc.text(notaLines, marginLeft + 5, yPosition);
+        yPosition += notaLines.length * 3;
+        doc.setFont(undefined, 'normal');
+    } else {
+        // Verifica totale (per debug) - solo per versione senza costi
+        const totaleCalcolato = totaleInLoco + totaleRemoto;
+        if (Math.abs(totaleCalcolato - totaleOreLavoroTecnici) > 0.1) {
+            console.warn('PDFGenerator: Discrepanza totali ore:', {
+                totaleOreLavoroTecnici,
+                totaleCalcolato,
+                diff: Math.abs(totaleCalcolato - totaleOreLavoroTecnici)
+            });
+        }
     }
 
     yPosition += 3;
