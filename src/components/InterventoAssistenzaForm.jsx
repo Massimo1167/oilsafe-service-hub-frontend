@@ -27,13 +27,9 @@ function InterventoAssistenzaForm({
     const [formMansioneId, setFormMansioneId] = useState(''); // Mansione storicizzata per calcolo costi
     const [formTipoIntervento, setFormTipoIntervento] = useState('In Loco');
     const [formNumeroTecnici, setFormNumeroTecnici] = useState('1');
-    const [formOraInizioLavoro, setFormOraInizioLavoro] = useState('');
-    const [formOraFineLavoro, setFormOraFineLavoro] = useState('');
     const [formOreLavoro, setFormOreLavoro] = useState('');
     const [formDescrizioneAttivita, setFormDescrizioneAttivita] = useState('');
     const [formKmPercorsi, setFormKmPercorsi] = useState('');
-    const [formOraInizioViaggio, setFormOraInizioViaggio] = useState('');
-    const [formOraFineViaggio, setFormOraFineViaggio] = useState('');
     const [formOreViaggio, setFormOreViaggio] = useState('');
     const [formVitto, setFormVitto] = useState(false);
     const [formAutostrada, setFormAutostrada] = useState(false);
@@ -62,13 +58,9 @@ function InterventoAssistenzaForm({
                 setFormMansioneId(interventoToEdit.mansione_id || ''); // Carica mansione storicizzata
                 setFormTipoIntervento(interventoToEdit.tipo_intervento || 'In Loco');
                 setFormNumeroTecnici(interventoToEdit.numero_tecnici?.toString() || '1');
-                setFormOraInizioLavoro(interventoToEdit.ora_inizio_lavoro || '');
-                setFormOraFineLavoro(interventoToEdit.ora_fine_lavoro || '');
                 setFormOreLavoro(interventoToEdit.ore_lavoro_effettive?.toString() || '');
                 setFormDescrizioneAttivita(interventoToEdit.descrizione_attivita_svolta_intervento || '');
                 setFormKmPercorsi(interventoToEdit.km_percorsi?.toString() || '');
-                setFormOraInizioViaggio(interventoToEdit.ora_inizio_viaggio || '');
-                setFormOraFineViaggio(interventoToEdit.ora_fine_viaggio || '');
                 setFormOreViaggio(interventoToEdit.ore_viaggio?.toString() || '');
                 setFormVitto(interventoToEdit.vitto || false);
                 setFormAutostrada(interventoToEdit.autostrada || false);
@@ -92,10 +84,14 @@ function InterventoAssistenzaForm({
                 setFormSelectedTecnicoId(tecniciList?.[0]?.id || ''); // Preseleziona il primo se disponibile
                 setFormTipoIntervento('In Loco');
                 setFormNumeroTecnici('1');
-                setFormOraInizioLavoro(''); setFormOraFineLavoro(''); setFormOreLavoro('');
-                setFormDescrizioneAttivita(''); setFormKmPercorsi(''); setFormOraInizioViaggio('');
-                setFormOraFineViaggio(''); setFormOreViaggio(''); setFormVitto(false);
-                setFormAutostrada(false); setFormAlloggio(false); setFormOsservazioni('');
+                setFormOreLavoro('');
+                setFormDescrizioneAttivita('');
+                setFormKmPercorsi('');
+                setFormOreViaggio('');
+                setFormVitto(false);
+                setFormAutostrada(false);
+                setFormAlloggio(false);
+                setFormOsservazioni('');
                 setFiltroTecnico(''); // Resetta anche il filtro
                 setAttivitaEseguite([]); // Reset attività eseguite
             }
@@ -214,13 +210,9 @@ function InterventoAssistenzaForm({
           mansione_id: formMansioneId || null, // Storicizza mansione per calcolo costi
           tipo_intervento: formTipoIntervento,
           numero_tecnici: parseInt(formNumeroTecnici, 10) || 1,
-          ora_inizio_lavoro: formOraInizioLavoro || null,
-          ora_fine_lavoro: formOraFineLavoro || null,
           ore_lavoro_effettive: parseFloat(formOreLavoro) || null,
           descrizione_attivita_svolta_intervento: formDescrizioneAttivita.trim(),
           km_percorsi: formTipoIntervento === 'In Loco' ? (parseInt(formKmPercorsi) || null) : null,
-          ora_inizio_viaggio: formTipoIntervento === 'In Loco' ? (formOraInizioViaggio || null) : null,
-          ora_fine_viaggio: formTipoIntervento === 'In Loco' ? (formOraFineViaggio || null) : null,
           ore_viaggio: formTipoIntervento === 'In Loco' ? (parseFloat(formOreViaggio) || null) : null,
           vitto: formTipoIntervento === 'In Loco' ? formVitto : false,
           autostrada: formTipoIntervento === 'In Loco' ? formAutostrada : false,
@@ -367,16 +359,6 @@ function InterventoAssistenzaForm({
                 onChange={(e) => setFormNumeroTecnici(e.target.value)}
               />
             </div>
-            <div style={{display: 'flex', gap: '1rem', flexWrap:'wrap'}}>
-                <div style={{flex:'1 1 200px'}}>
-                    <label htmlFor="formOraInizioLavoro">Ora Inizio Lavoro:</label>
-                    <input type="time" id="formOraInizioLavoro" value={formOraInizioLavoro} onChange={(e) => setFormOraInizioLavoro(e.target.value)} />
-                </div>
-                <div style={{flex:'1 1 200px'}}>
-                    <label htmlFor="formOraFineLavoro">Ora Fine Lavoro:</label>
-                    <input type="time" id="formOraFineLavoro" value={formOraFineLavoro} onChange={(e) => setFormOraFineLavoro(e.target.value)} />
-                </div>
-            </div>
             <div>
                 <label htmlFor="formOreLavoro">Ore Lavoro Effettive (es. 2.5):</label>
                 <input type="number" step="0.1" min="0" id="formOreLavoro" value={formOreLavoro} onChange={(e) => setFormOreLavoro(e.target.value)} />
@@ -407,16 +389,6 @@ function InterventoAssistenzaForm({
                 <div>
                   <label htmlFor="formKmPercorsi">Km Percorsi A/R:</label>
                   <input type="number" min="0" id="formKmPercorsi" value={formKmPercorsi} onChange={(e) => setFormKmPercorsi(e.target.value)} />
-                </div>
-                <div style={{display: 'flex', gap: '1rem', flexWrap:'wrap'}}>
-                    <div style={{flex:'1 1 200px'}}>
-                        <label htmlFor="formOraInizioViaggio">Ora Inizio Viaggio:</label>
-                        <input type="time" id="formOraInizioViaggio" value={formOraInizioViaggio} onChange={(e) => setFormOraInizioViaggio(e.target.value)} />
-                    </div>
-                    <div style={{flex:'1 1 200px'}}>
-                        <label htmlFor="formOraFineViaggio">Ora Fine Viaggio:</label>
-                        <input type="time" id="formOraFineViaggio" value={formOraFineViaggio} onChange={(e) => setFormOraFineViaggio(e.target.value)} />
-                    </div>
                 </div>
                 <div>
                     <label htmlFor="formOreViaggio">Ore Viaggio (es. 1.0):</label>
