@@ -203,17 +203,9 @@ function InterventoAssistenzaForm({
             return;
         }
 
-        // Validazione attività obbligatorie
-        const attivitaObbligatorie = attivitaStandardFoglio.filter(a => a.obbligatoria);
-        const attivitaObbligatorieNonEseguite = attivitaObbligatorie.filter(obblig =>
-            !attivitaEseguite.some(eseg => eseg.attivita_standard_id === obblig.id)
-        );
-
-        if (attivitaObbligatorieNonEseguite.length > 0) {
-            setError(`Attività obbligatorie mancanti: ${attivitaObbligatorieNonEseguite.map(a => a.codice).join(', ')}`);
-            setLoading(false);
-            return;
-        }
+        // Nota: La validazione delle attività obbligatorie è stata rimossa da qui.
+        // Le attività obbligatorie vengono ora verificate solo al momento del cambio di stato
+        // del foglio a "Completato" in FoglioAssistenzaFormPage.jsx
 
         const interventoDataPayload = {
           foglio_assistenza_id: foglioAssistenzaId,

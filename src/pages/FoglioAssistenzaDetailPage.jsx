@@ -141,6 +141,7 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
           .select(`
             *,
             tecnici (id, nome, cognome, email),
+            mansioni (*),
             interventi_attivita_standard (
               id,
               codice_attivita,
@@ -476,7 +477,32 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
                 fullData.tecnico_assegnato_nome = tecnicoAss ? `${tecnicoAss.nome} ${tecnicoAss.cognome}` : fullData.profilo_tecnico_assegnato?.full_name || null;
                 foglioCompletoPerStampa = fullData;
             }
-            await generateFoglioAssistenzaPDF(foglioCompletoPerStampa, interventi, { layout: layoutStampa });
+
+            // Carica attività standard previste per questo foglio
+            const { data: attivitaPreviste, error: attivitaError } = await supabase
+                .from('fogli_attivita_standard')
+                .select(`
+                    attivita_standard_id,
+                    obbligatoria,
+                    attivita_standard_clienti (
+                        codice_attivita,
+                        descrizione,
+                        costo_unitario,
+                        unita_misura (codice)
+                    )
+                `)
+                .eq('foglio_assistenza_id', foglioId);
+
+            if (attivitaError) {
+                console.warn('Errore caricamento attività previste:', attivitaError);
+            }
+
+            await generateFoglioAssistenzaPDF(
+                foglioCompletoPerStampa,
+                interventi,
+                attivitaPreviste || [],
+                { layout: layoutStampa }
+            );
         } catch (err) { 
             console.error(`Errore durante la generazione del PDF per il foglio singolo ${foglioId}:`, err);
             setError(`Errore PDF: ${err.message}`);

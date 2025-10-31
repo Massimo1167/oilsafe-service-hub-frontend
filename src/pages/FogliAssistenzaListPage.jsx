@@ -210,10 +210,43 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                 const tecnicoAss = (allTecnici || []).find(t => t.user_id === foglioData.assegnato_a_user_id);
                 foglioData.tecnico_assegnato_nome = tecnicoAss ? `${tecnicoAss.nome} ${tecnicoAss.cognome}` : foglioData.profilo_tecnico_assegnato?.full_name || null;
 
-                const { data: interventiData, error: interventiError } = await supabase.from('interventi_assistenza').select(`*, tecnici (*), mansioni (*)`) .eq('foglio_assistenza_id', foglioId).order('data_intervento_effettivo');
+                const { data: interventiData, error: interventiError } = await supabase
+                    .from('interventi_assistenza')
+                    .select(`
+                        *,
+                        tecnici (*),
+                        mansioni (*),
+                        interventi_attivita_standard (
+                            id,
+                            codice_attivita,
+                            descrizione,
+                            unita_misura,
+                            costo_unitario,
+                            quantita,
+                            costo_totale
+                        )
+                    `)
+                    .eq('foglio_assistenza_id', foglioId)
+                    .order('data_intervento_effettivo');
                 if (interventiError) console.warn(`Attenzione: Errore nel recuperare gli interventi per il foglio ${foglioId}: ${interventiError.message}`);
 
-                await generateFoglioAssistenzaPDF(foglioData, interventiData || [], { layout: layoutStampa });
+                // Carica attività previste per questo foglio
+                const { data: attivitaPreviste, error: attivitaError } = await supabase
+                    .from('fogli_attivita_standard')
+                    .select(`
+                        attivita_standard_id,
+                        obbligatoria,
+                        attivita_standard_clienti (
+                            codice_attivita,
+                            descrizione,
+                            costo_unitario,
+                            unita_misura (codice)
+                        )
+                    `)
+                    .eq('foglio_assistenza_id', foglioId);
+                if (attivitaError) console.warn(`Attenzione: Errore nel recuperare le attività previste per il foglio ${foglioId}: ${attivitaError.message}`);
+
+                await generateFoglioAssistenzaPDF(foglioData, interventiData || [], attivitaPreviste || [], { layout: layoutStampa });
             } catch (err) {
                 console.error(`Errore durante la generazione del PDF per il foglio ${foglioId}:`, err);
                 printErrors.push(`Foglio ${foglioId.substring(0,8)}: ${err.message}`);
@@ -237,11 +270,44 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
             const tecnicoAss = (allTecnici || []).find(t => t.user_id === foglioData.assegnato_a_user_id);
             foglioData.tecnico_assegnato_nome = tecnicoAss ? `${tecnicoAss.nome} ${tecnicoAss.cognome}` : foglioData.profilo_tecnico_assegnato?.full_name || null;
 
-            const { data: interventiData, error: interventiError } = await supabase.from('interventi_assistenza').select(`*, tecnici (*), mansioni (*)`) .eq('foglio_assistenza_id', foglioId).order('data_intervento_effettivo');
+            const { data: interventiData, error: interventiError } = await supabase
+                .from('interventi_assistenza')
+                .select(`
+                    *,
+                    tecnici (*),
+                    mansioni (*),
+                    interventi_attivita_standard (
+                        id,
+                        codice_attivita,
+                        descrizione,
+                        unita_misura,
+                        costo_unitario,
+                        quantita,
+                        costo_totale
+                    )
+                `)
+                .eq('foglio_assistenza_id', foglioId)
+                .order('data_intervento_effettivo');
             if (interventiError) console.warn(`Attenzione: Errore nel recuperare gli interventi per il foglio ${foglioId}: ${interventiError.message}`);
 
+            // Carica attività previste per questo foglio
+            const { data: attivitaPreviste, error: attivitaError } = await supabase
+                .from('fogli_attivita_standard')
+                .select(`
+                    attivita_standard_id,
+                    obbligatoria,
+                    attivita_standard_clienti (
+                        codice_attivita,
+                        descrizione,
+                        costo_unitario,
+                        unita_misura (codice)
+                    )
+                `)
+                .eq('foglio_assistenza_id', foglioId);
+            if (attivitaError) console.warn(`Attenzione: Errore nel recuperare le attività previste per il foglio ${foglioId}: ${attivitaError.message}`);
+
             // Genera PDF in modalità preview (ritorna DataURL invece di salvare)
-            const pdfDataUrl = await generateFoglioAssistenzaPDF(foglioData, interventiData || [], { layout: layoutStampa, preview: true });
+            const pdfDataUrl = await generateFoglioAssistenzaPDF(foglioData, interventiData || [], attivitaPreviste || [], { layout: layoutStampa, preview: true });
 
             setPreviewPdfUrl(pdfDataUrl);
             setShowPreview(true);
