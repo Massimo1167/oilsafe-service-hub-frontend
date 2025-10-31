@@ -24,6 +24,7 @@ import CommesseManager from './components/anagrafiche/CommesseManager';
 import OrdiniClienteManager from './components/anagrafiche/OrdiniClienteManager';
 import MansioniManager from './components/anagrafiche/MansioniManager';
 import AttivitaStandardManager from './components/anagrafiche/AttivitaStandardManager';
+import UnitaMisuraManager from './components/anagrafiche/UnitaMisuraManager';
 
 import './App.css';
 
@@ -337,6 +338,7 @@ function App() {
                 <Link to="/commesse">Commesse</Link>
                 <Link to="/ordini">Ordini</Link>
                 <Link to="/mansioni">Mansioni</Link>
+                <Link to="/unita-misura">Unità di Misura</Link>
                 <Link to="/attivita-standard">Attività Standard</Link>
               </>
             )}
@@ -404,6 +406,7 @@ function App() {
                 <Route path="/commesse" element={<CommesseManager session={session} clienti={clienti} onDataChanged={reloadAnagrafiche} />} />
                 <Route path="/ordini" element={<OrdiniClienteManager session={session} clienti={clienti} commesse={commesse} onDataChanged={reloadAnagrafiche} />} />
                 <Route path="/mansioni" element={<MansioniManager session={session} onDataChanged={reloadAnagrafiche} />} />
+                <Route path="/unita-misura" element={<UnitaMisuraManager session={session} onDataChanged={reloadAnagrafiche} />} />
                 <Route path="/attivita-standard" element={<AttivitaStandardManager session={session} onDataChanged={reloadAnagrafiche} />} />
               </>
             )}
