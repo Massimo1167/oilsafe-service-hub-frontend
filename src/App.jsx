@@ -15,6 +15,7 @@ import SignupPage from './pages/SignupPage';
 import FogliAssistenzaListPage from './pages/FogliAssistenzaListPage';
 import FoglioAssistenzaFormPage from './pages/FoglioAssistenzaFormPage';
 import FoglioAssistenzaDetailPage from './pages/FoglioAssistenzaDetailPage';
+import FoglioAttivitaStandardPage from './pages/FoglioAttivitaStandardPage';
 import StatistichePage from './pages/StatistichePage';
 
 // Importa Componenti Manager Anagrafiche
@@ -23,6 +24,8 @@ import TecniciManager from './components/anagrafiche/TecniciManager';
 import CommesseManager from './components/anagrafiche/CommesseManager';
 import OrdiniClienteManager from './components/anagrafiche/OrdiniClienteManager';
 import MansioniManager from './components/anagrafiche/MansioniManager';
+import AttivitaStandardManager from './components/anagrafiche/AttivitaStandardManager';
+import UnitaMisuraManager from './components/anagrafiche/UnitaMisuraManager';
 
 import './App.css';
 
@@ -336,6 +339,8 @@ function App() {
                 <Link to="/commesse">Commesse</Link>
                 <Link to="/ordini">Ordini</Link>
                 <Link to="/mansioni">Mansioni</Link>
+                <Link to="/unita-misura">Unità di Misura</Link>
+                <Link to="/attivita-standard">Attività Standard</Link>
               </>
             )}
             {userRole === 'admin' && (
@@ -391,9 +396,13 @@ function App() {
                 />
               }
             />
-            <Route 
-              path="/fogli-assistenza/:foglioId" 
-              element={<FoglioAssistenzaDetailPage session={session} tecnici={tecnici} />} 
+            <Route
+              path="/fogli-assistenza/:foglioId"
+              element={<FoglioAssistenzaDetailPage session={session} tecnici={tecnici} />}
+            />
+            <Route
+              path="/fogli-assistenza/:foglioId/attivita-standard"
+              element={<FoglioAttivitaStandardPage session={session} />}
             />
             {(userRole === 'admin' || userRole === 'manager') && (
               <>
@@ -402,6 +411,8 @@ function App() {
                 <Route path="/commesse" element={<CommesseManager session={session} clienti={clienti} onDataChanged={reloadAnagrafiche} />} />
                 <Route path="/ordini" element={<OrdiniClienteManager session={session} clienti={clienti} commesse={commesse} onDataChanged={reloadAnagrafiche} />} />
                 <Route path="/mansioni" element={<MansioniManager session={session} onDataChanged={reloadAnagrafiche} />} />
+                <Route path="/unita-misura" element={<UnitaMisuraManager session={session} onDataChanged={reloadAnagrafiche} />} />
+                <Route path="/attivita-standard" element={<AttivitaStandardManager session={session} onDataChanged={reloadAnagrafiche} />} />
               </>
             )}
             {userRole === 'admin' && (

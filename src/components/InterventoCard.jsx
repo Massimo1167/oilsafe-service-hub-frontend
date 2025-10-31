@@ -65,6 +65,22 @@ function InterventoCard({ intervento, canModify, onEdit, onDelete, onView, isSel
             <p>{intervento.descrizione_attivita_svolta_intervento || '-'}</p>
             <p><strong>Osservazioni:</strong></p>
             <p>{intervento.osservazioni_intervento || '-'}</p>
+            {intervento.interventi_attivita_standard?.length > 0 && (
+                <div style={{marginTop: '15px', padding: '10px', backgroundColor: '#f0f8ff', borderRadius: '4px'}}>
+                    <h5 style={{marginTop: 0, marginBottom: '10px'}}>Attività Standard Eseguite:</h5>
+                    <ul style={{margin: 0, paddingLeft: '20px'}}>
+                        {intervento.interventi_attivita_standard.map(att => (
+                            <li key={att.id} style={{marginBottom: '8px'}}>
+                                <strong>{att.codice_attivita}</strong>: {att.descrizione}
+                                <br />
+                                <span style={{fontSize: '0.9em', color: '#555'}}>
+                                    Quantità: {att.quantita} {att.unita_misura}
+                                </span>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            )}
             {canModify ? (
                 <div className="actions" style={{ marginTop: '0.5rem' }}>
                     <button

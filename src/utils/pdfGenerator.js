@@ -39,7 +39,7 @@ const loadImageAsDataURL = (url) => {
 };
 
 // Funzione principale per la generazione del PDF
-export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, options = {}) => {
+export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, attivitaPreviste = [], options = {}) => {
     if (!foglioData) {
         console.error("Dati del foglio di assistenza mancanti per la generazione PDF.");
         return;
@@ -731,6 +731,162 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, op
     }
 
     yPosition += 3;
+
+    // SEZIONE ATTIVITÀ STANDARD (solo se layout detailed o detailed_with_costs)
+    if ((layoutType === 'detailed' || layoutType === 'detailed_with_costs') && attivitaPreviste && attivitaPreviste.length > 0) {
+        // Step 1: Aggrega attività ESEGUITE da tutti gli interventi
+        const attivitaEseguiteMap = {};
+
+        if (interventiData) {
+            interventiData.forEach(int => {
+                if (int.interventi_attivita_standard?.length > 0) {
+                    int.interventi_attivita_standard.forEach(att => {
+                        const key = att.codice_attivita;
+                        if (!attivitaEseguiteMap[key]) {
+                            attivitaEseguiteMap[key] = {
+                                quantita_totale: 0,
+                                costo_totale: 0
+                            };
+                        }
+                        attivitaEseguiteMap[key].quantita_totale += parseFloat(att.quantita) || 0;
+                        attivitaEseguiteMap[key].costo_totale += parseFloat(att.costo_totale) || 0;
+                    });
+                }
+            });
+        }
+
+        // Step 2: Crea array completo con TUTTE le attività previste
+        const attivitaCompleteArray = attivitaPreviste.map(prev => {
+            const codice = prev.attivita_standard_clienti?.codice_attivita || 'N/D';
+            const eseguita = attivitaEseguiteMap[codice];
+
+            return {
+                codice: codice,
+                descrizione: prev.attivita_standard_clienti?.descrizione || 'N/D',
+                um: prev.attivita_standard_clienti?.unita_misura?.codice || '',
+                costo_unitario: parseFloat(prev.attivita_standard_clienti?.costo_unitario) || 0,
+                obbligatoria: prev.obbligatoria || false,
+                eseguita: !!eseguita,
+                quantita_totale: eseguita ? eseguita.quantita_totale : 0,
+                costo_totale: eseguita ? eseguita.costo_totale : 0
+            };
+        });
+
+        // Step 3: Renderizza sezione
+        checkAndAddPage(doc, 30);
+        addLine(doc);
+
+        addFormattedText(doc, 'Attività Standard:', marginLeft, {
+            fontSize: 11,
+            fontStyle: 'bold',
+            marginBottom: 3
+        });
+
+        if (!showCosts) {
+            // LAYOUT SENZA COSTI: Lista con checkbox
+            doc.setFontSize(8);
+
+            attivitaCompleteArray.forEach(att => {
+                const stimaAltezza = att.obbligatoria && !att.eseguita ? 12 : 10;
+                checkAndAddPage(doc, stimaAltezza);
+
+                // Sfondo rosso per obbligatorie non eseguite
+                if (att.obbligatoria && !att.eseguita) {
+                    doc.setFillColor(255, 200, 200);
+                    doc.rect(marginLeft + 3, yPosition - 3, contentWidth - 6, 6, 'F');
+                }
+
+                doc.setFont(undefined, 'normal');
+
+                // Checkbox
+                const checkbox = att.eseguita ? '☑' : '☐';
+                doc.text(checkbox, marginLeft + 5, yPosition);
+
+                // Flag per obbligatoria
+                const flagObblig = att.obbligatoria ? ' ⚠️' : '';
+
+                // Codice e descrizione
+                doc.text(`${att.codice} - ${att.descrizione}${flagObblig}`, marginLeft + 12, yPosition);
+                yPosition += 4;
+
+                // Quantità solo se eseguita
+                if (att.eseguita) {
+                    doc.text(`  Q.tà: ${att.quantita_totale.toFixed(2)} ${att.um}`, marginLeft + 15, yPosition);
+                    yPosition += 5;
+                } else {
+                    yPosition += 3;
+                }
+            });
+
+            yPosition += 5;
+        } else {
+            // LAYOUT CON COSTI: Tabella completa
+            checkAndAddPage(doc, 15);
+
+            // Header tabella
+            doc.setFontSize(7);
+            doc.setFont(undefined, 'bold');
+            doc.text('✓', marginLeft + 5, yPosition);
+            doc.text('Codice', marginLeft + 12, yPosition);
+            doc.text('Descrizione', marginLeft + 32, yPosition);
+            doc.text('Q.tà', marginLeft + 100, yPosition, { align: 'right' });
+            doc.text('Costo Unit.', marginLeft + 130, yPosition, { align: 'right' });
+            doc.text('Totale', marginLeft + 165, yPosition, { align: 'right' });
+            yPosition += 5;
+
+            doc.setFont(undefined, 'normal');
+
+            let totaleCostoAttivita = 0;
+
+            attivitaCompleteArray.forEach(att => {
+                checkAndAddPage(doc, 10);
+
+                // Sfondo rosso per obbligatorie non eseguite
+                if (att.obbligatoria && !att.eseguita) {
+                    doc.setFillColor(255, 200, 200);
+                    doc.rect(marginLeft + 3, yPosition - 3, contentWidth - 6, 5, 'F');
+                }
+
+                // Checkbox
+                const checkbox = att.eseguita ? '✓' : '';
+                doc.text(checkbox, marginLeft + 6, yPosition);
+
+                // Flag obbligatoria
+                const flagObblig = att.obbligatoria ? ' ⚠️' : '';
+
+                // Codice (troncato se necessario)
+                doc.text(att.codice.substring(0, 8), marginLeft + 12, yPosition);
+
+                // Descrizione (troncata se necessario)
+                const descTrunc = att.descrizione.substring(0, 35) + (att.descrizione.length > 35 ? '...' : '');
+                doc.text(`${descTrunc}${flagObblig}`, marginLeft + 32, yPosition);
+
+                if (att.eseguita) {
+                    // Valori per attività eseguite
+                    doc.text(`${att.quantita_totale.toFixed(2)} ${att.um}`, marginLeft + 100, yPosition, { align: 'right' });
+                    doc.text(`€${att.costo_unitario.toFixed(2)}`, marginLeft + 130, yPosition, { align: 'right' });
+                    doc.text(`€${att.costo_totale.toFixed(2)}`, marginLeft + 165, yPosition, { align: 'right' });
+                    totaleCostoAttivita += att.costo_totale;
+                } else {
+                    // Testo "(non eseguita)" per attività non eseguite
+                    doc.setFont(undefined, 'italic');
+                    doc.text('(non eseguita)', marginLeft + 100, yPosition);
+                    doc.setFont(undefined, 'normal');
+                }
+
+                yPosition += 5;
+            });
+
+            // Riga totale
+            yPosition += 2;
+            checkAndAddPage(doc, 8);
+            doc.setFont(undefined, 'bold');
+            doc.text('TOTALE ATTIVITÀ STANDARD:', marginLeft + 12, yPosition);
+            doc.text(`€${totaleCostoAttivita.toFixed(2)}`, marginLeft + 165, yPosition, { align: 'right' });
+            doc.setFont(undefined, 'normal');
+            yPosition += 5;
+        }
+    }
 
     // FIRME
     const signatureWidth = 52; 
