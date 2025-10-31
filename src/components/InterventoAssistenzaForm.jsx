@@ -133,8 +133,12 @@ function InterventoAssistenzaForm({
                             id,
                             codice_attivita,
                             descrizione,
-                            unita_misura,
-                            costo_unitario
+                            costo_unitario,
+                            unita_misura_id,
+                            unita_misura (
+                                codice,
+                                descrizione
+                            )
                         )
                     `)
                     .eq('foglio_assistenza_id', foglioAssistenzaId);
@@ -144,7 +148,7 @@ function InterventoAssistenzaForm({
                         id: item.attivita_standard_clienti.id,
                         codice: item.attivita_standard_clienti.codice_attivita,
                         descrizione: item.attivita_standard_clienti.descrizione,
-                        um: item.attivita_standard_clienti.unita_misura,
+                        um: item.attivita_standard_clienti.unita_misura?.codice || '',
                         costo_unitario: item.attivita_standard_clienti.costo_unitario,
                         obbligatoria: item.obbligatoria
                     }));

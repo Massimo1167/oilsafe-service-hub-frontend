@@ -26,7 +26,17 @@ function AttivitaStandardSelector({ clienteId, selectedAttivita, onChange, readO
         try {
             const { data, error } = await supabase
                 .from('attivita_standard_clienti')
-                .select('id, codice_attivita, descrizione, unita_misura')
+                .select(`
+                    id,
+                    codice_attivita,
+                    descrizione,
+                    costo_unitario,
+                    unita_misura_id,
+                    unita_misura (
+                        codice,
+                        descrizione
+                    )
+                `)
                 .eq('cliente_id', clienteId)
                 .eq('attivo', true)
                 .order('codice_attivita');
@@ -178,7 +188,7 @@ function AttivitaStandardSelector({ clienteId, selectedAttivita, onChange, readO
                                     {attivita.descrizione}
                                 </div>
                                 <div style={{fontSize: '0.85em', color: '#888'}}>
-                                    U.M: {attivita.unita_misura}
+                                    U.M: {attivita.unita_misura?.codice || '-'}
                                 </div>
                             </div>
 

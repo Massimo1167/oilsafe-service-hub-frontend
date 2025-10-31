@@ -8,7 +8,6 @@ import { useNavigate, useParams, Link, Navigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { STATO_FOGLIO_STEPS } from '../utils/statoFoglio';
 import SignatureCanvas from 'react-signature-canvas';
-import AttivitaStandardSelector from '../components/AttivitaStandardSelector';
 
 const MAX_SIGNATURE_SIZE = 2 * 1024 * 1024; // 2MB
 import VoiceInputButton from '../components/VoiceInputButton';
@@ -52,8 +51,6 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
  const [formEmailInterno, setFormEmailInterno] = useState('');
     const [formCreatoDaUserIdOriginal, setFormCreatoDaUserIdOriginal] = useState('');
     const [numeroFoglioVisualizzato, setNumeroFoglioVisualizzato] = useState('');
-    const [selectedAttivitaStandard, setSelectedAttivitaStandard] = useState([]);
-    // Format: [{ attivita_standard_id: UUID, obbligatoria: boolean }, ...]
 
     const [indirizziClienteSelezionato, setIndirizziClienteSelezionato] = useState([]);
     const [formSelectedIndirizzoId, setFormSelectedIndirizzoId] = useState(''); 
@@ -238,13 +235,6 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
                     setClienteFile(null);
                     setTecnicoFile(null);
 
-                    // Fetch attività selezionate per questo foglio
-                    const { data: attivitaFoglio } = await supabase
-                        .from('fogli_attivita_standard')
-                        .select('attivita_standard_id, obbligatoria')
-                        .eq('foglio_assistenza_id', foglioIdParam);
-
-                    if (attivitaFoglio) setSelectedAttivitaStandard(attivitaFoglio);
                 }
                 setPageLoading(false);
             };
@@ -440,30 +430,6 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
             if (resultData) {
                 const savedFoglioId = resultData.id;
 
-                // Salva attività standard selezionate
-                if (savedFoglioId && selectedAttivitaStandard.length > 0) {
-                    // DELETE vecchie selezioni
-                    await supabase
-                        .from('fogli_attivita_standard')
-                        .delete()
-                        .eq('foglio_assistenza_id', savedFoglioId);
-
-                    // INSERT nuove selezioni
-                    const attivitaPayload = selectedAttivitaStandard.map(a => ({
-                        foglio_assistenza_id: savedFoglioId,
-                        attivita_standard_id: a.attivita_standard_id,
-                        obbligatoria: a.obbligatoria
-                    }));
-
-                    const { error: attivitaError } = await supabase
-                        .from('fogli_attivita_standard')
-                        .insert(attivitaPayload);
-
-                    if (attivitaError) {
-                        console.error('Errore salvataggio attività standard:', attivitaError);
-                    }
-                }
-
                 localStorage.removeItem(draftKey);
                 alert(isEditMode ? 'Foglio aggiornato!' : 'Foglio creato!');
                 navigate(`/fogli-assistenza/${resultData.id}`);
@@ -633,23 +599,6 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
                         💡 Formattazione: **grassetto**, *corsivo*, ***grassetto corsivo***
                     </small>
                 </div>
-
-                {/* SEZIONE ATTIVITÀ STANDARD - Solo Admin/Manager */}
-                {(userRole === 'admin' || userRole === 'manager') && formSelectedClienteId && (
-                    <div className="form-section" style={{marginTop: '30px'}}>
-                        <h3>Attività Standard Cliente</h3>
-                        <p style={{fontSize:'0.9em', color:'#666', marginBottom:'15px'}}>
-                            Seleziona le attività standard da presentare durante la compilazione degli interventi
-                        </p>
-
-                        <AttivitaStandardSelector
-                            clienteId={formSelectedClienteId}
-                            selectedAttivita={selectedAttivitaStandard}
-                            onChange={setSelectedAttivitaStandard}
-                            readOnly={!canSubmitForm}
-                        />
-                    </div>
-                )}
 
                 <div>
                     <label htmlFor="formOsservazioniGenerali">Osservazioni Generali:</label>

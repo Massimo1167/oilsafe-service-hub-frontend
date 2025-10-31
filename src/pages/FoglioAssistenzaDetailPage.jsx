@@ -515,6 +515,11 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
                             Modifica Intestazione
                         </Link>
                     )}
+                    {(userRole === 'admin' || userRole === 'manager') && (
+                        <Link to={`/fogli-assistenza/${foglioId}/attivita-standard`} className="button secondary">
+                            Elenco Attività Standard
+                        </Link>
+                    )}
                     {canDeleteThisFoglio && (
                         <button onClick={handleDeleteFoglio} className="button danger" disabled={actionLoading || stampaSingolaLoading}>
                             {actionLoading ? 'Eliminazione...' : 'Elimina Foglio'}
