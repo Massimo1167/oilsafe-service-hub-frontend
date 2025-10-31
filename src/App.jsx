@@ -23,6 +23,7 @@ import TecniciManager from './components/anagrafiche/TecniciManager';
 import CommesseManager from './components/anagrafiche/CommesseManager';
 import OrdiniClienteManager from './components/anagrafiche/OrdiniClienteManager';
 import MansioniManager from './components/anagrafiche/MansioniManager';
+import AttivitaStandardManager from './components/anagrafiche/AttivitaStandardManager';
 
 import './App.css';
 
@@ -336,6 +337,7 @@ function App() {
                 <Link to="/commesse">Commesse</Link>
                 <Link to="/ordini">Ordini</Link>
                 <Link to="/mansioni">Mansioni</Link>
+                <Link to="/attivita-standard">Attività Standard</Link>
               </>
             )}
             {userRole === 'admin' && (
@@ -402,6 +404,7 @@ function App() {
                 <Route path="/commesse" element={<CommesseManager session={session} clienti={clienti} onDataChanged={reloadAnagrafiche} />} />
                 <Route path="/ordini" element={<OrdiniClienteManager session={session} clienti={clienti} commesse={commesse} onDataChanged={reloadAnagrafiche} />} />
                 <Route path="/mansioni" element={<MansioniManager session={session} onDataChanged={reloadAnagrafiche} />} />
+                <Route path="/attivita-standard" element={<AttivitaStandardManager session={session} onDataChanged={reloadAnagrafiche} />} />
               </>
             )}
             {userRole === 'admin' && (

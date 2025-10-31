@@ -46,38 +46,62 @@ function InterventoAssistenzaForm({
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
+    // Stati per attività standard
+    const [attivitaStandardFoglio, setAttivitaStandardFoglio] = useState([]);
+    // Format: [{ id, codice, descrizione, um, costo_unitario, obbligatoria }, ...]
+
+    const [attivitaEseguite, setAttivitaEseguite] = useState([]);
+    // Format: [{ attivita_standard_id, quantita }, ...]
+
     // Popola il form se siamo in modalità modifica
     useEffect(() => {
-        if (isEditMode && interventoToEdit) {
-            setFormDataIntervento(interventoToEdit.data_intervento_effettivo ? new Date(interventoToEdit.data_intervento_effettivo).toISOString().split('T')[0] : '');
-            setFormSelectedTecnicoId(interventoToEdit.tecnico_id || '');
-            setFormMansioneId(interventoToEdit.mansione_id || ''); // Carica mansione storicizzata
-            setFormTipoIntervento(interventoToEdit.tipo_intervento || 'In Loco');
-            setFormNumeroTecnici(interventoToEdit.numero_tecnici?.toString() || '1');
-            setFormOraInizioLavoro(interventoToEdit.ora_inizio_lavoro || '');
-            setFormOraFineLavoro(interventoToEdit.ora_fine_lavoro || '');
-            setFormOreLavoro(interventoToEdit.ore_lavoro_effettive?.toString() || '');
-            setFormDescrizioneAttivita(interventoToEdit.descrizione_attivita_svolta_intervento || '');
-            setFormKmPercorsi(interventoToEdit.km_percorsi?.toString() || '');
-            setFormOraInizioViaggio(interventoToEdit.ora_inizio_viaggio || '');
-            setFormOraFineViaggio(interventoToEdit.ora_fine_viaggio || '');
-            setFormOreViaggio(interventoToEdit.ore_viaggio?.toString() || '');
-            setFormVitto(interventoToEdit.vitto || false);
-            setFormAutostrada(interventoToEdit.autostrada || false);
-            setFormAlloggio(interventoToEdit.alloggio || false);
-            setFormOsservazioni(interventoToEdit.osservazioni_intervento || '');
-        } else {
-            // Reset per la modalità aggiunta
-            setFormDataIntervento(new Date().toISOString().split('T')[0]);
-            setFormSelectedTecnicoId(tecniciList?.[0]?.id || ''); // Preseleziona il primo se disponibile
-            setFormTipoIntervento('In Loco');
-            setFormNumeroTecnici('1');
-            setFormOraInizioLavoro(''); setFormOraFineLavoro(''); setFormOreLavoro('');
-            setFormDescrizioneAttivita(''); setFormKmPercorsi(''); setFormOraInizioViaggio('');
-            setFormOraFineViaggio(''); setFormOreViaggio(''); setFormVitto(false);
-            setFormAutostrada(false); setFormAlloggio(false); setFormOsservazioni('');
-            setFiltroTecnico(''); // Resetta anche il filtro
-        }
+        const loadInterventoData = async () => {
+            if (isEditMode && interventoToEdit) {
+                setFormDataIntervento(interventoToEdit.data_intervento_effettivo ? new Date(interventoToEdit.data_intervento_effettivo).toISOString().split('T')[0] : '');
+                setFormSelectedTecnicoId(interventoToEdit.tecnico_id || '');
+                setFormMansioneId(interventoToEdit.mansione_id || ''); // Carica mansione storicizzata
+                setFormTipoIntervento(interventoToEdit.tipo_intervento || 'In Loco');
+                setFormNumeroTecnici(interventoToEdit.numero_tecnici?.toString() || '1');
+                setFormOraInizioLavoro(interventoToEdit.ora_inizio_lavoro || '');
+                setFormOraFineLavoro(interventoToEdit.ora_fine_lavoro || '');
+                setFormOreLavoro(interventoToEdit.ore_lavoro_effettive?.toString() || '');
+                setFormDescrizioneAttivita(interventoToEdit.descrizione_attivita_svolta_intervento || '');
+                setFormKmPercorsi(interventoToEdit.km_percorsi?.toString() || '');
+                setFormOraInizioViaggio(interventoToEdit.ora_inizio_viaggio || '');
+                setFormOraFineViaggio(interventoToEdit.ora_fine_viaggio || '');
+                setFormOreViaggio(interventoToEdit.ore_viaggio?.toString() || '');
+                setFormVitto(interventoToEdit.vitto || false);
+                setFormAutostrada(interventoToEdit.autostrada || false);
+                setFormAlloggio(interventoToEdit.alloggio || false);
+                setFormOsservazioni(interventoToEdit.osservazioni_intervento || '');
+
+                // Carica attività standard eseguite
+                try {
+                    const { data: attivitaData } = await supabase
+                        .from('interventi_attivita_standard')
+                        .select('attivita_standard_id, quantita')
+                        .eq('intervento_assistenza_id', interventoToEdit.id);
+
+                    if (attivitaData) setAttivitaEseguite(attivitaData);
+                } catch (err) {
+                    console.error('Errore caricamento attività eseguite:', err);
+                }
+            } else {
+                // Reset per la modalità aggiunta
+                setFormDataIntervento(new Date().toISOString().split('T')[0]);
+                setFormSelectedTecnicoId(tecniciList?.[0]?.id || ''); // Preseleziona il primo se disponibile
+                setFormTipoIntervento('In Loco');
+                setFormNumeroTecnici('1');
+                setFormOraInizioLavoro(''); setFormOraFineLavoro(''); setFormOreLavoro('');
+                setFormDescrizioneAttivita(''); setFormKmPercorsi(''); setFormOraInizioViaggio('');
+                setFormOraFineViaggio(''); setFormOreViaggio(''); setFormVitto(false);
+                setFormAutostrada(false); setFormAlloggio(false); setFormOsservazioni('');
+                setFiltroTecnico(''); // Resetta anche il filtro
+                setAttivitaEseguite([]); // Reset attività eseguite
+            }
+        };
+
+        loadInterventoData();
     }, [interventoToEdit, isEditMode, tecniciList]);
 
     // Auto-popola mansione_id quando cambia il tecnico selezionato
@@ -94,6 +118,70 @@ function InterventoAssistenzaForm({
         }
     }, [formSelectedTecnicoId, tecniciList]);
 
+    // Fetch attività standard disponibili per questo foglio
+    useEffect(() => {
+        const fetchAttivitaFoglio = async () => {
+            if (!foglioAssistenzaId) return;
+
+            try {
+                const { data, error } = await supabase
+                    .from('fogli_attivita_standard')
+                    .select(`
+                        attivita_standard_id,
+                        obbligatoria,
+                        attivita_standard_clienti (
+                            id,
+                            codice_attivita,
+                            descrizione,
+                            unita_misura,
+                            costo_unitario
+                        )
+                    `)
+                    .eq('foglio_assistenza_id', foglioAssistenzaId);
+
+                if (!error && data) {
+                    const mapped = data.map(item => ({
+                        id: item.attivita_standard_clienti.id,
+                        codice: item.attivita_standard_clienti.codice_attivita,
+                        descrizione: item.attivita_standard_clienti.descrizione,
+                        um: item.attivita_standard_clienti.unita_misura,
+                        costo_unitario: item.attivita_standard_clienti.costo_unitario,
+                        obbligatoria: item.obbligatoria
+                    }));
+                    setAttivitaStandardFoglio(mapped);
+                }
+            } catch (err) {
+                console.error('Errore caricamento attività standard:', err);
+            }
+        };
+
+        fetchAttivitaFoglio();
+    }, [foglioAssistenzaId]);
+
+    // Handler per toggle attività standard
+    const handleToggleAttivita = (attivitaId, checked) => {
+        if (checked) {
+            setAttivitaEseguite([...attivitaEseguite, {
+                attivita_standard_id: attivitaId,
+                quantita: 1
+            }]);
+        } else {
+            setAttivitaEseguite(attivitaEseguite.filter(a => a.attivita_standard_id !== attivitaId));
+        }
+    };
+
+    // Handler per modifica quantità
+    const handleQuantitaChange = (attivitaId, newQuantita) => {
+        const quantita = parseFloat(newQuantita) || 1;
+        if (quantita < 1) return; // Min 1
+
+        setAttivitaEseguite(attivitaEseguite.map(a =>
+            a.attivita_standard_id === attivitaId
+                ? { ...a, quantita }
+                : a
+        ));
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (readOnly) return;
@@ -107,6 +195,18 @@ function InterventoAssistenzaForm({
         }
         if (!formDataIntervento) {
             setError("La data intervento è obbligatoria.");
+            setLoading(false);
+            return;
+        }
+
+        // Validazione attività obbligatorie
+        const attivitaObbligatorie = attivitaStandardFoglio.filter(a => a.obbligatoria);
+        const attivitaObbligatorieNonEseguite = attivitaObbligatorie.filter(obblig =>
+            !attivitaEseguite.some(eseg => eseg.attivita_standard_id === obblig.id)
+        );
+
+        if (attivitaObbligatorieNonEseguite.length > 0) {
+            setError(`Attività obbligatorie mancanti: ${attivitaObbligatorieNonEseguite.map(a => a.codice).join(', ')}`);
             setLoading(false);
             return;
         }
@@ -133,26 +233,74 @@ function InterventoAssistenzaForm({
         };
 
         let operationError = null;
+        let savedInterventoId = null;
+
         if (isEditMode && interventoToEdit) {
             const { error: updateError } = await supabase
                 .from('interventi_assistenza')
                 .update(interventoDataPayload)
                 .eq('id', interventoToEdit.id);
             operationError = updateError;
+            savedInterventoId = interventoToEdit.id;
         } else {
-            const { error: insertError } = await supabase
+            const { data: insertData, error: insertError } = await supabase
                 .from('interventi_assistenza')
-                .insert([interventoDataPayload]);
+                .insert([interventoDataPayload])
+                .select();
             operationError = insertError;
+            if (insertData && insertData.length > 0) {
+                savedInterventoId = insertData[0].id;
+            }
         }
 
         if (operationError) {
           setError(operationError.message);
           alert((isEditMode ? "Errore modifica intervento: " : "Errore inserimento intervento: ") + operationError.message);
-        } else {
-          onInterventoSaved(); 
-          alert(isEditMode ? "Intervento modificato!" : "Intervento aggiunto!");
+          setLoading(false);
+          return;
         }
+
+        // Salva attività standard eseguite
+        if (savedInterventoId && attivitaEseguite.length > 0) {
+            // DELETE vecchie attività (in edit mode)
+            if (isEditMode) {
+                await supabase
+                    .from('interventi_attivita_standard')
+                    .delete()
+                    .eq('intervento_assistenza_id', savedInterventoId);
+            }
+
+            // INSERT nuove attività con storicizzazione
+            const attivitaPayload = attivitaEseguite.map(eseg => {
+                const attivita = attivitaStandardFoglio.find(a => a.id === eseg.attivita_standard_id);
+                return {
+                    intervento_assistenza_id: savedInterventoId,
+                    attivita_standard_id: eseg.attivita_standard_id,
+                    codice_attivita: attivita.codice,
+                    descrizione: attivita.descrizione,
+                    unita_misura: attivita.um,
+                    costo_unitario: attivita.costo_unitario,
+                    quantita: eseg.quantita
+                };
+            });
+
+            const { error: attivitaError } = await supabase
+                .from('interventi_attivita_standard')
+                .insert(attivitaPayload);
+
+            if (attivitaError) {
+                console.error('Errore salvataggio attività standard:', attivitaError);
+            }
+        } else if (savedInterventoId && isEditMode && attivitaEseguite.length === 0) {
+            // Se in edit mode e non ci sono attività eseguite, elimina tutte le attività precedenti
+            await supabase
+                .from('interventi_attivita_standard')
+                .delete()
+                .eq('intervento_assistenza_id', savedInterventoId);
+        }
+
+        onInterventoSaved();
+        alert(isEditMode ? "Intervento modificato!" : "Intervento aggiunto!");
         setLoading(false);
     };
 
@@ -303,6 +451,67 @@ function InterventoAssistenzaForm({
                 💡 Formattazione: **grassetto**, *corsivo*, ***grassetto corsivo***
               </small>
             </div>
+
+            {/* SEZIONE ATTIVITÀ STANDARD */}
+            {attivitaStandardFoglio.length > 0 && (
+                <div className="form-section" style={{marginTop: '25px'}}>
+                    <h4>Attività Standard</h4>
+                    <p style={{fontSize:'0.9em', color:'#666', marginBottom:'15px'}}>
+                        Seleziona le attività eseguite e indica la quantità
+                    </p>
+
+                    {attivitaStandardFoglio.map(attivita => {
+                        const eseguita = attivitaEseguite.find(a => a.attivita_standard_id === attivita.id);
+                        const isChecked = !!eseguita;
+
+                        return (
+                            <div key={attivita.id} style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '10px',
+                                marginBottom: '10px',
+                                padding: '10px',
+                                border: attivita.obbligatoria ? '2px solid #ff6b6b' : '1px solid #ddd',
+                                borderRadius: '4px',
+                                backgroundColor: isChecked ? '#f0f8f0' : 'white'
+                            }}>
+                                <input
+                                    type="checkbox"
+                                    checked={isChecked}
+                                    onChange={(e) => handleToggleAttivita(attivita.id, e.target.checked)}
+                                    disabled={readOnly}
+                                />
+
+                                <div style={{flex: 1}}>
+                                    <strong>{attivita.codice}</strong> - {attivita.descrizione}
+                                    {attivita.obbligatoria && <span style={{color:'#ff6b6b', marginLeft:'5px'}}>*</span>}
+                                    <br />
+                                    <small style={{color:'#666'}}>U.M: {attivita.um}</small>
+                                </div>
+
+                                {isChecked && (
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        step="0.01"
+                                        value={eseguita?.quantita || 1}
+                                        onChange={(e) => handleQuantitaChange(attivita.id, e.target.value)}
+                                        disabled={readOnly}
+                                        placeholder="Quantità"
+                                        style={{width: '100px', padding:'5px'}}
+                                    />
+                                )}
+                            </div>
+                        );
+                    })}
+
+                    {attivitaStandardFoglio.some(a => a.obbligatoria) && (
+                        <p style={{color:'#ff6b6b', fontSize:'0.85em', marginTop:'10px'}}>
+                            * Attività obbligatorie
+                        </p>
+                    )}
+                </div>
+            )}
             </fieldset>
 
             {error && <p style={{ color: 'red', fontWeight:'bold' }}>ERRORE: {error}</p>}

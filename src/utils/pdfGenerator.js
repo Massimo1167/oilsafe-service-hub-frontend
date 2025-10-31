@@ -732,6 +732,82 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, op
 
     yPosition += 3;
 
+    // SEZIONE ATTIVITÀ STANDARD (solo se layout detailed o detailed_with_costs)
+    if ((layoutType === 'detailed' || layoutType === 'detailed_with_costs') && interventiData) {
+        // Aggrega tutte le attività standard da tutti gli interventi
+        const attivitaMap = {};
+
+        interventiData.forEach(int => {
+            if (int.interventi_attivita_standard?.length > 0) {
+                int.interventi_attivita_standard.forEach(att => {
+                    const key = att.codice_attivita;
+                    if (!attivitaMap[key]) {
+                        attivitaMap[key] = {
+                            codice: att.codice_attivita,
+                            descrizione: att.descrizione,
+                            um: att.unita_misura,
+                            quantita_totale: 0,
+                            costo_unitario: att.costo_unitario,
+                            costo_totale: 0
+                        };
+                    }
+                    attivitaMap[key].quantita_totale += parseFloat(att.quantita);
+                    attivitaMap[key].costo_totale += parseFloat(att.costo_totale);
+                });
+            }
+        });
+
+        const attivitaArray = Object.values(attivitaMap);
+
+        if (attivitaArray.length > 0) {
+            checkAndAddPage(doc, 30);
+            addLine(doc);
+
+            addFormattedText(doc, 'Attività Standard Effettuate:', marginLeft, {
+                fontSize: 11,
+                fontStyle: 'bold',
+                marginBottom: 3
+            });
+
+            // Tabella attività standard
+            doc.setFontSize(8);
+
+            if (showCosts) {
+                // Con costi (solo admin)
+                attivitaArray.forEach(att => {
+                    checkAndAddPage(doc, 15);
+                    doc.setFont(undefined, 'normal');
+                    doc.text(`${att.codice} - ${att.descrizione}`, marginLeft + 5, yPosition);
+                    yPosition += 4;
+                    doc.text(`  Quantità: ${att.quantita_totale.toFixed(2)} ${att.um}`, marginLeft + 8, yPosition);
+                    doc.text(`Costo: €${att.costo_totale.toFixed(2)}`, marginLeft + 150, yPosition, { align: 'right' });
+                    yPosition += 5;
+                });
+
+                // Totale attività standard
+                const totaleCostoAttivita = attivitaArray.reduce((sum, a) => sum + a.costo_totale, 0);
+                yPosition += 2;
+                checkAndAddPage(doc, 8);
+                doc.setFont(undefined, 'bold');
+                doc.text('Totale Attività Standard:', marginLeft + 8, yPosition);
+                doc.text(`€${totaleCostoAttivita.toFixed(2)}`, marginLeft + 150, yPosition, { align: 'right' });
+                doc.setFont(undefined, 'normal');
+                yPosition += 3;
+            } else {
+                // Senza costi
+                attivitaArray.forEach(att => {
+                    checkAndAddPage(doc, 10);
+                    doc.text(`• ${att.codice} - ${att.descrizione}`, marginLeft + 5, yPosition);
+                    yPosition += 4;
+                    doc.text(`  Quantità: ${att.quantita_totale.toFixed(2)} ${att.um}`, marginLeft + 8, yPosition);
+                    yPosition += 5;
+                });
+            }
+
+            yPosition += 5;
+        }
+    }
+
     // FIRME
     const signatureWidth = 52; 
     const signatureHeight = 26;

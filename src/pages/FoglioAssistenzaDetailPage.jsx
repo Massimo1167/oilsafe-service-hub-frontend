@@ -138,7 +138,19 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
 
         const { data: interventiData, error: interventiError } = await supabase
           .from('interventi_assistenza')
-          .select(`*, tecnici (id, nome, cognome, email)`)
+          .select(`
+            *,
+            tecnici (id, nome, cognome, email),
+            interventi_attivita_standard (
+              id,
+              codice_attivita,
+              descrizione,
+              unita_misura,
+              costo_unitario,
+              quantita,
+              costo_totale
+            )
+          `)
           .eq('foglio_assistenza_id', foglioId)
           .order('data_intervento_effettivo', { ascending: true });
 
