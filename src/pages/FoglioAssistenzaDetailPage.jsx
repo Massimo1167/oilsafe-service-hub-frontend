@@ -138,7 +138,20 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
 
         const { data: interventiData, error: interventiError } = await supabase
           .from('interventi_assistenza')
-          .select(`*, tecnici (id, nome, cognome, email)`)
+          .select(`
+            *,
+            tecnici (id, nome, cognome, email),
+            mansioni (*),
+            interventi_attivita_standard (
+              id,
+              codice_attivita,
+              descrizione,
+              unita_misura,
+              costo_unitario,
+              quantita,
+              costo_totale
+            )
+          `)
           .eq('foglio_assistenza_id', foglioId)
           .order('data_intervento_effettivo', { ascending: true });
 
@@ -464,7 +477,32 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
                 fullData.tecnico_assegnato_nome = tecnicoAss ? `${tecnicoAss.nome} ${tecnicoAss.cognome}` : fullData.profilo_tecnico_assegnato?.full_name || null;
                 foglioCompletoPerStampa = fullData;
             }
-            await generateFoglioAssistenzaPDF(foglioCompletoPerStampa, interventi, { layout: layoutStampa });
+
+            // Carica attività standard previste per questo foglio
+            const { data: attivitaPreviste, error: attivitaError } = await supabase
+                .from('fogli_attivita_standard')
+                .select(`
+                    attivita_standard_id,
+                    obbligatoria,
+                    attivita_standard_clienti (
+                        codice_attivita,
+                        descrizione,
+                        costo_unitario,
+                        unita_misura (codice)
+                    )
+                `)
+                .eq('foglio_assistenza_id', foglioId);
+
+            if (attivitaError) {
+                console.warn('Errore caricamento attività previste:', attivitaError);
+            }
+
+            await generateFoglioAssistenzaPDF(
+                foglioCompletoPerStampa,
+                interventi,
+                attivitaPreviste || [],
+                { layout: layoutStampa }
+            );
         } catch (err) { 
             console.error(`Errore durante la generazione del PDF per il foglio singolo ${foglioId}:`, err);
             setError(`Errore PDF: ${err.message}`);
@@ -501,6 +539,11 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
                     {canEditThisFoglioOverall && (
                         <Link to={`/fogli-assistenza/${foglioId}/modifica`} className="button secondary">
                             Modifica Intestazione
+                        </Link>
+                    )}
+                    {(userRole === 'admin' || userRole === 'manager') && (
+                        <Link to={`/fogli-assistenza/${foglioId}/attivita-standard`} className="button secondary">
+                            Elenco Attività Standard
                         </Link>
                     )}
                     {canDeleteThisFoglio && (

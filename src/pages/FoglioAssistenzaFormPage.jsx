@@ -234,6 +234,7 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
                     setFirmaTecnicoPreview(data.firma_tecnico_principale_url || null);
                     setClienteFile(null);
                     setTecnicoFile(null);
+
                 }
                 setPageLoading(false);
             };
@@ -327,6 +328,68 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
             setError("Nota Stato obbligatoria.");
             setLoadingSubmit(false);
             return;
+        }
+
+        // Validazione attività obbligatorie SOLO se si sta cambiando lo stato a "Completato"
+        if (isEditMode && formStatoFoglio === 'Completato') {
+            try {
+                // Carica attività obbligatorie previste per questo foglio
+                const { data: attivitaObbligatorie, error: attObbligError } = await supabase
+                    .from('fogli_attivita_standard')
+                    .select(`
+                        attivita_standard_id,
+                        attivita_standard_clienti (codice_attivita, descrizione)
+                    `)
+                    .eq('foglio_assistenza_id', foglioIdParam)
+                    .eq('obbligatoria', true);
+
+                if (attObbligError) throw attObbligError;
+
+                if (attivitaObbligatorie && attivitaObbligatorie.length > 0) {
+                    // Carica tutte le attività ESEGUITE in tutti gli interventi di questo foglio
+                    const { data: interventiConAttivita, error: interventiError } = await supabase
+                        .from('interventi_assistenza')
+                        .select(`
+                            id,
+                            interventi_attivita_standard (attivita_standard_id, codice_attivita)
+                        `)
+                        .eq('foglio_assistenza_id', foglioIdParam);
+
+                    if (interventiError) throw interventiError;
+
+                    // Crea set di attività eseguite
+                    const attivitaEseguiteSet = new Set();
+                    if (interventiConAttivita) {
+                        interventiConAttivita.forEach(int => {
+                            if (int.interventi_attivita_standard) {
+                                int.interventi_attivita_standard.forEach(att => {
+                                    attivitaEseguiteSet.add(att.codice_attivita);
+                                });
+                            }
+                        });
+                    }
+
+                    // Verifica quali attività obbligatorie NON sono state eseguite
+                    const attivitaMancanti = attivitaObbligatorie.filter(obblig => {
+                        const codice = obblig.attivita_standard_clienti?.codice_attivita;
+                        return codice && !attivitaEseguiteSet.has(codice);
+                    });
+
+                    if (attivitaMancanti.length > 0) {
+                        const elencoMancanti = attivitaMancanti
+                            .map(a => `${a.attivita_standard_clienti?.codice_attivita} - ${a.attivita_standard_clienti?.descrizione}`)
+                            .join('\n');
+                        setError(`Impossibile completare il foglio. Attività obbligatorie mancanti:\n${elencoMancanti}`);
+                        setLoadingSubmit(false);
+                        return;
+                    }
+                }
+            } catch (validationError) {
+                console.error('Errore durante la validazione delle attività obbligatorie:', validationError);
+                setError('Errore durante la validazione delle attività obbligatorie: ' + validationError.message);
+                setLoadingSubmit(false);
+                return;
+            }
         }
 
         try {
@@ -427,6 +490,8 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
             if (resultError) { throw resultError; }
 
             if (resultData) {
+                const savedFoglioId = resultData.id;
+
                 localStorage.removeItem(draftKey);
                 alert(isEditMode ? 'Foglio aggiornato!' : 'Foglio creato!');
                 navigate(`/fogli-assistenza/${resultData.id}`);
@@ -596,6 +661,7 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
                         💡 Formattazione: **grassetto**, *corsivo*, ***grassetto corsivo***
                     </small>
                 </div>
+
                 <div>
                     <label htmlFor="formOsservazioniGenerali">Osservazioni Generali:</label>
                     <div className="voice-textarea-wrapper">
