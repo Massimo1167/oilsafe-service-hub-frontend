@@ -31,6 +31,12 @@ function AttivitaStandardManager({ session, onDataChanged }) {
     const [formUnitaMisuraId, setFormUnitaMisuraId] = useState(''); // Cambiato da TEXT a ID
     const [formCostoUnitario, setFormCostoUnitario] = useState('');
     const [formAttivo, setFormAttivo] = useState(true);
+    const [formIndirizzoClienteId, setFormIndirizzoClienteId] = useState(''); // Sede specifica o '' per listino unico/generico
+
+    // Stati per gestione multi-sede
+    const [indirizziDisponibili, setIndirizziDisponibili] = useState([]);
+    const [clienteUsaListinoUnico, setClienteUsaListinoUnico] = useState(true);
+    const [selectedSedeFilter, setSelectedSedeFilter] = useState(''); // Filtro per visualizzazione attività
 
     const userRole = (session?.user?.role || '').trim().toLowerCase();
 
@@ -76,11 +82,64 @@ function AttivitaStandardManager({ session, onDataChanged }) {
         setSelectedIds(new Set());
     }, [selectedClienteId]);
 
+    // Fetch indirizzi e info cliente quando cambia il cliente selezionato
+    useEffect(() => {
+        if (selectedClienteId) {
+            fetchIndirizziCliente();
+        } else {
+            setIndirizziDisponibili([]);
+            setClienteUsaListinoUnico(true);
+            setSelectedSedeFilter('');
+        }
+    }, [selectedClienteId]);
+
+    // Ricarica attività quando cambia il filtro sede
+    useEffect(() => {
+        if (selectedClienteId && !clienteUsaListinoUnico) {
+            fetchAttivita();
+        }
+    }, [selectedSedeFilter]);
+
+    const fetchIndirizziCliente = async () => {
+        try {
+            // Fetch info cliente (usa_listino_unico)
+            const { data: clienteData, error: clienteError } = await supabase
+                .from('clienti')
+                .select('usa_listino_unico')
+                .eq('id', selectedClienteId)
+                .single();
+
+            if (clienteError) throw clienteError;
+            setClienteUsaListinoUnico(clienteData?.usa_listino_unico ?? true);
+
+            // Se cliente usa listino unico, non serve caricare gli indirizzi
+            if (clienteData?.usa_listino_unico) {
+                setIndirizziDisponibili([]);
+                setSelectedSedeFilter('');
+                return;
+            }
+
+            // Fetch indirizzi del cliente
+            const { data: indirizziData, error: indirizziError } = await supabase
+                .from('indirizzi_clienti')
+                .select('id, descrizione, indirizzo_completo, is_default')
+                .eq('cliente_id', selectedClienteId)
+                .order('is_default', { ascending: false });
+
+            if (indirizziError) throw indirizziError;
+            setIndirizziDisponibili(indirizziData || []);
+            setSelectedSedeFilter(''); // Reset filtro sede
+        } catch (err) {
+            console.error('Errore caricamento indirizzi cliente:', err);
+            setError(err.message);
+        }
+    };
+
     const fetchClienti = async () => {
         try {
             const { data, error } = await supabase
                 .from('clienti')
-                .select('id, nome_azienda')
+                .select('id, nome_azienda, usa_listino_unico')
                 .order('nome_azienda');
 
             if (error) throw error;
@@ -95,7 +154,7 @@ function AttivitaStandardManager({ session, onDataChanged }) {
         setLoading(true);
         setError(null);
         try {
-            const { data, error } = await supabase
+            let query = supabase
                 .from('attivita_standard_clienti')
                 .select(`
                     *,
@@ -103,10 +162,21 @@ function AttivitaStandardManager({ session, onDataChanged }) {
                         id,
                         codice,
                         descrizione
+                    ),
+                    indirizzi_clienti (
+                        id,
+                        descrizione,
+                        indirizzo_completo
                     )
                 `)
-                .eq('cliente_id', selectedClienteId)
-                .order('codice_attivita');
+                .eq('cliente_id', selectedClienteId);
+
+            // Se cliente NON usa listino unico E c'è un filtro sede selezionato, filtra per quella sede
+            if (!clienteUsaListinoUnico && selectedSedeFilter) {
+                query = query.eq('indirizzo_cliente_id', selectedSedeFilter);
+            }
+
+            const { data, error } = await query.order('codice_attivita');
 
             if (error) throw error;
             setAttivita(data || []);
@@ -136,6 +206,7 @@ function AttivitaStandardManager({ session, onDataChanged }) {
         setFormUnitaMisuraId(attivita.unita_misura_id || '');
         setFormCostoUnitario(attivita.costo_unitario.toString());
         setFormAttivo(attivita.attivo);
+        // Nota: indirizzo_cliente_id non viene più settato, usa sempre selectedSedeFilter
         setShowModal(true);
     };
 
@@ -191,7 +262,8 @@ function AttivitaStandardManager({ session, onDataChanged }) {
             descrizione: formDescrizione.trim(),
             unita_misura_id: formUnitaMisuraId,
             costo_unitario: costoNum,
-            attivo: formAttivo
+            attivo: formAttivo,
+            indirizzo_cliente_id: clienteUsaListinoUnico ? null : (selectedSedeFilter || null)
         };
 
         try {
@@ -236,6 +308,7 @@ function AttivitaStandardManager({ session, onDataChanged }) {
         setFormUnitaMisuraId('');
         setFormCostoUnitario('');
         setFormAttivo(true);
+        // Nota: formIndirizzoClienteId non viene più usato
     };
 
     const handleCloseModal = () => {
@@ -257,7 +330,7 @@ function AttivitaStandardManager({ session, onDataChanged }) {
         const nomeCliente = cliente ? cliente.nome_azienda.replace(/[^a-zA-Z0-9]/g, '_') : 'cliente';
         const dataOggi = new Date().toISOString().split('T')[0];
 
-        // Prepara dati per Excel
+        // Prepara dati per Excel (senza campo sede)
         const excelData = attivita.map(att => ({
             'Codice Attività': att.codice_attivita,
             'Normativa': att.normativa || '',
@@ -316,10 +389,17 @@ function AttivitaStandardManager({ session, onDataChanged }) {
 
                     // Importa righe
                     let inserite = 0;
-                    let duplicate = 0;
+                    let aggiornate = 0;
                     let errori = 0;
+                    const importLog = []; // Array per log dettagliato
 
-                    for (const row of jsonData) {
+                    // Determina indirizzo_cliente_id basato su filtro sede attivo
+                    const indirizzoClienteId = selectedSedeFilter || null;
+
+                    for (let rowIndex = 0; rowIndex < jsonData.length; rowIndex++) {
+                        const row = jsonData[rowIndex];
+                        const rigaNumero = rowIndex + 2; // +2 perché row 1 è header, index parte da 0
+
                         const codice = row['Codice Attività']?.toString().trim();
                         const descrizione = row['Descrizione']?.toString().trim();
                         const unitaMisuraCodice = row['Unità di Misura']?.toString().trim();
@@ -327,23 +407,46 @@ function AttivitaStandardManager({ session, onDataChanged }) {
                         const normativa = row['Normativa']?.toString().trim() || null;
                         const attivoStr = row['Attivo']?.toString().trim();
 
-                        // Validazioni
+                        // Validazione campi obbligatori
                         if (!codice || !descrizione || !unitaMisuraCodice) {
                             errori++;
+                            importLog.push({
+                                riga: rigaNumero,
+                                tipo: 'ERRORE',
+                                motivo: 'Campi obbligatori mancanti (Codice/Descrizione/UM)',
+                                dati: {
+                                    codice: codice || '(vuoto)',
+                                    descrizione: descrizione || '(vuoto)',
+                                    um: unitaMisuraCodice || '(vuoto)',
+                                    costo: costoStr || '(vuoto)'
+                                }
+                            });
                             continue;
                         }
 
+                        // Validazione costo
                         const costo = parseFloat(costoStr);
                         if (isNaN(costo) || costo < 0) {
                             errori++;
+                            importLog.push({
+                                riga: rigaNumero,
+                                tipo: 'ERRORE',
+                                motivo: `Costo unitario non valido: "${costoStr}" (deve essere numero >= 0)`,
+                                dati: { codice, descrizione, um: unitaMisuraCodice, costo: costoStr }
+                            });
                             continue;
                         }
 
-                        // Lookup unità di misura per codice
+                        // Lookup unità di misura
                         const um = unitaMisura.find(u => u.codice === unitaMisuraCodice);
                         if (!um) {
-                            console.warn(`UM non trovata: ${unitaMisuraCodice}`);
                             errori++;
+                            importLog.push({
+                                riga: rigaNumero,
+                                tipo: 'ERRORE',
+                                motivo: `Unità di misura "${unitaMisuraCodice}" non trovata nel database`,
+                                dati: { codice, descrizione, um: unitaMisuraCodice, costo: costo.toFixed(2) }
+                            });
                             continue;
                         }
 
@@ -356,38 +459,137 @@ function AttivitaStandardManager({ session, onDataChanged }) {
                             descrizione: descrizione,
                             unita_misura_id: um.id,
                             costo_unitario: costo,
-                            attivo: attivo
+                            attivo: attivo,
+                            indirizzo_cliente_id: indirizzoClienteId
                         };
 
-                        const { error } = await supabase
+                        // Verifica se esiste già record duplicato
+                        const { data: existingRecords } = await supabase
                             .from('attivita_standard_clienti')
-                            .insert([payload]);
+                            .select('id')
+                            .eq('cliente_id', selectedClienteId)
+                            .eq('codice_attivita', codice)
+                            .eq('indirizzo_cliente_id', indirizzoClienteId);
 
-                        if (error) {
-                            if (error.code === '23505') { // UNIQUE constraint
-                                duplicate++;
-                            } else {
+                        if (existingRecords && existingRecords.length > 0) {
+                            // UPDATE record esistente
+                            const { error } = await supabase
+                                .from('attivita_standard_clienti')
+                                .update(payload)
+                                .eq('id', existingRecords[0].id);
+
+                            if (error) {
                                 errori++;
+                                importLog.push({
+                                    riga: rigaNumero,
+                                    tipo: 'ERRORE',
+                                    motivo: `Errore database durante aggiornamento: ${error.message}`,
+                                    dati: { codice, descrizione, um: unitaMisuraCodice, costo: costo.toFixed(2) }
+                                });
+                            } else {
+                                aggiornate++;
+                                importLog.push({
+                                    riga: rigaNumero,
+                                    tipo: 'AGGIORNATO',
+                                    motivo: `Codice "${codice}" già esistente - RECORD AGGIORNATO`,
+                                    dati: { codice, descrizione, um: unitaMisuraCodice, costo: costo.toFixed(2) }
+                                });
                             }
                         } else {
-                            inserite++;
+                            // INSERT nuovo record
+                            const { error } = await supabase
+                                .from('attivita_standard_clienti')
+                                .insert([payload]);
+
+                            if (error) {
+                                errori++;
+                                importLog.push({
+                                    riga: rigaNumero,
+                                    tipo: 'ERRORE',
+                                    motivo: `Errore database durante inserimento: ${error.message}`,
+                                    dati: { codice, descrizione, um: unitaMisuraCodice, costo: costo.toFixed(2) }
+                                });
+                            } else {
+                                inserite++;
+                            }
                         }
                     }
 
                     // Report finale
                     let report = `Import completato: ${inserite} inserite`;
-                    if (duplicate > 0) report += `, ${duplicate} duplicate (saltate)`;
+                    if (aggiornate > 0) report += `, ${aggiornate} aggiornate`;
                     if (errori > 0) report += `, ${errori} errori`;
+
+                    // Genera file log TXT se ci sono errori o aggiornamenti
+                    if (importLog.length > 0) {
+                        const cliente = clienti.find(c => c.id === selectedClienteId);
+                        const nomeCliente = cliente ? cliente.nome_azienda : 'cliente';
+                        const timestamp = new Date().toLocaleString('it-IT');
+                        const dataFile = new Date().toISOString().split('T')[0];
+
+                        let logContent = `REPORT IMPORTAZIONE ATTIVITÀ STANDARD\n`;
+                        logContent += `${'='.repeat(60)}\n\n`;
+                        logContent += `Data importazione: ${timestamp}\n`;
+                        logContent += `Cliente: ${nomeCliente}\n`;
+                        logContent += `File importato: ${file.name}\n\n`;
+                        logContent += `RIEPILOGO:\n`;
+                        logContent += `- Righe inserite: ${inserite}\n`;
+                        logContent += `- Righe aggiornate: ${aggiornate}\n`;
+                        logContent += `- Righe con errori: ${errori}\n`;
+                        logContent += `- Totale righe elaborate: ${jsonData.length}\n\n`;
+                        logContent += `${'='.repeat(60)}\n\n`;
+
+                        // Sezione ERRORI
+                        const erroriLog = importLog.filter(item => item.tipo === 'ERRORE');
+                        if (erroriLog.length > 0) {
+                            logContent += `DETTAGLIO ERRORI (${erroriLog.length}):\n\n`;
+                            erroriLog.forEach(item => {
+                                logContent += `Riga ${item.riga}: ${item.motivo}\n`;
+                                logContent += `  Codice: "${item.dati.codice}"\n`;
+                                logContent += `  Descrizione: "${item.dati.descrizione}"\n`;
+                                logContent += `  UM: "${item.dati.um}"\n`;
+                                logContent += `  Costo: "${item.dati.costo}"\n\n`;
+                            });
+                            logContent += `${'='.repeat(60)}\n\n`;
+                        }
+
+                        // Sezione AGGIORNAMENTI
+                        const aggiornamentiLog = importLog.filter(item => item.tipo === 'AGGIORNATO');
+                        if (aggiornamentiLog.length > 0) {
+                            logContent += `DUPLICATI SOVRASCRITTI (${aggiornamentiLog.length}):\n\n`;
+                            aggiornamentiLog.forEach(item => {
+                                logContent += `Riga ${item.riga}: ${item.motivo}\n`;
+                                logContent += `  Nuovi valori -> Descrizione: "${item.dati.descrizione}", UM: "${item.dati.um}", Costo: €${item.dati.costo}\n\n`;
+                            });
+                        }
+
+                        // Download file log
+                        const blob = new Blob([logContent], { type: 'text/plain;charset=utf-8' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `log_import_attivita_${nomeCliente.replace(/[^a-zA-Z0-9]/g, '_')}_${dataFile}.txt`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+
+                        report += ' - Log dettagliato scaricato';
+                    }
 
                     setSuccessMessage(report);
                     setTimeout(() => setSuccessMessage(''), 5000);
-                    fetchAttivita();
-                    if (onDataChanged) onDataChanged();
+
+                    // Fix refresh tabella: prima loading false, poi fetch con timeout
+                    setLoading(false);
+                    setTimeout(() => {
+                        fetchAttivita();
+                        if (onDataChanged) onDataChanged();
+                    }, 100);
 
                 } catch (err) {
                     console.error('Errore parsing Excel:', err);
                     setError('Errore lettura file Excel: ' + err.message);
-                } finally {
                     setLoading(false);
                 }
             };
@@ -530,6 +732,54 @@ function AttivitaStandardManager({ session, onDataChanged }) {
 
             {selectedClienteId && (
                 <>
+                    {/* Info Modalità Listino */}
+                    <div style={{
+                        marginBottom: '20px',
+                        padding: '12px 15px',
+                        backgroundColor: clienteUsaListinoUnico ? '#e7f3ff' : '#fff3cd',
+                        border: `2px solid ${clienteUsaListinoUnico ? '#007bff' : '#ffc107'}`,
+                        borderRadius: '6px'
+                    }}>
+                        <div style={{display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '5px'}}>
+                            <strong style={{fontSize: '1.05em'}}>
+                                {clienteUsaListinoUnico ? '📋 Modalità: Listino Unico' : '🏢 Modalità: Listino per Sede'}
+                            </strong>
+                        </div>
+                        <div style={{fontSize: '0.9em', color: '#666'}}>
+                            {clienteUsaListinoUnico ? (
+                                <span>✓ Le attività configurate sono valide per tutte le sedi del cliente</span>
+                            ) : (
+                                <span>⚠️ Puoi configurare attività diverse per ogni sede. Usa il filtro qui sotto per gestirle.</span>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Dropdown Filtro Sede (solo se NON listino unico) */}
+                    {!clienteUsaListinoUnico && indirizziDisponibili.length > 0 && (
+                        <div style={{marginBottom: '20px', padding: '15px', backgroundColor: '#f8f9fa', border: '1px solid #dee2e6', borderRadius: '4px'}}>
+                            <label htmlFor="sedeFilter" style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>
+                                Filtra Attività per Sede:
+                            </label>
+                            <select
+                                id="sedeFilter"
+                                value={selectedSedeFilter}
+                                onChange={(e) => setSelectedSedeFilter(e.target.value)}
+                                style={{padding: '8px', minWidth: '300px'}}
+                            >
+                                <option value="">Tutte le sedi (mostra tutto)</option>
+                                <option value="NULL_SEDE">Solo attività generiche (senza sede specifica)</option>
+                                {indirizziDisponibili.map(ind => (
+                                    <option key={ind.id} value={ind.id}>
+                                        {ind.descrizione || 'Sede'}: {ind.indirizzo_completo}
+                                    </option>
+                                ))}
+                            </select>
+                            <small style={{display: 'block', marginTop: '5px', color: '#666'}}>
+                                Nota: Le attività "generiche" (senza sede) funzionano come fallback per le sedi non configurate
+                            </small>
+                        </div>
+                    )}
+
                     {/* Barra pulsanti */}
                     <div style={{marginBottom: '20px', display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center'}}>
                         <button onClick={handleAdd} className="button primary">
@@ -585,6 +835,7 @@ function AttivitaStandardManager({ session, onDataChanged }) {
                                     <th>Descrizione</th>
                                     <th>Normativa</th>
                                     <th>U.M.</th>
+                                    {!clienteUsaListinoUnico && <th>Sede</th>}
                                     {userRole === 'admin' && <th>Costo Unitario</th>}
                                     <th>Attivo</th>
                                     <th>Azioni</th>
@@ -611,6 +862,17 @@ function AttivitaStandardManager({ session, onDataChanged }) {
                                             {att.normativa || '-'}
                                         </td>
                                         <td>{att.unita_misura?.codice || '-'}</td>
+                                        {!clienteUsaListinoUnico && (
+                                            <td style={{fontSize: '0.85em', color: '#555'}}>
+                                                {att.indirizzi_clienti ? (
+                                                    <span>
+                                                        {att.indirizzi_clienti.descrizione || 'Sede'}: {att.indirizzi_clienti.indirizzo_completo}
+                                                    </span>
+                                                ) : (
+                                                    <span style={{fontStyle: 'italic', color: '#999'}}>Tutte le sedi</span>
+                                                )}
+                                            </td>
+                                        )}
                                         {userRole === 'admin' && (
                                             <td style={{textAlign: 'right'}}>
                                                 €{parseFloat(att.costo_unitario).toFixed(2)}
@@ -737,6 +999,33 @@ function AttivitaStandardManager({ session, onDataChanged }) {
                                     Seleziona un'unità di misura standardizzata. Gestisci le UM da Unità di Misura.
                                 </small>
                             </div>
+
+                            {/* Box info sede attiva - solo se cliente NON usa listino unico */}
+                            {!clienteUsaListinoUnico && (
+                                <div style={{
+                                    marginBottom: '15px',
+                                    padding: '12px',
+                                    backgroundColor: '#e3f2fd',
+                                    border: '1px solid #2196f3',
+                                    borderRadius: '4px'
+                                }}>
+                                    <small style={{color: '#1976d2', display: 'block'}}>
+                                        <strong>Sede attiva:</strong> {
+                                            selectedSedeFilter ? (
+                                                (() => {
+                                                    const sede = indirizziDisponibili.find(ind => ind.id === selectedSedeFilter);
+                                                    return sede ? `${sede.descrizione || 'Sede'}: ${sede.indirizzo_completo}` : 'Sede selezionata';
+                                                })()
+                                            ) : (
+                                                'Tutte le sedi (listino generico)'
+                                            )
+                                        }
+                                    </small>
+                                    <small style={{color: '#666', display: 'block', marginTop: '5px', fontStyle: 'italic'}}>
+                                        L'attività sarà creata/modificata per la sede selezionata nel filtro sopra
+                                    </small>
+                                </div>
+                            )}
 
                             {userRole === 'admin' && (
                                 <div style={{marginBottom: '15px'}}>
