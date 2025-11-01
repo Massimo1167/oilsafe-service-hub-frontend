@@ -31,10 +31,10 @@ function FoglioAttivitaStandardPage({ session }) {
         setError(null);
 
         try {
-            // 1. Fetch foglio per ottenere cliente_id e numero_foglio
+            // 1. Fetch foglio per ottenere cliente_id, numero_foglio e indirizzo_intervento_id
             const { data: foglioData, error: foglioError } = await supabase
                 .from('fogli_assistenza')
-                .select('id, numero_foglio, cliente_id, clienti(nome_azienda)')
+                .select('id, numero_foglio, cliente_id, indirizzo_intervento_id, clienti(nome_azienda, usa_listino_unico)')
                 .eq('id', foglioId)
                 .single();
 
@@ -43,8 +43,13 @@ function FoglioAttivitaStandardPage({ session }) {
 
             setFoglio(foglioData);
 
+            const clienteUsaListinoUnico = foglioData.clienti?.usa_listino_unico ?? true;
+            const indirizzoInterventoId = foglioData.indirizzo_intervento_id;
+
             // 2. Fetch attività standard disponibili per quel cliente
-            const { data: attivitaData, error: attivitaError } = await supabase
+            // Se listino unico: mostra tutte le attività (indirizzo_cliente_id = NULL)
+            // Se listino per sede: mostra attività specifiche per sede + attività generiche (fallback)
+            let attivitaQuery = supabase
                 .from('attivita_standard_clienti')
                 .select(`
                     id,
@@ -52,14 +57,27 @@ function FoglioAttivitaStandardPage({ session }) {
                     descrizione,
                     costo_unitario,
                     unita_misura_id,
+                    indirizzo_cliente_id,
                     unita_misura (
                         codice,
                         descrizione
                     )
                 `)
                 .eq('cliente_id', foglioData.cliente_id)
-                .eq('attivo', true)
-                .order('codice_attivita');
+                .eq('attivo', true);
+
+            // Applica filtro per sede se necessario
+            if (!clienteUsaListinoUnico && indirizzoInterventoId) {
+                // Mostra: attività specifiche per questa sede OR attività generiche (NULL)
+                attivitaQuery = attivitaQuery.or(`indirizzo_cliente_id.eq.${indirizzoInterventoId},indirizzo_cliente_id.is.null`);
+            } else if (clienteUsaListinoUnico) {
+                // Listino unico: mostra solo attività con indirizzo_cliente_id = NULL
+                attivitaQuery = attivitaQuery.is('indirizzo_cliente_id', null);
+            }
+
+            attivitaQuery = attivitaQuery.order('codice_attivita');
+
+            const { data: attivitaData, error: attivitaError } = await attivitaQuery;
 
             if (attivitaError) throw attivitaError;
             setAttivitaDisponibili(attivitaData || []);
