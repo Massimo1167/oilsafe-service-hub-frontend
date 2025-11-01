@@ -27,9 +27,10 @@ function ClientiManager({ session, onDataChanged }) {
     const [exportScope, setExportScope] = useState('page');
 
     const [formNuovoNomeAzienda, setFormNuovoNomeAzienda] = useState('');
-    const [selectedCliente, setSelectedCliente] = useState(null); 
+    const [selectedCliente, setSelectedCliente] = useState(null);
     const [formEditNomeAzienda, setFormEditNomeAzienda] = useState('');
-    
+    const [formEditUsaListinoUnico, setFormEditUsaListinoUnico] = useState(true);
+
     const [indirizziClienteCorrente, setIndirizziClienteCorrente] = useState([]);
     const [loadingIndirizzi, setLoadingIndirizzi] = useState(false);
     const [formNuovoIndirizzoCompleto, setFormNuovoIndirizzoCompleto] = useState('');
@@ -56,7 +57,7 @@ function ClientiManager({ session, onDataChanged }) {
         const { data, error: fetchError } = await supabase
             .from('clienti')
             .select(
-                `id, nome_azienda, created_at, indirizzi_clienti (id, indirizzo_completo, is_default, descrizione)`
+                `id, nome_azienda, usa_listino_unico, created_at, indirizzi_clienti (id, indirizzo_completo, is_default, descrizione)`
             )
             .ilike('nome_azienda', `%${nomeFiltro}%`)
             .order('nome_azienda');
@@ -90,8 +91,17 @@ function ClientiManager({ session, onDataChanged }) {
     const resetFormIndirizzi = () => { setFormNuovoIndirizzoCompleto(''); setFormNuovaDescrizioneIndirizzo(''); setEditingIndirizzo(null); setFormEditIndirizzoCompleto(''); setFormEditIndirizzoDescrizione(''); };
     const handleSelectClienteForManagement = (cliente) => {
         if (!canManage) return;
-        if (selectedCliente?.id === cliente.id) { setSelectedCliente(null); setFormEditNomeAzienda(''); resetFormIndirizzi(); }
-        else { setSelectedCliente(cliente); setFormEditNomeAzienda(cliente.nome_azienda); resetFormIndirizzi(); }
+        if (selectedCliente?.id === cliente.id) {
+            setSelectedCliente(null);
+            setFormEditNomeAzienda('');
+            setFormEditUsaListinoUnico(true);
+            resetFormIndirizzi();
+        } else {
+            setSelectedCliente(cliente);
+            setFormEditNomeAzienda(cliente.nome_azienda);
+            setFormEditUsaListinoUnico(cliente.usa_listino_unico ?? true);
+            resetFormIndirizzi();
+        }
     };
     const reloadIndirizziCliente = async (clienteId) => {
         setLoadingIndirizzi(true);
@@ -138,7 +148,10 @@ function ClientiManager({ session, onDataChanged }) {
         setLoadingActions(true); setError(null); setSuccessMessage('');
         const { error } = await supabase
             .from('clienti')
-            .update({ nome_azienda: formEditNomeAzienda.trim() })
+            .update({
+                nome_azienda: formEditNomeAzienda.trim(),
+                usa_listino_unico: formEditUsaListinoUnico
+            })
             .eq('id', selectedCliente.id);
         if (error) {
             setError(error.message);
@@ -788,7 +801,25 @@ function ClientiManager({ session, onDataChanged }) {
                                                 </div>
                                                 <button type="submit" disabled={loadingActions} className="button small primary">Salva Nome</button>
                                             </form>
-                                            
+
+                                            <div style={{marginBottom: '20px', paddingBottom: '15px', borderBottom: '1px dashed #ccc'}}>
+                                                <label style={{display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer'}}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={formEditUsaListinoUnico}
+                                                        onChange={(e) => setFormEditUsaListinoUnico(e.target.checked)}
+                                                        disabled={loadingActions}
+                                                    />
+                                                    <span><strong>Usa Listino Unico</strong> (stesso listino attività standard per tutte le sedi)</span>
+                                                </label>
+                                                <small style={{color: '#666', display: 'block', marginTop: '5px', marginLeft: '26px'}}>
+                                                    {formEditUsaListinoUnico
+                                                        ? '✓ Le attività standard configurate saranno valide per tutte le sedi del cliente'
+                                                        : '⚠ Potrai configurare attività standard diverse per ogni sede nella pagina "Gestione Attività Standard"'
+                                                    }
+                                                </small>
+                                            </div>
+
                                             <h5>Indirizzi Associati:</h5>
                                             {loadingIndirizzi ? <p>Caricamento indirizzi...</p> : (
                                                 indirizziClienteCorrente.length > 0 ? (
