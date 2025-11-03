@@ -1,8 +1,8 @@
 {
   "name": "oilsafe-service-frontend",
   "private": true,
-  "version": "1.0.1",
-  "description": "v1.0.1 - 03/11/2025: Gestione costi stardard per sedi cliente (risolto bug copia/incolla interventi); v1.0.0 - 01/11/2025: Gestione costi stardard per sedi cliente; v0.9.4 - 31/10/2025: Gestione costi stardard per cliente con tabella unità misura costi;semplificazione foglio lavoro; v0.9.2 - 25/10/2025: Nuovo report dettagliato con costi; v0.9.1 - 25/10/2025: Gestione mansioni, stampa con mansioni, preview di stampa; 24/10/2025: Statistiche con date custom; 23/10/2025: Formattazione Markdown (grassetto/corsivo) nei PDF; Cancellazione interventi multipli; Copia ed Incolla interventi su fogli con marcatore COPIA; Auto update anagrafiche; Salvataggio dati su txt per invio email; Colore banda debug + lista tabella fogli + Logo; Univocità Cliente + Ordine; Risolto renew sessione",
+  "version": "1.0.2",
+  "description": "v1.0.2 - 03/11/2025: Gestione Preview;v1.0.1 - 03/11/2025: Gestione costi stardard per sedi cliente (risolto bug copia/incolla interventi); v1.0.0 - 01/11/2025: Gestione costi stardard per sedi cliente; v0.9.4 - 31/10/2025: Gestione costi stardard per cliente con tabella unità misura costi;semplificazione foglio lavoro; v0.9.2 - 25/10/2025: Nuovo report dettagliato con costi; v0.9.1 - 25/10/2025: Gestione mansioni, stampa con mansioni, preview di stampa; 24/10/2025: Statistiche con date custom; 23/10/2025: Formattazione Markdown (grassetto/corsivo) nei PDF; Cancellazione interventi multipli; Copia ed Incolla interventi su fogli con marcatore COPIA; Auto update anagrafiche; Salvataggio dati su txt per invio email; Colore banda debug + lista tabella fogli + Logo; Univocità Cliente + Ordine; Risolto renew sessione",
   "type": "module",
   "scripts": {
     "dev": "vite",

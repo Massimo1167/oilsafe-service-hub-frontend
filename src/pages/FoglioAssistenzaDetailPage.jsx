@@ -26,6 +26,9 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
     // Il layout di stampa predefinito diventa quello dettagliato
     const [layoutStampa, setLayoutStampa] = useState('detailed');
     const [isSmallScreen, setIsSmallScreen] = useState(false);
+    // Stati per la preview PDF
+    const [previewPdfUrl, setPreviewPdfUrl] = useState(null);
+    const [showPreview, setShowPreview] = useState(false);
 
     // Stati per gestione copia/incolla interventi
     const [selectedInterventi, setSelectedInterventi] = useState([]);
@@ -523,11 +526,68 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
         }
     };
 
+    const handlePreviewSingleFoglio = async () => {
+        if (!foglio) { alert("Dati del foglio non ancora caricati."); return; }
+        if (!canViewThisFoglio) { alert("Non hai i permessi per visualizzare questo foglio."); return; }
+
+        setStampaSingolaLoading(true);
+        setError(null);
+        try {
+            let foglioCompletoPerStampa = foglio;
+            // Assicurati che tutti i dati necessari per il PDF siano presenti, specialmente le relazioni
+            if (!foglio.clienti || !foglio.indirizzi_clienti) { // Aggiunto check per indirizzi_clienti
+                console.warn("Ricarico dati foglio completi per anteprima (dati relazionati mancanti)...");
+                const { data: fullData, error: fullErr } = await supabase.from('fogli_assistenza')
+                    .select(`*, assegnato_a_user_id, profilo_tecnico_assegnato:profiles (full_name), clienti (*), commesse (*), ordini_cliente (*), indirizzi_clienti!indirizzo_intervento_id (*)`)
+                    .eq('id', foglioId).single();
+                if (fullErr || !fullData) throw new Error(fullErr?.message || "Impossibile ricaricare dati foglio per anteprima.");
+                const tecnicoAss = (tecnici || []).find(t => t.user_id === fullData.assegnato_a_user_id);
+                fullData.tecnico_assegnato_nome = tecnicoAss ? `${tecnicoAss.nome} ${tecnicoAss.cognome}` : fullData.profilo_tecnico_assegnato?.full_name || null;
+                foglioCompletoPerStampa = fullData;
+            }
+
+            // Carica attività standard previste per questo foglio
+            const { data: attivitaPreviste, error: attivitaError } = await supabase
+                .from('fogli_attivita_standard')
+                .select(`
+                    attivita_standard_id,
+                    obbligatoria,
+                    attivita_standard_clienti (
+                        codice_attivita,
+                        descrizione,
+                        costo_unitario,
+                        unita_misura (codice)
+                    )
+                `)
+                .eq('foglio_assistenza_id', foglioId);
+
+            if (attivitaError) {
+                console.warn('Errore caricamento attività previste:', attivitaError);
+            }
+
+            // Genera PDF in modalità preview (ritorna DataURL invece di salvare)
+            const pdfDataUrl = await generateFoglioAssistenzaPDF(
+                foglioCompletoPerStampa,
+                interventi,
+                attivitaPreviste || [],
+                { layout: layoutStampa, preview: true }
+            );
+
+            setPreviewPdfUrl(pdfDataUrl);
+            setShowPreview(true);
+        } catch (err) {
+            console.error(`Errore durante la generazione dell'anteprima PDF per il foglio singolo ${foglioId}:`, err);
+            setError(`Errore anteprima PDF: ${err.message}`);
+            alert(`Impossibile generare l'anteprima. Dettagli in console.`);
+        }
+        setStampaSingolaLoading(false);
+    };
+
     const handlePrintSingleFoglio = async () => {
         if (!foglio) { alert("Dati del foglio non ancora caricati."); return; }
         if (!canViewThisFoglio) { alert("Non hai i permessi per stampare questo foglio."); return; }
 
-        setStampaSingolaLoading(true); 
+        setStampaSingolaLoading(true);
         setError(null);
         try {
             let foglioCompletoPerStampa = foglio;
@@ -568,7 +628,7 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
                 attivitaPreviste || [],
                 { layout: layoutStampa }
             );
-        } catch (err) { 
+        } catch (err) {
             console.error(`Errore durante la generazione del PDF per il foglio singolo ${foglioId}:`, err);
             setError(`Errore PDF: ${err.message}`);
             alert(`Impossibile generare il PDF. Dettagli in console.`);
@@ -591,15 +651,25 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
                     <select value={layoutStampa} onChange={e => setLayoutStampa(e.target.value)}>
                         <option value="table">Layout Compatto</option>
                         <option value="detailed">Layout Dettagliato</option>
+                        {userRole === 'admin' && <option value="detailed_with_costs">Layout Dettagliato con costi</option>}
                     </select>
                     {canViewThisFoglio && (
-                         <button
-                            onClick={handlePrintSingleFoglio}
-                            className="button primary"
-                            disabled={stampaSingolaLoading || !foglio || actionLoading}
-                        >
-                            {stampaSingolaLoading ? 'Stampa in corso...' : 'Stampa Foglio'}
-                        </button>
+                        <>
+                            <button
+                                onClick={handlePreviewSingleFoglio}
+                                className="button secondary"
+                                disabled={stampaSingolaLoading || !foglio || actionLoading}
+                            >
+                                {stampaSingolaLoading ? 'Caricamento...' : '👁️ Anteprima PDF'}
+                            </button>
+                            <button
+                                onClick={handlePrintSingleFoglio}
+                                className="button primary"
+                                disabled={stampaSingolaLoading || !foglio || actionLoading}
+                            >
+                                {stampaSingolaLoading ? 'Stampa in corso...' : '🖨️ Stampa Foglio'}
+                            </button>
+                        </>
                     )}
                     {canEditThisFoglioOverall && (
                         <Link to={`/fogli-assistenza/${foglioId}/modifica`} className="button secondary">
@@ -829,6 +899,64 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
                 </table>
                 </div>
                 )
+            )}
+
+            {/* Modal Preview PDF */}
+            {showPreview && previewPdfUrl && (
+                <div
+                    style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        backgroundColor: 'rgba(0, 0, 0, 0.85)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        zIndex: 9999,
+                        padding: '20px'
+                    }}
+                >
+                    <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        marginBottom: '15px',
+                        gap: '10px'
+                    }}>
+                        <h2 style={{ margin: 0, color: '#fff' }}>Preview PDF</h2>
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                            <button
+                                onClick={() => {
+                                    const printWindow = window.open(previewPdfUrl);
+                                    if (printWindow) printWindow.print();
+                                }}
+                                className="button primary"
+                            >
+                                Stampa
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setShowPreview(false);
+                                    setPreviewPdfUrl(null);
+                                }}
+                                className="button secondary"
+                            >
+                                Chiudi
+                            </button>
+                        </div>
+                    </div>
+                    <iframe
+                        src={previewPdfUrl}
+                        style={{
+                            flex: 1,
+                            border: 'none',
+                            backgroundColor: '#fff',
+                            borderRadius: '4px'
+                        }}
+                        title="PDF Preview"
+                    />
+                </div>
             )}
         </div>
     );

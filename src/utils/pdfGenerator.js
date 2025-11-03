@@ -828,10 +828,10 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, at
             doc.setFont(undefined, 'bold');
             doc.text('✓', marginLeft + 5, yPosition);
             doc.text('Codice', marginLeft + 12, yPosition);
-            doc.text('Descrizione', marginLeft + 32, yPosition);
-            doc.text('Q.tà', marginLeft + 100, yPosition, { align: 'right' });
-            doc.text('Costo Unit.', marginLeft + 130, yPosition, { align: 'right' });
-            doc.text('Totale', marginLeft + 165, yPosition, { align: 'right' });
+            doc.text('Descrizione', marginLeft + 30, yPosition);
+            doc.text('Q.tà', marginLeft + 110, yPosition, { align: 'right' });
+            doc.text('Costo Unit.', marginLeft + 145, yPosition, { align: 'right' });
+            doc.text('Totale', marginLeft + 175, yPosition, { align: 'right' });
             yPosition += 5;
 
             doc.setFont(undefined, 'normal');
@@ -839,42 +839,76 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, at
             let totaleCostoAttivita = 0;
 
             attivitaCompleteArray.forEach(att => {
-                checkAndAddPage(doc, 10);
+                // Larghezze colonne (in mm)
+                const colCheckboxWidth = 7;    // Spazio per checkbox
+                const colCodiceWidth = 18;     // Codice
+                const colDescWidth = 65;       // Descrizione (ridotta da 75 a 65mm per evitare overflow emoji)
+                const colQtaWidth = 30;        // Quantità
+                const colCostoUnitWidth = 25;  // Costo unitario
+                const colTotaleWidth = 25;     // Totale
 
-                // Sfondo rosso per obbligatorie non eseguite
-                if (att.obbligatoria && !att.eseguita) {
-                    doc.setFillColor(255, 200, 200);
-                    doc.rect(marginLeft + 3, yPosition - 3, contentWidth - 6, 5, 'F');
-                }
-
-                // Checkbox
-                const checkbox = att.eseguita ? '✓' : '';
-                doc.text(checkbox, marginLeft + 6, yPosition);
+                // Posizioni X (colonne numeriche spostate a destra)
+                const xCheckbox = marginLeft + 6;
+                const xCodice = marginLeft + 12;
+                const xDesc = marginLeft + 30;
+                const xQta = marginLeft + 110;       // Spostato da 105 a 110
+                const xCostoUnit = marginLeft + 145;  // Spostato da 135 a 145
+                const xTotale = marginLeft + 175;     // Spostato da 165 a 175
 
                 // Flag obbligatoria
                 const flagObblig = att.obbligatoria ? ' ⚠️' : '';
 
-                // Codice (troncato se necessario)
-                doc.text(att.codice.substring(0, 8), marginLeft + 12, yPosition);
+                // Calcola le righe per ogni colonna con testo lungo
+                const codiceLines = doc.splitTextToSize(att.codice, colCodiceWidth);
+                const descWithFlag = `${att.descrizione}${flagObblig}`;
+                const descLines = doc.splitTextToSize(descWithFlag, colDescWidth);
 
-                // Descrizione (troncata se necessario)
-                const descTrunc = att.descrizione.substring(0, 35) + (att.descrizione.length > 35 ? '...' : '');
-                doc.text(`${descTrunc}${flagObblig}`, marginLeft + 32, yPosition);
+                // Calcola altezza necessaria (numero max di righe tra tutte le colonne)
+                const maxLines = Math.max(codiceLines.length, descLines.length);
+                const lineHeight = 4; // mm per riga
+                const rowHeight = maxLines * lineHeight + 1; // +1mm padding
+
+                // Verifica se c'è spazio sufficiente per la riga
+                checkAndAddPage(doc, rowHeight + 2);
+
+                // Sfondo rosso per obbligatorie non eseguite
+                if (att.obbligatoria && !att.eseguita) {
+                    doc.setFillColor(255, 200, 200);
+                    doc.rect(marginLeft + 3, yPosition - 3, contentWidth - 6, rowHeight, 'F');
+                }
+
+                // Checkbox - centrata verticalmente
+                const checkbox = att.eseguita ? '✓' : '';
+                const checkboxY = yPosition + (maxLines * lineHeight) / 2;
+                doc.text(checkbox, xCheckbox, checkboxY);
+
+                // Codice - multiline
+                codiceLines.forEach((line, idx) => {
+                    doc.text(line, xCodice, yPosition + idx * lineHeight);
+                });
+
+                // Descrizione - multiline
+                descLines.forEach((line, idx) => {
+                    doc.text(line, xDesc, yPosition + idx * lineHeight);
+                });
+
+                // Colonne numeriche - centrate verticalmente
+                const valuesY = yPosition + (maxLines * lineHeight) / 2;
 
                 if (att.eseguita) {
                     // Valori per attività eseguite
-                    doc.text(`${att.quantita_totale.toFixed(2)} ${att.um}`, marginLeft + 100, yPosition, { align: 'right' });
-                    doc.text(`€${att.costo_unitario.toFixed(2)}`, marginLeft + 130, yPosition, { align: 'right' });
-                    doc.text(`€${att.costo_totale.toFixed(2)}`, marginLeft + 165, yPosition, { align: 'right' });
+                    doc.text(`${att.quantita_totale.toFixed(2)} ${att.um}`, xQta, valuesY, { align: 'right' });
+                    doc.text(`€${att.costo_unitario.toFixed(2)}`, xCostoUnit, valuesY, { align: 'right' });
+                    doc.text(`€${att.costo_totale.toFixed(2)}`, xTotale, valuesY, { align: 'right' });
                     totaleCostoAttivita += att.costo_totale;
                 } else {
                     // Testo "(non eseguita)" per attività non eseguite
                     doc.setFont(undefined, 'italic');
-                    doc.text('(non eseguita)', marginLeft + 100, yPosition);
+                    doc.text('(non eseguita)', xQta, valuesY);
                     doc.setFont(undefined, 'normal');
                 }
 
-                yPosition += 5;
+                yPosition += rowHeight;
             });
 
             // Riga totale
@@ -882,7 +916,7 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, at
             checkAndAddPage(doc, 8);
             doc.setFont(undefined, 'bold');
             doc.text('TOTALE ATTIVITÀ STANDARD:', marginLeft + 12, yPosition);
-            doc.text(`€${totaleCostoAttivita.toFixed(2)}`, marginLeft + 165, yPosition, { align: 'right' });
+            doc.text(`€${totaleCostoAttivita.toFixed(2)}`, marginLeft + 175, yPosition, { align: 'right' });
             doc.setFont(undefined, 'normal');
             yPosition += 5;
         }
