@@ -361,10 +361,24 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
         const interventiToCopy = interventi
             .filter(i => selectedInterventi.includes(i.id))
             .map(intervento => {
-                // Estrai solo i campi dati, escludi id e campi di sistema
+                // Estrai solo i campi dati, escludi id, campi di sistema e relazioni
                 // eslint-disable-next-line no-unused-vars
-                const { id, created_at, updated_at, foglio_assistenza_id, tecnici, ...interventoData } = intervento;
-                return interventoData;
+                const {
+                    id,
+                    created_at,
+                    updated_at,
+                    foglio_assistenza_id,
+                    tecnici,
+                    mansioni,
+                    interventi_attivita_standard,
+                    ...interventoData
+                } = intervento;
+
+                // Salva separatamente le attività standard per copiarle dopo l'INSERT
+                return {
+                    interventoData,
+                    attivitaStandard: intervento.interventi_attivita_standard || []
+                };
             });
 
         // Salva sia gli interventi che l'ID del foglio di origine
@@ -417,9 +431,9 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
         setError(null);
 
         try {
-            // Prepara i dati per l'inserimento
+            // Prepara i dati per l'inserimento (solo interventoData, senza relazioni)
             const interventiToInsert = copiedInterventi.map(intervento => {
-                let osservazioni = intervento.osservazioni_intervento || '';
+                let osservazioni = intervento.interventoData.osservazioni_intervento || '';
 
                 // Aggiungi "** COPIA **" solo se incolla nello stesso foglio
                 if (isStessoFoglio) {
@@ -429,25 +443,75 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
                 }
 
                 return {
-                    ...intervento,
+                    ...intervento.interventoData,
                     foglio_assistenza_id: foglioId, // Assegna al foglio corrente
                     osservazioni_intervento: osservazioni
                 };
             });
 
-            const { error: insertError } = await supabase
+            // INSERT interventi e ottieni gli ID dei nuovi record
+            const { data: insertedInterventi, error: insertError } = await supabase
                 .from('interventi_assistenza')
-                .insert(interventiToInsert);
+                .insert(interventiToInsert)
+                .select('id');
 
             if (insertError) {
                 throw insertError;
             }
 
+            // Copia le attività standard per ogni nuovo intervento
+            let attivitaCopiate = 0;
+            if (insertedInterventi && insertedInterventi.length > 0) {
+                const attivitaStandardToInsert = [];
+
+                for (let i = 0; i < copiedInterventi.length; i++) {
+                    const nuovoInterventoId = insertedInterventi[i].id;
+                    const attivitaOriginali = copiedInterventi[i].attivitaStandard || [];
+
+                    // Per ogni attività standard dell'intervento originale
+                    attivitaOriginali.forEach(attivita => {
+                        // Escludi id e campi di sistema, crea nuovo record collegato al nuovo intervento
+                        attivitaStandardToInsert.push({
+                            intervento_assistenza_id: nuovoInterventoId,
+                            attivita_standard_id: attivita.attivita_standard_id,
+                            codice_attivita: attivita.codice_attivita,
+                            descrizione: attivita.descrizione,
+                            unita_misura: attivita.unita_misura,
+                            costo_unitario: attivita.costo_unitario,
+                            quantita: attivita.quantita
+                            // costo_totale è GENERATED ALWAYS, non va inserito
+                        });
+                    });
+                }
+
+                // Inserisci tutte le attività standard in batch
+                if (attivitaStandardToInsert.length > 0) {
+                    const { error: attivitaError } = await supabase
+                        .from('interventi_attivita_standard')
+                        .insert(attivitaStandardToInsert);
+
+                    if (attivitaError) {
+                        console.error('Errore copia attività standard:', attivitaError);
+                        // Non bloccare l'operazione, solo warning
+                        alert(`Interventi incollati, ma alcune attività standard non sono state copiate:\n${attivitaError.message}`);
+                    } else {
+                        attivitaCopiate = attivitaStandardToInsert.length;
+                    }
+                }
+            }
+
             await fetchFoglioData(); // Ricarica i dati
-            const successMessage = isStessoFoglio
+
+            // Messaggio di successo con dettaglio attività standard
+            const messaggioBase = isStessoFoglio
                 ? `${interventiToInsert.length} ${interventoPlural} incollato/i con successo!\nOsservazioni marcate con "** COPIA **".`
                 : `${interventiToInsert.length} ${interventoPlural} incollato/i con successo!`;
-            alert(successMessage);
+
+            const messaggioAttivita = attivitaCopiate > 0
+                ? `\n${attivitaCopiate} attività standard copiate.`
+                : '';
+
+            alert(messaggioBase + messaggioAttivita);
             setSelectedInterventi([]);
         } catch (err) {
             console.error("Errore incolla interventi:", err);
