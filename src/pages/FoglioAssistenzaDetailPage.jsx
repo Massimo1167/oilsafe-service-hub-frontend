@@ -144,6 +144,7 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
             mansioni (*),
             interventi_attivita_standard (
               id,
+              attivita_standard_id,
               codice_attivita,
               descrizione,
               unita_misura,
