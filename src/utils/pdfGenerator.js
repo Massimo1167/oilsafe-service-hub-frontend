@@ -46,6 +46,10 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, at
     }
 
     const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+
+    // DEBUG: Flag per mostrare ruler graduato (per debug posizionamento colonne)
+    const DEBUG_SHOW_RULER = true;
+
     // Se non specificato, usa il layout dettagliato come predefinito
     const layoutType = options.layout || 'detailed';
     let yPosition = 15; // Posizione Y corrente, parte dal margine superiore
@@ -527,6 +531,48 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, at
                     ? doc.autoTable.previous.finalY + rowHeightSpace
                     : yPosition;
 
+                // NUOVA SEZIONE: Attività Standard Svolte in questo intervento
+                if (int.interventi_attivita_standard && int.interventi_attivita_standard.length > 0) {
+                    checkAndAddPage(doc, 10);
+                    doc.setFontSize(10);
+                    doc.setFont(undefined, 'bold');
+                    doc.text('Attività Standard Svolte:', marginLeft + 2, yPosition);
+                    yPosition += 5;
+
+                    doc.setFontSize(8);
+                    doc.setFont(undefined, 'normal');
+
+                    int.interventi_attivita_standard.forEach(att => {
+                        checkAndAddPage(doc, 8);
+
+                        // Codice attività e descrizione
+                        const codice = att.codice_attivita || 'N/D';
+                        const desc = att.descrizione || '';
+                        doc.text(`  • ${codice}`, marginLeft + 4, yPosition);
+                        if (desc) {
+                            // Usa splitTextToSize per wrappare descrizioni lunghe
+                            const descLines = doc.splitTextToSize(`: ${desc}`, contentWidth - 30);
+                            descLines.forEach((line, idx) => {
+                                if (idx === 0) {
+                                    doc.text(line, marginLeft + 25, yPosition);
+                                } else {
+                                    yPosition += 3;
+                                    doc.text(line, marginLeft + 25, yPosition);
+                                }
+                            });
+                        }
+                        yPosition += 4;
+
+                        // Quantità
+                        const qta = parseFloat(att.quantita) || 0;
+                        const um = att.unita_misura || '';
+                        doc.text(`    Quantità: ${qta.toFixed(2)} ${um}`, marginLeft + 6, yPosition);
+                        yPosition += 5;
+                    });
+
+                    yPosition += 2; // Spazio extra prima della prossima sezione
+                }
+
                 // Descrizione Attività con formattazione markdown
                 doc.setFontSize(10);
                 doc.setFont(undefined, 'bold');
@@ -772,6 +818,22 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, at
             };
         });
 
+        // Step 2.5: Ordina attività - obbligatorie prima, poi le altre
+        attivitaCompleteArray.sort((a, b) => {
+            // 1° criterio: Obbligatorie prima delle non-obbligatorie
+            if (a.obbligatoria !== b.obbligatoria) {
+                return b.obbligatoria ? 1 : -1;
+            }
+
+            // 2° criterio: Eseguite prima delle non-eseguite (nello stesso gruppo)
+            if (a.eseguita !== b.eseguita) {
+                return b.eseguita ? 1 : -1;
+            }
+
+            // 3° criterio: Ordine alfabetico per codice
+            return a.codice.localeCompare(b.codice);
+        });
+
         // Step 3: Renderizza sezione
         checkAndAddPage(doc, 30);
         addLine(doc);
@@ -796,17 +858,23 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, at
                     doc.rect(marginLeft + 3, yPosition - 3, contentWidth - 6, 6, 'F');
                 }
 
-                doc.setFont(undefined, 'normal');
-
                 // Checkbox
                 const checkbox = att.eseguita ? '☑' : '☐';
                 doc.text(checkbox, marginLeft + 5, yPosition);
 
-                // Flag per obbligatoria
-                const flagObblig = att.obbligatoria ? ' ⚠️' : '';
+                // Applica grassetto se attività obbligatoria
+                if (att.obbligatoria) {
+                    doc.setFont(undefined, 'bold');
+                } else {
+                    doc.setFont(undefined, 'normal');
+                }
 
                 // Codice e descrizione
-                doc.text(`${att.codice} - ${att.descrizione}${flagObblig}`, marginLeft + 12, yPosition);
+                doc.text(`${att.codice} - ${att.descrizione}`, marginLeft + 12, yPosition);
+
+                // Reset font a normal
+                doc.setFont(undefined, 'normal');
+
                 yPosition += 4;
 
                 // Quantità solo se eseguita
@@ -829,9 +897,32 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, at
             doc.text('✓', marginLeft + 5, yPosition);
             doc.text('Codice', marginLeft + 12, yPosition);
             doc.text('Descrizione', marginLeft + 30, yPosition);
-            doc.text('Q.tà', marginLeft + 110, yPosition, { align: 'right' });
-            doc.text('Costo Unit.', marginLeft + 145, yPosition, { align: 'right' });
-            doc.text('Totale', marginLeft + 175, yPosition, { align: 'right' });
+            doc.text('Q.tà', marginLeft + 130, yPosition, { align: 'right' });
+            doc.text('Costo Unit.', marginLeft + 155, yPosition, { align: 'right' });
+            doc.text('Totale', marginLeft + 185, yPosition, { align: 'right' });
+
+            // DEBUG: Ruler graduato per debug posizionamento colonne
+            if (DEBUG_SHOW_RULER) {
+                const rulerY = yPosition + 1;
+                doc.setFontSize(5);
+                doc.setTextColor(255, 0, 0); // Rosso
+                doc.setDrawColor(255, 0, 0);
+
+                // Linea orizzontale
+                doc.line(marginLeft, rulerY, pageWidth - marginRight, rulerY);
+
+                // Tacche ogni 10mm con etichette posizione
+                for (let x = marginLeft; x <= pageWidth - marginRight; x += 10) {
+                    doc.line(x, rulerY - 1, x, rulerY + 1);
+                    doc.text(`${x}`, x, rulerY + 3, { align: 'center' });
+                }
+
+                // Reset colori e font
+                doc.setTextColor(0);
+                doc.setDrawColor(0);
+                doc.setFontSize(7);
+            }
+
             yPosition += 5;
 
             doc.setFont(undefined, 'normal');
@@ -847,21 +938,17 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, at
                 const colCostoUnitWidth = 25;  // Costo unitario
                 const colTotaleWidth = 25;     // Totale
 
-                // Posizioni X (colonne numeriche spostate a destra)
+                // Posizioni X (colonne numeriche ottimizzate per spazio)
                 const xCheckbox = marginLeft + 6;
                 const xCodice = marginLeft + 12;
                 const xDesc = marginLeft + 30;
-                const xQta = marginLeft + 110;       // Spostato da 105 a 110
-                const xCostoUnit = marginLeft + 145;  // Spostato da 135 a 145
-                const xTotale = marginLeft + 175;     // Spostato da 165 a 175
+                const xQta = marginLeft + 130;        // Termina a 142mm (130+12)
+                const xCostoUnit = marginLeft + 155;  // +5mm rispetto a precedente
+                const xTotale = marginLeft + 185;     // +5mm rispetto a precedente
 
-                // Flag obbligatoria
-                const flagObblig = att.obbligatoria ? ' ⚠️' : '';
-
-                // Calcola le righe per ogni colonna con testo lungo
+                // Calcola le righe per ogni colonna con testo lungo (senza emoji)
                 const codiceLines = doc.splitTextToSize(att.codice, colCodiceWidth);
-                const descWithFlag = `${att.descrizione}${flagObblig}`;
-                const descLines = doc.splitTextToSize(descWithFlag, colDescWidth);
+                const descLines = doc.splitTextToSize(att.descrizione, colDescWidth);
 
                 // Calcola altezza necessaria (numero max di righe tra tutte le colonne)
                 const maxLines = Math.max(codiceLines.length, descLines.length);
@@ -882,6 +969,11 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, at
                 const checkboxY = yPosition + (maxLines * lineHeight) / 2;
                 doc.text(checkbox, xCheckbox, checkboxY);
 
+                // Applica grassetto se attività obbligatoria
+                if (att.obbligatoria) {
+                    doc.setFont(undefined, 'bold');
+                }
+
                 // Codice - multiline
                 codiceLines.forEach((line, idx) => {
                     doc.text(line, xCodice, yPosition + idx * lineHeight);
@@ -891,6 +983,9 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, at
                 descLines.forEach((line, idx) => {
                     doc.text(line, xDesc, yPosition + idx * lineHeight);
                 });
+
+                // Reset font a normal
+                doc.setFont(undefined, 'normal');
 
                 // Colonne numeriche - centrate verticalmente
                 const valuesY = yPosition + (maxLines * lineHeight) / 2;
@@ -916,7 +1011,7 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, at
             checkAndAddPage(doc, 8);
             doc.setFont(undefined, 'bold');
             doc.text('TOTALE ATTIVITÀ STANDARD:', marginLeft + 12, yPosition);
-            doc.text(`€${totaleCostoAttivita.toFixed(2)}`, marginLeft + 175, yPosition, { align: 'right' });
+            doc.text(`€${totaleCostoAttivita.toFixed(2)}`, marginLeft + 185, yPosition, { align: 'right' });
             doc.setFont(undefined, 'normal');
             yPosition += 5;
         }
