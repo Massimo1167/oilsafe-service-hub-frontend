@@ -48,7 +48,7 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, at
     const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
 
     // DEBUG: Flag per mostrare ruler graduato (per debug posizionamento colonne)
-    const DEBUG_SHOW_RULER = true;
+    const DEBUG_SHOW_RULER = false;
 
     // Se non specificato, usa il layout dettagliato come predefinito
     const layoutType = options.layout || 'detailed';
