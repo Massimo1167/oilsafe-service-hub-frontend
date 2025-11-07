@@ -16,6 +16,7 @@ import FogliAssistenzaListPage from './pages/FogliAssistenzaListPage';
 import FoglioAssistenzaFormPage from './pages/FoglioAssistenzaFormPage';
 import FoglioAssistenzaDetailPage from './pages/FoglioAssistenzaDetailPage';
 import FoglioAttivitaStandardPage from './pages/FoglioAttivitaStandardPage';
+import CalendarioFogliPage from './pages/CalendarioFogliPage';
 import StatistichePage from './pages/StatistichePage';
 
 // Importa Componenti Manager Anagrafiche
@@ -403,6 +404,16 @@ function App() {
             <Route
               path="/fogli-assistenza/:foglioId/attivita-standard"
               element={<FoglioAttivitaStandardPage session={session} />}
+            />
+            <Route
+              path="/fogli-assistenza/calendario"
+              element={
+                <CalendarioFogliPage
+                  clienti={clienti}
+                  tecnici={tecnici}
+                  commesse={commesse}
+                />
+              }
             />
             {(userRole === 'admin' || userRole === 'manager') && (
               <>
