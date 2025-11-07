@@ -1,0 +1,63 @@
+.leggenda-calendario {
+  background-color: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 16px;
+  margin-top: 20px;
+}
+
+.leggenda-calendario h3 {
+  margin: 0 0 16px 0;
+  font-size: 1.2em;
+  color: #333;
+}
+
+.leggenda-sezione {
+  margin-bottom: 20px;
+}
+
+.leggenda-sezione:last-child {
+  margin-bottom: 0;
+}
+
+.leggenda-sezione h4 {
+  margin: 0 0 10px 0;
+  font-size: 1em;
+  color: #666;
+  font-weight: 600;
+}
+
+.leggenda-items {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+}
+
+.leggenda-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.leggenda-color-box,
+.leggenda-border-box {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.leggenda-label {
+  font-size: 0.9em;
+  color: #333;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .leggenda-items {
+    grid-template-columns: 1fr;
+  }
+}
