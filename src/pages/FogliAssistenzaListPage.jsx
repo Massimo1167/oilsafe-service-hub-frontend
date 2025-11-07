@@ -5,7 +5,7 @@
  */
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import * as XLSX from 'xlsx';
-import { Link, Navigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient'; // Assicurati che il percorso sia corretto
 import { generateFoglioAssistenzaPDF } from '../utils/pdfGenerator'; // Assicurati che il percorso sia corretto
 import { STATO_FOGLIO_STEPS } from '../utils/statoFoglio';
@@ -38,7 +38,8 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
     const [filtroStato, setFiltroStato] = useState(''); // NUOVO STATO PER IL FILTRO STATO ('' significa 'Tutti')
 
     const [sortConfig, setSortConfig] = useState({ column: '', direction: 'asc' });
-    
+
+    const navigate = useNavigate();
     const userRole = (session?.user?.role || '').trim().toLowerCase();
     const currentUserId = session?.user?.id;
 
@@ -465,6 +466,14 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
         setExportLoading(false);
     };
 
+    const handleViewCalendar = () => {
+        if (selectedFogli.size === 0) {
+            alert('Seleziona almeno un foglio di assistenza da visualizzare sul calendario.');
+            return;
+        }
+        const foglioIds = Array.from(selectedFogli).join(',');
+        navigate(`/fogli-assistenza/calendario?fogli=${foglioIds}`);
+    };
 
     const resetAllFilters = () => {
         setFiltroDataDa(''); setFiltroDataA('');
@@ -554,6 +563,15 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                         className="button secondary"
                     >
                         {exportLoading ? `Esporta... (${selectedFogli.size})` : `Esporta XLSX (${selectedFogli.size})`}
+                    </button>
+                )}
+                {fogliFiltrati.length > 0 && (
+                    <button
+                        onClick={handleViewCalendar}
+                        disabled={selectedFogli.size === 0 || loadingFogli}
+                        className="button primary"
+                    >
+                        Visualizza su Calendario ({selectedFogli.size})
                     </button>
                 )}
             </div>
