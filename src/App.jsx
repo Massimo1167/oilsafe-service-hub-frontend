@@ -17,6 +17,7 @@ import FoglioAssistenzaFormPage from './pages/FoglioAssistenzaFormPage';
 import FoglioAssistenzaDetailPage from './pages/FoglioAssistenzaDetailPage';
 import FoglioAttivitaStandardPage from './pages/FoglioAttivitaStandardPage';
 import CalendarioFogliPage from './pages/CalendarioFogliPage';
+import CalendarioPianificazioniPage from './pages/CalendarioPianificazioniPage';
 import StatistichePage from './pages/StatistichePage';
 
 // Importa Componenti Manager Anagrafiche
@@ -27,6 +28,7 @@ import OrdiniClienteManager from './components/anagrafiche/OrdiniClienteManager'
 import MansioniManager from './components/anagrafiche/MansioniManager';
 import AttivitaStandardManager from './components/anagrafiche/AttivitaStandardManager';
 import UnitaMisuraManager from './components/anagrafiche/UnitaMisuraManager';
+import MezziTrasportoManager from './components/anagrafiche/MezziTrasportoManager';
 
 import './App.css';
 
@@ -60,6 +62,7 @@ function App() {
   const [commesse, setCommesse] = useState([]);
   const [ordini, setOrdini] = useState([]);
   const [mansioni, setMansioni] = useState([]);
+  const [mezzi, setMezzi] = useState([]);
 
   const initialSessionCheckTriggered = useRef(false);
   const sessionRef = useRef(session); 
@@ -202,12 +205,13 @@ function App() {
       if (session && session.user) {
         setLoadingAnagrafiche(true); 
         try {
-            const [clientiRes, tecniciRes, commesseRes, ordiniRes, mansioniRes] = await Promise.all([
+            const [clientiRes, tecniciRes, commesseRes, ordiniRes, mansioniRes, mezziRes] = await Promise.all([
                 supabase.from('clienti').select('*').order('nome_azienda'),
                 supabase.from('tecnici').select('*').order('cognome'),
                 supabase.from('commesse').select('*').order('codice_commessa'),
                 supabase.from('ordini_cliente').select('*').order('numero_ordine_cliente'),
-                supabase.from('mansioni').select('*').eq('attivo', true).order('categoria').order('livello')
+                supabase.from('mansioni').select('*').eq('attivo', true).order('categoria').order('livello'),
+                supabase.from('mezzi_trasporto').select('*').order('targa')
             ]);
 
             setClienti(clientiRes.data || []);
@@ -224,14 +228,17 @@ function App() {
 
             setMansioni(mansioniRes.data || []);
             if(mansioniRes.error) console.error("APP.JSX: Errore fetch mansioni:", mansioniRes.error.message);
+
+            setMezzi(mezziRes.data || []);
+            if(mezziRes.error) console.error("APP.JSX: Errore fetch mezzi:", mezziRes.error.message);
         } catch (e) {
             console.error("APP.JSX: Eccezione imprevista durante fetchCommonData:", e);
-            setClienti([]); setTecnici([]); setCommesse([]); setOrdini([]); setMansioni([]);
+            setClienti([]); setTecnici([]); setCommesse([]); setOrdini([]); setMansioni([]); setMezzi([]);
         } finally {
             setLoadingAnagrafiche(false);
         }
       } else {
-        setClienti([]); setTecnici([]); setCommesse([]); setOrdini([]);
+        setClienti([]); setTecnici([]); setCommesse([]); setOrdini([]); setMezzi([]);
         setLoadingAnagrafiche(false);
       }
     };
@@ -244,12 +251,13 @@ function App() {
     if (session && session.user) {
       setLoadingAnagrafiche(true);
       try {
-        const [clientiRes, tecniciRes, commesseRes, ordiniRes, mansioniRes] = await Promise.all([
+        const [clientiRes, tecniciRes, commesseRes, ordiniRes, mansioniRes, mezziRes] = await Promise.all([
           supabase.from('clienti').select('*').order('nome_azienda'),
           supabase.from('tecnici').select('*').order('cognome'),
           supabase.from('commesse').select('*').order('codice_commessa'),
           supabase.from('ordini_cliente').select('*').order('numero_ordine_cliente'),
-          supabase.from('mansioni').select('*').eq('attivo', true).order('categoria').order('livello')
+          supabase.from('mansioni').select('*').eq('attivo', true).order('categoria').order('livello'),
+          supabase.from('mezzi_trasporto').select('*').order('targa')
         ]);
 
         setClienti(clientiRes.data || []);
@@ -266,6 +274,9 @@ function App() {
 
         setMansioni(mansioniRes.data || []);
         if(mansioniRes.error) console.error("APP.JSX: Errore ricarica mansioni:", mansioniRes.error.message);
+
+        setMezzi(mezziRes.data || []);
+        if(mezziRes.error) console.error("APP.JSX: Errore ricarica mezzi:", mezziRes.error.message);
 
         console.log('APP.JSX: Anagrafiche ricaricate con successo');
       } catch (e) {
@@ -335,6 +346,7 @@ function App() {
             <Link to="/fogli-assistenza">Fogli Assistenza</Link>
             {(userRole === 'admin' || userRole === 'manager') && (
               <>
+                <Link to="/pianificazioni">Pianificazioni</Link>
                 <Link to="/clienti">Clienti</Link>
                 <Link to="/tecnici">Tecnici</Link>
                 <Link to="/commesse">Commesse</Link>
@@ -342,6 +354,7 @@ function App() {
                 <Link to="/mansioni">Mansioni</Link>
                 <Link to="/unita-misura">Unità di Misura</Link>
                 <Link to="/attivita-standard">Attività Standard</Link>
+                <Link to="/mezzi">Mezzi di Trasporto</Link>
               </>
             )}
             {userRole === 'admin' && (
@@ -417,6 +430,18 @@ function App() {
             />
             {(userRole === 'admin' || userRole === 'manager') && (
               <>
+                <Route
+                  path="/pianificazioni"
+                  element={
+                    <CalendarioPianificazioniPage
+                      session={session}
+                      clienti={clienti}
+                      tecnici={tecnici}
+                      commesse={commesse}
+                      mezzi={mezzi}
+                    />
+                  }
+                />
                 <Route path="/clienti" element={<ClientiManager session={session} onDataChanged={reloadAnagrafiche} />} />
                 <Route path="/tecnici" element={<TecniciManager session={session} onDataChanged={reloadAnagrafiche} />} />
                 <Route path="/commesse" element={<CommesseManager session={session} clienti={clienti} onDataChanged={reloadAnagrafiche} />} />
@@ -424,6 +449,7 @@ function App() {
                 <Route path="/mansioni" element={<MansioniManager session={session} onDataChanged={reloadAnagrafiche} />} />
                 <Route path="/unita-misura" element={<UnitaMisuraManager session={session} onDataChanged={reloadAnagrafiche} />} />
                 <Route path="/attivita-standard" element={<AttivitaStandardManager session={session} onDataChanged={reloadAnagrafiche} />} />
+                <Route path="/mezzi" element={<MezziTrasportoManager session={session} onDataChanged={reloadAnagrafiche} />} />
               </>
             )}
             {userRole === 'admin' && (

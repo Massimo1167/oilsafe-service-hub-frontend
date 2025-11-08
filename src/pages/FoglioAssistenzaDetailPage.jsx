@@ -677,9 +677,14 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
                         </Link>
                     )}
                     {(userRole === 'admin' || userRole === 'manager') && (
-                        <Link to={`/fogli-assistenza/${foglioId}/attivita-standard`} className="button secondary">
-                            Elenco Attività Standard
-                        </Link>
+                        <>
+                            <Link to={`/fogli-assistenza/${foglioId}/attivita-standard`} className="button secondary">
+                                Elenco Attività Standard
+                            </Link>
+                            <Link to={`/pianificazioni?foglioId=${foglioId}`} className="button secondary">
+                                📅 Pianifica Intervento
+                            </Link>
+                        </>
                     )}
                     {canDeleteThisFoglio && (
                         <button onClick={handleDeleteFoglio} className="button danger" disabled={actionLoading || stampaSingolaLoading}>

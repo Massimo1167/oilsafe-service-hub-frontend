@@ -1,0 +1,282 @@
+/* Stili per CalendarioPianificazioniPage */
+
+.calendario-page {
+    padding: 20px;
+    max-width: 1600px;
+    margin: 0 auto;
+}
+
+.calendario-page h1 {
+    margin: 0 0 20px 0;
+    color: #333;
+}
+
+.calendario-toolbar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.calendario-filters {
+    background: #f5f5f5;
+    padding: 15px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+}
+
+.filter-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin-bottom: 10px;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.filter-group label {
+    font-weight: 500;
+    font-size: 0.9em;
+    color: #555;
+}
+
+.filter-group select {
+    padding: 6px 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 0.9em;
+    background: white;
+}
+
+.filter-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 10px;
+}
+
+.calendario-stats {
+    background: #e3f2fd;
+    padding: 10px 15px;
+    border-radius: 4px;
+    margin-bottom: 15px;
+}
+
+.calendario-stats p {
+    margin: 0;
+    color: #1976d2;
+    font-size: 0.95em;
+}
+
+.calendario-container {
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
+/* Calendario react-big-calendar overrides */
+.rbc-calendar {
+    font-family: inherit;
+}
+
+.rbc-toolbar {
+    padding: 15px 0;
+    margin-bottom: 15px;
+}
+
+.rbc-toolbar button {
+    color: #333;
+    border: 1px solid #ddd;
+    padding: 8px 15px;
+    border-radius: 4px;
+    background: white;
+    cursor: pointer;
+    font-size: 0.9em;
+}
+
+.rbc-toolbar button:hover {
+    background: #f0f0f0;
+}
+
+.rbc-toolbar button.rbc-active {
+    background: #007bff;
+    color: white;
+    border-color: #007bff;
+}
+
+.rbc-header {
+    padding: 10px 5px;
+    font-weight: 600;
+    background: #f8f9fa;
+    border-bottom: 2px solid #dee2e6;
+}
+
+.rbc-event {
+    padding: 2px 5px;
+    border-radius: 4px;
+}
+
+.rbc-event-label {
+    font-size: 0.8em;
+}
+
+/* Legenda */
+.calendario-legenda {
+    background: white;
+    border-radius: 8px;
+    padding: 15px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.calendario-legenda h3 {
+    margin: 0 0 15px 0;
+    font-size: 1em;
+    color: #333;
+}
+
+.legenda-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.legenda-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9em;
+}
+
+.legenda-color {
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    border: 1px solid rgba(0,0,0,0.1);
+}
+
+/* Modal styling */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 20px;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 8px;
+    max-width: 800px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: 1.5em;
+    color: #333;
+}
+
+.modal-close-button {
+    background: none;
+    border: none;
+    font-size: 2em;
+    color: #666;
+    cursor: pointer;
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    transition: color 0.2s;
+}
+
+.modal-close-button:hover {
+    color: #333;
+}
+
+.modal-body {
+    padding: 20px;
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 20px;
+    border-top: 1px solid #e0e0e0;
+}
+
+/* Modal form styling */
+.form-modal {
+    max-width: 900px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .calendario-toolbar {
+        flex-direction: column;
+    }
+
+    .calendario-toolbar .button {
+        width: 100%;
+    }
+
+    .filter-row {
+        grid-template-columns: 1fr;
+    }
+
+    .calendario-container {
+        padding: 10px;
+    }
+
+    .rbc-calendar {
+        font-size: 0.85em;
+    }
+
+    .legenda-items {
+        flex-direction: column;
+        gap: 10px;
+    }
+}
+
+/* Evento pianificazione custom styles */
+.evento-pianificazione {
+    font-size: 0.85em;
+    height: 100%;
+}
+
+/* Error message */
+.error-message {
+    background: #f8d7da;
+    color: #721c24;
+    padding: 12px;
+    border-radius: 4px;
+    margin-bottom: 15px;
+    border: 1px solid #f5c6cb;
+}
