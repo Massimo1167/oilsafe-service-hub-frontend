@@ -39,6 +39,9 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
 
     const [sortConfig, setSortConfig] = useState({ column: '', direction: 'asc' });
 
+    // Stato per pianificazioni (per mostrare badge)
+    const [pianificazioniMap, setPianificazioniMap] = useState({}); // foglioId -> count pianificazioni attive
+
     const navigate = useNavigate();
     const userRole = (session?.user?.role || '').trim().toLowerCase();
     const currentUserId = session?.user?.id;
@@ -121,13 +124,44 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
         setLoadingFogli(false);
     }, [loadingAnagrafiche, userRole, currentUserId, filtroDataDa, filtroDataA, allClienti, allCommesse, allOrdini, allTecnici]);
 
+    // Funzione per caricare pianificazioni attive per ogni foglio
+    const fetchPianificazioni = useCallback(async () => {
+        if (!session || userRole !== 'admin' && userRole !== 'manager') {
+            // Solo admin/manager vedono le pianificazioni
+            return;
+        }
+
+        try {
+            const { data, error } = await supabase
+                .from('pianificazioni')
+                .select('id, foglio_assistenza_id, stato_pianificazione')
+                .in('stato_pianificazione', ['Pianificata', 'Confermata', 'In Corso']);
+
+            if (error) {
+                console.error('Errore caricamento pianificazioni:', error);
+                return;
+            }
+
+            // Crea mappa foglioId -> count
+            const map = {};
+            (data || []).forEach((p) => {
+                const foglioId = p.foglio_assistenza_id;
+                map[foglioId] = (map[foglioId] || 0) + 1;
+            });
+            setPianificazioniMap(map);
+        } catch (err) {
+            console.error('Errore fetch pianificazioni:', err);
+        }
+    }, [session, userRole]);
+
     // useEffect per il fetch con debounce (per i filtri data)
     useEffect(() => {
         const debounceTimeout = setTimeout(() => {
-            fetchFogliDaServer(); 
+            fetchFogliDaServer();
+            fetchPianificazioni();
         }, 300);
         return () => clearTimeout(debounceTimeout);
-    }, [fetchFogliDaServer]);
+    }, [fetchFogliDaServer, fetchPianificazioni]);
 
     // useMemo per applicare tutti i filtri testuali e di stato (client-side)
     const fogliFiltrati = useMemo(() => {
@@ -613,6 +647,9 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                             </th>
                             <th>Motivo Intervento</th>
                             <th>Stato</th>
+                            {(userRole === 'admin' || userRole === 'manager') && (
+                                <th>Pianificato</th>
+                            )}
                         </tr>
                     </thead>
                     <tbody>
@@ -641,6 +678,27 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                                     {foglio.motivo_intervento_generale}
                                 </td>
                                 <td><span className={`status-badge status-${foglio.stato_foglio?.toLowerCase().replace(/\s+/g, '-')}`}>{foglio.stato_foglio}</span></td>
+                                {(userRole === 'admin' || userRole === 'manager') && (
+                                    <td style={{ textAlign: 'center' }}>
+                                        {pianificazioniMap[foglio.id] ? (
+                                            <span
+                                                style={{
+                                                    backgroundColor: '#007bff',
+                                                    color: 'white',
+                                                    padding: '2px 8px',
+                                                    borderRadius: '12px',
+                                                    fontSize: '0.85em',
+                                                    fontWeight: 'bold',
+                                                }}
+                                                title={`${pianificazioniMap[foglio.id]} pianificazioni attive`}
+                                            >
+                                                📅 {pianificazioniMap[foglio.id]}
+                                            </span>
+                                        ) : (
+                                            <span style={{ color: '#999', fontSize: '0.85em' }}>-</span>
+                                        )}
+                                    </td>
+                                )}
                             </tr>
                         ))}
                     </tbody>
