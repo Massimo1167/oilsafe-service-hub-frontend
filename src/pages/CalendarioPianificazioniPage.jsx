@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import PropTypes from 'prop-types';
-import { Calendar, momentLocalizer } from 'react-big-calendar';
+import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
 import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop';
-import moment from 'moment';
-import 'moment/locale/it';
+import { format, parse, startOfWeek, getDay } from 'date-fns';
+import { it } from 'date-fns/locale';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
 import { supabase } from '../supabaseClient';
@@ -15,8 +15,13 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getColorForCommessa } from '../utils/calendarioColors';
 import LegendaColoriCalendario from '../components/LegendaColoriCalendario';
 
-moment.locale('it');
-const localizer = momentLocalizer(moment);
+const localizer = dateFnsLocalizer({
+  format,
+  parse,
+  startOfWeek: () => startOfWeek(new Date(), { locale: it }),
+  getDay,
+  locales: { 'it': it },
+});
 const DnDCalendar = withDragAndDrop(Calendar);
 
 /**
@@ -135,7 +140,7 @@ function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mez
         return {
           ...f,
           cliente_nome: cliente?.nome_azienda || 'N/A',
-          commessa_codice: commessa?.codice || 'N/A',
+          commessa_codice: commessa?.codice_commessa || 'N/A',
         };
       });
 
@@ -183,7 +188,7 @@ function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mez
         try {
           const { data: foglioData, error: foglioError } = await supabase
             .from('fogli_assistenza')
-            .select('*, clienti(nome_azienda), commesse(codice)')
+            .select('*, clienti(nome_azienda), commesse(codice_commessa)')
             .eq('id', foglioIdParam)
             .single();
 
@@ -199,7 +204,7 @@ function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mez
             ...foglioData,
             numero_foglio: foglioData.numero_foglio,
             cliente_nome: foglioData.clienti?.nome_azienda,
-            commessa_codice: foglioData.commesse?.codice,
+            commessa_codice: foglioData.commesse?.codice_commessa,
           });
           setShowForm(true);
         } catch (err) {
@@ -274,13 +279,13 @@ function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mez
 
       return {
         id: p.id,
-        title: `${commessa?.codice || 'N/A'} - ${tecniciNomi.join(', ') || 'N/A'}`,
+        title: `${commessa?.codice_commessa || 'N/A'} - ${tecniciNomi.join(', ') || 'N/A'}`,
         start,
         end,
         allDay: p.tutto_il_giorno,
         resource: p,
         // Dati per EventoPianificazione
-        commessaCodice: commessa?.codice || 'N/A',
+        commessaCodice: commessa?.codice_commessa || 'N/A',
         tecniciNomi,
         statoPianificazione: p.stato_pianificazione,
         mezzoTarga,
@@ -420,10 +425,10 @@ function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mez
       const pianificazioneId = event.resource.id;
 
       // Formatta date e orari
-      const dataInizio = moment(start).format('YYYY-MM-DD');
-      const dataFine = moment(end).format('YYYY-MM-DD');
-      const oraInizio = moment(start).format('HH:mm:ss');
-      const oraFine = moment(end).format('HH:mm:ss');
+      const dataInizio = format(start, 'yyyy-MM-dd');
+      const dataFine = format(end, 'yyyy-MM-dd');
+      const oraInizio = format(start, 'HH:mm:ss');
+      const oraFine = format(end, 'HH:mm:ss');
 
       // Update nel database
       const { error: updateError } = await supabase
@@ -452,10 +457,10 @@ function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mez
       const pianificazioneId = event.resource.id;
 
       // Formatta date e orari
-      const dataInizio = moment(start).format('YYYY-MM-DD');
-      const dataFine = moment(end).format('YYYY-MM-DD');
-      const oraInizio = moment(start).format('HH:mm:ss');
-      const oraFine = moment(end).format('HH:mm:ss');
+      const dataInizio = format(start, 'yyyy-MM-dd');
+      const dataFine = format(end, 'yyyy-MM-dd');
+      const oraInizio = format(start, 'HH:mm:ss');
+      const oraFine = format(end, 'HH:mm:ss');
 
       // Update nel database
       const { error: updateError } = await supabase
@@ -710,16 +715,16 @@ function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mez
             work_week: 'Settimana lavorativa',
           }}
           formats={{
-            dateFormat: 'D',
-            dayFormat: 'ddd D/M',
-            weekdayFormat: 'ddd',
-            monthHeaderFormat: 'MMMM YYYY',
-            dayHeaderFormat: 'dddd D MMMM YYYY',
+            dateFormat: 'd',
+            dayFormat: 'EEE d/M',
+            weekdayFormat: 'EEE',
+            monthHeaderFormat: 'MMMM yyyy',
+            dayHeaderFormat: 'EEEE d MMMM yyyy',
             dayRangeHeaderFormat: ({ start, end }, culture, localizer) =>
-              `${localizer.format(start, 'D MMMM', culture)} - ${localizer.format(end, 'D MMMM YYYY', culture)}`,
+              `${localizer.format(start, 'd MMMM', culture)} - ${localizer.format(end, 'd MMMM yyyy', culture)}`,
             agendaHeaderFormat: ({ start, end }, culture, localizer) =>
-              `${localizer.format(start, 'D MMMM', culture)} - ${localizer.format(end, 'D MMMM YYYY', culture)}`,
-            agendaDateFormat: 'ddd D MMM',
+              `${localizer.format(start, 'd MMMM', culture)} - ${localizer.format(end, 'd MMMM yyyy', culture)}`,
+            agendaDateFormat: 'EEE d MMM',
             agendaTimeFormat: 'HH:mm',
             agendaTimeRangeFormat: ({ start, end }, culture, localizer) =>
               `${localizer.format(start, 'HH:mm', culture)} - ${localizer.format(end, 'HH:mm', culture)}`,
