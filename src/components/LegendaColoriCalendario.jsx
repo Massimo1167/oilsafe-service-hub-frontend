@@ -26,7 +26,7 @@ function LegendaColoriCalendario({ commesse, tecnici }) {
                     style={{ backgroundColor: color }}
                   />
                   <span className="leggenda-label">
-                    {commessa.codice_commessa || 'N/A'}
+                    {commessa.codice || 'N/A'}
                   </span>
                 </div>
               );
@@ -68,7 +68,7 @@ LegendaColoriCalendario.propTypes = {
   commesse: PropTypes.arrayOf(
     PropTypes.shape({
       id: PropTypes.string.isRequired,
-      codice_commessa: PropTypes.string,
+      codice: PropTypes.string,
     })
   ),
   tecnici: PropTypes.arrayOf(

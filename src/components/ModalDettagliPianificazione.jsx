@@ -13,6 +13,7 @@ function ModalDettagliPianificazione({
   onDelete,
   onChangeState,
   onNavigateToFoglio,
+  onDuplicate,
   clienti,
   tecnici,
   commesse,
@@ -126,6 +127,10 @@ function ModalDettagliPianificazione({
       return;
     }
     await onChangeState(id, newState);
+  };
+
+  const handleDuplicate = () => {
+    onDuplicate(pianificazione);
   };
 
   return (
@@ -255,6 +260,18 @@ function ModalDettagliPianificazione({
             </div>
           </section>
 
+          {/* Descrizione */}
+          {pianificazione.descrizione && (
+            <section style={{ marginBottom: '20px' }}>
+              <h3 style={{ fontSize: '1.1em', marginBottom: '10px', color: '#333' }}>
+                Descrizione
+              </h3>
+              <p style={{ whiteSpace: 'pre-wrap', margin: 0, color: '#555', lineHeight: '1.5' }}>
+                {pianificazione.descrizione}
+              </p>
+            </section>
+          )}
+
           {/* Stato */}
           <section style={{ marginBottom: '20px' }}>
             <h3 style={{ fontSize: '1.1em', marginBottom: '10px', color: '#333' }}>Stato</h3>
@@ -305,6 +322,9 @@ function ModalDettagliPianificazione({
           <button className="button" onClick={() => onEdit(pianificazione)}>
             Modifica
           </button>
+          <button className="button" onClick={handleDuplicate}>
+            Duplica
+          </button>
           <button
             className="button danger"
             onClick={handleDelete}
@@ -347,6 +367,7 @@ ModalDettagliPianificazione.propTypes = {
   onDelete: PropTypes.func.isRequired,
   onChangeState: PropTypes.func.isRequired,
   onNavigateToFoglio: PropTypes.func.isRequired,
+  onDuplicate: PropTypes.func.isRequired,
   clienti: PropTypes.array.isRequired,
   tecnici: PropTypes.array.isRequired,
   commesse: PropTypes.array.isRequired,

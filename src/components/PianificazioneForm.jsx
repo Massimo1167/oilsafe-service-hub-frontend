@@ -11,6 +11,7 @@ function PianificazioneForm({
   pianificazioneToEdit = null,
   foglioAssistenzaId = null,
   foglio = null,
+  fogliDisponibili = [],
   tecnici,
   mezzi,
   onSave,
@@ -33,6 +34,7 @@ function PianificazioneForm({
     mezzo_principale_id: '',
     mezzi_secondari_ids: [],
     stato_pianificazione: 'Pianificata',
+    descrizione: '',
   });
 
   const [saving, setSaving] = useState(false);
@@ -56,6 +58,7 @@ function PianificazioneForm({
         mezzo_principale_id: pianificazioneToEdit.mezzo_principale_id || '',
         mezzi_secondari_ids: pianificazioneToEdit.mezzi_secondari_ids || [],
         stato_pianificazione: pianificazioneToEdit.stato_pianificazione || 'Pianificata',
+        descrizione: pianificazioneToEdit.descrizione || '',
       });
     }
   }, [isEditMode, pianificazioneToEdit]);
@@ -225,6 +228,7 @@ function PianificazioneForm({
         mezzo_principale_id: formData.mezzo_principale_id || null,
         mezzi_secondari_ids: formData.mezzi_secondari_ids,
         stato_pianificazione: formData.stato_pianificazione,
+        descrizione: formData.descrizione || null,
       };
 
       let result;
@@ -270,6 +274,32 @@ function PianificazioneForm({
             Puoi comunque salvare la pianificazione, ma verifica che i conflitti siano intenzionali.
           </p>
         </div>
+      )}
+
+      {/* Selezione Foglio (se NON preselezionato e NON in modalità edit) */}
+      {!foglioAssistenzaId && !isEditMode && (
+        <section style={{ marginBottom: '20px' }}>
+          <h3 style={{ fontSize: '1.1em', marginBottom: '10px' }}>Seleziona Foglio di Assistenza *</h3>
+          <select
+            value={formData.foglio_assistenza_id}
+            onChange={(e) => handleChange('foglio_assistenza_id', e.target.value)}
+            required
+            style={{ width: '100%', padding: '8px 12px', fontSize: '0.95em', border: '1px solid #ddd', borderRadius: '4px' }}
+          >
+            <option value="">-- Seleziona Foglio --</option>
+            {fogliDisponibili.map((f) => (
+              <option key={f.id} value={f.id}>
+                Foglio {f.numero_foglio} | {f.cliente_nome || 'N/A'} | {f.commessa_codice || 'N/A'} |{' '}
+                {new Date(f.data_apertura_foglio).toLocaleDateString('it-IT')}
+              </option>
+            ))}
+          </select>
+          {formData.foglio_assistenza_id === '' && (
+            <p style={{ color: '#dc3545', fontSize: '0.9em', margin: '5px 0 0 0' }}>
+              Seleziona un foglio per procedere
+            </p>
+          )}
+        </section>
       )}
 
       {/* Informazioni Foglio (se passato come prop) */}
@@ -342,6 +372,26 @@ function PianificazioneForm({
             </div>
           </div>
         )}
+      </section>
+
+      {/* Descrizione */}
+      <section style={{ marginBottom: '20px' }}>
+        <h3 style={{ fontSize: '1.1em', marginBottom: '10px' }}>Descrizione (opzionale)</h3>
+        <textarea
+          value={formData.descrizione}
+          onChange={(e) => handleChange('descrizione', e.target.value)}
+          rows={4}
+          style={{
+            width: '100%',
+            padding: '8px 12px',
+            border: '1px solid #ddd',
+            borderRadius: '4px',
+            fontSize: '0.95em',
+            fontFamily: 'inherit',
+            resize: 'vertical',
+          }}
+          placeholder="Aggiungi note o dettagli sulla pianificazione..."
+        />
       </section>
 
       {/* Esclusioni Giorni */}
@@ -465,6 +515,7 @@ PianificazioneForm.propTypes = {
   pianificazioneToEdit: PropTypes.object,
   foglioAssistenzaId: PropTypes.string,
   foglio: PropTypes.object,
+  fogliDisponibili: PropTypes.array,
   tecnici: PropTypes.array.isRequired,
   mezzi: PropTypes.array.isRequired,
   onSave: PropTypes.func.isRequired,

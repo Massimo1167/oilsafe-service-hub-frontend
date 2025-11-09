@@ -344,6 +344,7 @@ function App() {
           <nav>
             <Link to="/">Dashboard</Link>
             <Link to="/fogli-assistenza">Fogli Assistenza</Link>
+            <Link to="/fogli-assistenza/calendario">Calendario</Link>
             {(userRole === 'admin' || userRole === 'manager') && (
               <>
                 <Link to="/pianificazioni">Pianificazioni</Link>
@@ -357,7 +358,7 @@ function App() {
                 <Link to="/mezzi">Mezzi di Trasporto</Link>
               </>
             )}
-            {userRole === 'admin' && (
+            {(userRole === 'admin' || userRole === 'manager') && (
               <Link to="/statistiche">Statistiche</Link>
             )}
             <button
@@ -452,7 +453,7 @@ function App() {
                 <Route path="/mezzi" element={<MezziTrasportoManager session={session} onDataChanged={reloadAnagrafiche} />} />
               </>
             )}
-            {userRole === 'admin' && (
+            {(userRole === 'admin' || userRole === 'manager') && (
               <Route path="/statistiche" element={<StatistichePage session={session} />} />
             )}
           </Route>

@@ -1,18 +1,23 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import { Calendar, momentLocalizer } from 'react-big-calendar';
+import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop';
 import moment from 'moment';
 import 'moment/locale/it';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
+import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
 import { supabase } from '../supabaseClient';
 import EventoPianificazione from '../components/EventoPianificazione';
 import ModalDettagliPianificazione from '../components/ModalDettagliPianificazione';
 import PianificazioneForm from '../components/PianificazioneForm';
 import './CalendarioPianificazioniPage.css';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { getColorForCommessa } from '../utils/calendarioColors';
+import LegendaColoriCalendario from '../components/LegendaColoriCalendario';
 
 moment.locale('it');
 const localizer = momentLocalizer(moment);
+const DnDCalendar = withDragAndDrop(Calendar);
 
 /**
  * Pagina principale calendario pianificazioni interventi
@@ -46,6 +51,12 @@ function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mez
   const [filterMezzo, setFilterMezzo] = useState('');
   const [filterStato, setFilterStato] = useState('');
   const [filterCommessa, setFilterCommessa] = useState('');
+  const [filterFoglio, setFilterFoglio] = useState('');
+  const [filterDataInizio, setFilterDataInizio] = useState('');
+  const [filterDataFine, setFilterDataFine] = useState('');
+
+  // Lista fogli disponibili per dropdown form
+  const [fogliDisponibili, setFogliDisponibili] = useState([]);
 
   // Fetch pianificazioni e fogli associati
   const fetchPianificazioni = useCallback(async () => {
@@ -89,6 +100,78 @@ function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mez
 
   useEffect(() => {
     fetchPianificazioni();
+  }, [fetchPianificazioni]);
+
+  // Fetch fogli pianificabili per dropdown form
+  const fetchFogliPianificabili = useCallback(async () => {
+    try {
+      console.log('CalendarioPianificazioni: Inizio fetch fogli pianificabili...');
+
+      // Prima query: fogli base
+      const { data: fogliData, error: fogliError } = await supabase
+        .from('fogli_assistenza')
+        .select('id, numero_foglio, data_apertura_foglio, cliente_id, commessa_id')
+        .in('stato_foglio', ['Aperto', 'In Lavorazione', 'Attesa Firma'])
+        .order('data_apertura_foglio', { ascending: false });
+
+      if (fogliError) {
+        console.error('Errore caricamento fogli pianificabili:', fogliError);
+        setFogliDisponibili([]);
+        return;
+      }
+
+      console.log(`CalendarioPianificazioni: Caricati ${fogliData?.length || 0} fogli pianificabili`);
+
+      if (!fogliData || fogliData.length === 0) {
+        console.log('CalendarioPianificazioni: Nessun foglio pianificabile trovato');
+        setFogliDisponibili([]);
+        return;
+      }
+
+      // Arricchisci con nomi cliente e commessa
+      const fogliArricchiti = fogliData.map((f) => {
+        const cliente = clienti.find((c) => c.id === f.cliente_id);
+        const commessa = commesse.find((c) => c.id === f.commessa_id);
+        return {
+          ...f,
+          cliente_nome: cliente?.nome_azienda || 'N/A',
+          commessa_codice: commessa?.codice || 'N/A',
+        };
+      });
+
+      console.log('CalendarioPianificazioni: Fogli arricchiti con successo:', fogliArricchiti.length);
+      setFogliDisponibili(fogliArricchiti);
+    } catch (err) {
+      console.error('Errore fetch fogli pianificabili:', err);
+      setFogliDisponibili([]);
+    }
+  }, [clienti, commesse]);
+
+  useEffect(() => {
+    fetchFogliPianificabili();
+  }, [fetchFogliPianificabili]);
+
+  // Refresh automatico quando si torna alla pagina (focus window)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        // Ricarica pianificazioni e fogli quando la tab diventa visibile
+        fetchPianificazioni();
+      }
+    };
+
+    const handleFocus = () => {
+      // Ricarica quando la finestra torna in focus
+      fetchPianificazioni();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [fetchPianificazioni]);
 
   // Gestisce query param foglioId per apertura diretta form
@@ -151,6 +234,15 @@ function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mez
         return foglio?.commessa_id === filterCommessa;
       });
     }
+    if (filterFoglio) {
+      filtered = filtered.filter((p) => p.foglio_assistenza_id === filterFoglio);
+    }
+    if (filterDataInizio) {
+      filtered = filtered.filter((p) => p.data_inizio_pianificata >= filterDataInizio);
+    }
+    if (filterDataFine) {
+      filtered = filtered.filter((p) => p.data_fine_pianificata <= filterDataFine);
+    }
 
     // Trasforma in eventi
     return filtered.map((p) => {
@@ -199,7 +291,18 @@ function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mez
         ...p,
       };
     });
-  }, [pianificazioni, foglioMap, clienti, tecnici, commesse, mezzi, filterTecnico, filterMezzo, filterStato, filterCommessa]);
+  }, [pianificazioni, foglioMap, clienti, tecnici, commesse, mezzi, filterTecnico, filterMezzo, filterStato, filterCommessa, filterFoglio, filterDataInizio, filterDataFine]);
+
+  // Commesse filtrate - solo quelle con pianificazioni
+  const commesseConPianificazioni = useMemo(() => {
+    const commesseIds = new Set();
+    Object.values(foglioMap).forEach((f) => {
+      if (f.commessa_id) commesseIds.add(f.commessa_id);
+    });
+    return commesse
+      .filter((c) => commesseIds.has(c.id))
+      .sort((a, b) => (a.codice || '').localeCompare(b.codice || ''));
+  }, [commesse, foglioMap]);
 
   // Handler click evento
   const handleSelectEvent = useCallback((event) => {
@@ -279,44 +382,154 @@ function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mez
 
   // Handler navigazione al foglio
   const handleNavigateToFoglio = (foglioId) => {
-    navigate(`/fogli/${foglioId}`);
+    navigate(`/fogli-assistenza/${foglioId}`);
   };
 
-  // Custom event style getter
-  const eventStyleGetter = useCallback((event) => {
-    const stato = event.resource.stato_pianificazione;
-    let backgroundColor = '#6c757d';
+  // Handler duplicazione pianificazione
+  const handleDuplicatePianificazione = (pianificazione) => {
+    // Chiudi modal dettagli
+    setShowModal(false);
 
-    switch (stato) {
-      case 'Pianificata':
-        backgroundColor = '#6c757d';
-        break;
-      case 'Confermata':
-        backgroundColor = '#007bff';
-        break;
-      case 'In Corso':
-        backgroundColor = '#ffc107';
-        break;
-      case 'Completata':
-        backgroundColor = '#28a745';
-        break;
-      case 'Cancellata':
-        backgroundColor = '#dc3545';
-        break;
-      default:
-        backgroundColor = '#6c757d';
-    }
-
-    return {
-      style: {
-        backgroundColor,
-        color: 'white',
-        borderRadius: '4px',
-        border: 'none',
-        display: 'block',
-      },
+    // Crea una copia della pianificazione senza id, created_at, updated_at
+    const duplicatedData = {
+      foglio_assistenza_id: pianificazione.foglio_assistenza_id,
+      data_inizio_pianificata: pianificazione.data_inizio_pianificata,
+      ora_inizio_pianificata: pianificazione.ora_inizio_pianificata,
+      data_fine_pianificata: pianificazione.data_fine_pianificata,
+      ora_fine_pianificata: pianificazione.ora_fine_pianificata,
+      tutto_il_giorno: pianificazione.tutto_il_giorno,
+      salta_sabato: pianificazione.salta_sabato,
+      salta_domenica: pianificazione.salta_domenica,
+      salta_festivi: pianificazione.salta_festivi,
+      tecnici_assegnati: pianificazione.tecnici_assegnati,
+      mezzo_principale_id: pianificazione.mezzo_principale_id,
+      mezzi_secondari_ids: pianificazione.mezzi_secondari_ids,
+      stato_pianificazione: 'Pianificata', // Reset stato a Pianificata
+      descrizione: pianificazione.descrizione,
     };
-  }, []);
+
+    // Apri form in modalità duplicazione (come edit ma senza id)
+    setPianificazioneToEdit(duplicatedData);
+    setPreselectedFoglioId(pianificazione.foglio_assistenza_id);
+    setShowForm(true);
+  };
+
+  // Handler drag & drop evento
+  const handleEventDrop = async ({ event, start, end }) => {
+    try {
+      const pianificazioneId = event.resource.id;
+
+      // Formatta date e orari
+      const dataInizio = moment(start).format('YYYY-MM-DD');
+      const dataFine = moment(end).format('YYYY-MM-DD');
+      const oraInizio = moment(start).format('HH:mm:ss');
+      const oraFine = moment(end).format('HH:mm:ss');
+
+      // Update nel database
+      const { error: updateError } = await supabase
+        .from('pianificazioni')
+        .update({
+          data_inizio_pianificata: dataInizio,
+          data_fine_pianificata: dataFine,
+          ora_inizio_pianificata: event.resource.tutto_il_giorno ? null : oraInizio,
+          ora_fine_pianificata: event.resource.tutto_il_giorno ? null : oraFine,
+        })
+        .eq('id', pianificazioneId);
+
+      if (updateError) throw updateError;
+
+      // Ricarica pianificazioni
+      await fetchPianificazioni();
+    } catch (err) {
+      console.error('Errore spostamento evento:', err);
+      alert(`Errore spostamento evento: ${err.message}`);
+    }
+  };
+
+  // Handler resize evento
+  const handleEventResize = async ({ event, start, end }) => {
+    try {
+      const pianificazioneId = event.resource.id;
+
+      // Formatta date e orari
+      const dataInizio = moment(start).format('YYYY-MM-DD');
+      const dataFine = moment(end).format('YYYY-MM-DD');
+      const oraInizio = moment(start).format('HH:mm:ss');
+      const oraFine = moment(end).format('HH:mm:ss');
+
+      // Update nel database
+      const { error: updateError } = await supabase
+        .from('pianificazioni')
+        .update({
+          data_inizio_pianificata: dataInizio,
+          data_fine_pianificata: dataFine,
+          ora_inizio_pianificata: event.resource.tutto_il_giorno ? null : oraInizio,
+          ora_fine_pianificata: event.resource.tutto_il_giorno ? null : oraFine,
+        })
+        .eq('id', pianificazioneId);
+
+      if (updateError) throw updateError;
+
+      // Ricarica pianificazioni
+      await fetchPianificazioni();
+    } catch (err) {
+      console.error('Errore ridimensionamento evento:', err);
+      alert(`Errore ridimensionamento evento: ${err.message}`);
+    }
+  };
+
+  // Commesse visibili nel calendario
+  const commesseVisibili = useMemo(() => {
+    const commesseIds = new Set();
+    eventiCalendario.forEach((e) => {
+      const foglio = foglioMap[e.resource.foglio_assistenza_id];
+      if (foglio?.commessa_id) commesseIds.add(foglio.commessa_id);
+    });
+    return commesse.filter((c) => commesseIds.has(c.id));
+  }, [eventiCalendario, foglioMap, commesse]);
+
+  // Riepilogo stati con count
+  const conteggioStati = useMemo(() => {
+    const count = {
+      Pianificata: 0,
+      Confermata: 0,
+      'In Corso': 0,
+      Completata: 0,
+      Cancellata: 0,
+    };
+    pianificazioni.forEach((p) => {
+      if (count.hasOwnProperty(p.stato_pianificazione)) {
+        count[p.stato_pianificazione]++;
+      }
+    });
+    return count;
+  }, [pianificazioni]);
+
+  // Custom event style getter - Colora per commessa
+  const eventStyleGetter = useCallback(
+    (event) => {
+      const foglioId = event.resource.foglio_assistenza_id;
+      const foglio = foglioMap[foglioId];
+      const commessaId = foglio?.commessa_id;
+
+      let backgroundColor = '#6c757d'; // default grigio
+
+      if (commessaId) {
+        backgroundColor = getColorForCommessa(commessaId);
+      }
+
+      return {
+        style: {
+          backgroundColor,
+          color: 'white',
+          borderRadius: '4px',
+          border: 'none',
+          display: 'block',
+        },
+      };
+    },
+    [foglioMap]
+  );
 
   // Custom components
   const components = useMemo(
@@ -391,15 +604,49 @@ function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mez
           </div>
 
           <div className="filter-group">
+            <label>Filtra per Foglio:</label>
+            <select value={filterFoglio} onChange={(e) => setFilterFoglio(e.target.value)}>
+              <option value="">-- Tutti --</option>
+              {fogliDisponibili
+                .sort((a, b) => (b.numero_foglio || '').localeCompare(a.numero_foglio || ''))
+                .map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.numero_foglio} - {f.cliente_nome || 'N/A'}
+                  </option>
+                ))}
+            </select>
+          </div>
+
+          <div className="filter-group">
             <label>Filtra per Commessa:</label>
             <select value={filterCommessa} onChange={(e) => setFilterCommessa(e.target.value)}>
               <option value="">-- Tutte --</option>
-              {commesse.map((c) => (
+              {commesseConPianificazioni.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.codice} - {c.descrizione}
                 </option>
               ))}
             </select>
+          </div>
+
+          <div className="filter-group">
+            <label>Data Inizio (da):</label>
+            <input
+              type="date"
+              value={filterDataInizio}
+              onChange={(e) => setFilterDataInizio(e.target.value)}
+              style={{ padding: '6px 10px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '0.9em' }}
+            />
+          </div>
+
+          <div className="filter-group">
+            <label>Data Fine (a):</label>
+            <input
+              type="date"
+              value={filterDataFine}
+              onChange={(e) => setFilterDataFine(e.target.value)}
+              style={{ padding: '6px 10px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '0.9em' }}
+            />
           </div>
         </div>
 
@@ -410,7 +657,10 @@ function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mez
               setFilterTecnico('');
               setFilterMezzo('');
               setFilterStato('');
+              setFilterFoglio('');
               setFilterCommessa('');
+              setFilterDataInizio('');
+              setFilterDataFine('');
             }}
           >
             Reimposta Filtri
@@ -427,8 +677,9 @@ function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mez
 
       {/* Calendario */}
       <div className="calendario-container">
-        <Calendar
+        <DnDCalendar
           localizer={localizer}
+          culture="it"
           events={eventiCalendario}
           startAccessor="start"
           endAccessor="end"
@@ -441,9 +692,10 @@ function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mez
           eventPropGetter={eventStyleGetter}
           components={components}
           messages={{
+            allDay: 'Tutto il giorno',
+            previous: '‹',
+            next: '›',
             today: 'Oggi',
-            previous: 'Indietro',
-            next: 'Avanti',
             month: 'Mese',
             week: 'Settimana',
             day: 'Giorno',
@@ -453,34 +705,108 @@ function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mez
             event: 'Evento',
             noEventsInRange: 'Nessuna pianificazione in questo periodo.',
             showMore: (total) => `+ Altri ${total}`,
+            tomorrow: 'Domani',
+            yesterday: 'Ieri',
+            work_week: 'Settimana lavorativa',
           }}
+          formats={{
+            dateFormat: 'D',
+            dayFormat: 'ddd D/M',
+            weekdayFormat: 'ddd',
+            monthHeaderFormat: 'MMMM YYYY',
+            dayHeaderFormat: 'dddd D MMMM YYYY',
+            dayRangeHeaderFormat: ({ start, end }, culture, localizer) =>
+              `${localizer.format(start, 'D MMMM', culture)} - ${localizer.format(end, 'D MMMM YYYY', culture)}`,
+            agendaHeaderFormat: ({ start, end }, culture, localizer) =>
+              `${localizer.format(start, 'D MMMM', culture)} - ${localizer.format(end, 'D MMMM YYYY', culture)}`,
+            agendaDateFormat: 'ddd D MMM',
+            agendaTimeFormat: 'HH:mm',
+            agendaTimeRangeFormat: ({ start, end }, culture, localizer) =>
+              `${localizer.format(start, 'HH:mm', culture)} - ${localizer.format(end, 'HH:mm', culture)}`,
+          }}
+          draggableAccessor={() => true}
+          resizable
+          onEventDrop={handleEventDrop}
+          onEventResize={handleEventResize}
         />
       </div>
 
-      {/* Legenda Stati */}
-      <div className="calendario-legenda">
-        <h3>Legenda Stati:</h3>
-        <div className="legenda-items">
-          <div className="legenda-item">
-            <span className="legenda-color" style={{ backgroundColor: '#6c757d' }}></span>
-            Pianificata
-          </div>
-          <div className="legenda-item">
-            <span className="legenda-color" style={{ backgroundColor: '#007bff' }}></span>
-            Confermata
-          </div>
-          <div className="legenda-item">
-            <span className="legenda-color" style={{ backgroundColor: '#ffc107' }}></span>
-            In Corso
-          </div>
-          <div className="legenda-item">
-            <span className="legenda-color" style={{ backgroundColor: '#28a745' }}></span>
-            Completata
-          </div>
-          <div className="legenda-item">
-            <span className="legenda-color" style={{ backgroundColor: '#dc3545' }}></span>
-            Cancellata
-          </div>
+      {/* Legenda Commesse */}
+      <LegendaColoriCalendario commesse={commesseVisibili} />
+
+      {/* Riepilogo Stati */}
+      <div
+        className="calendario-stati-summary"
+        style={{
+          background: 'white',
+          borderRadius: '8px',
+          padding: '15px',
+          marginTop: '20px',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+        }}
+      >
+        <h3 style={{ margin: '0 0 10px 0', fontSize: '1em', color: '#333' }}>Riepilogo Stati:</h3>
+        <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
+          <span
+            style={{
+              backgroundColor: '#6c757d',
+              color: 'white',
+              padding: '4px 12px',
+              borderRadius: '12px',
+              fontSize: '0.9em',
+              fontWeight: '500',
+            }}
+          >
+            Pianificata: {conteggioStati['Pianificata']}
+          </span>
+          <span
+            style={{
+              backgroundColor: '#007bff',
+              color: 'white',
+              padding: '4px 12px',
+              borderRadius: '12px',
+              fontSize: '0.9em',
+              fontWeight: '500',
+            }}
+          >
+            Confermata: {conteggioStati['Confermata']}
+          </span>
+          <span
+            style={{
+              backgroundColor: '#ffc107',
+              color: 'white',
+              padding: '4px 12px',
+              borderRadius: '12px',
+              fontSize: '0.9em',
+              fontWeight: '500',
+            }}
+          >
+            In Corso: {conteggioStati['In Corso']}
+          </span>
+          <span
+            style={{
+              backgroundColor: '#28a745',
+              color: 'white',
+              padding: '4px 12px',
+              borderRadius: '12px',
+              fontSize: '0.9em',
+              fontWeight: '500',
+            }}
+          >
+            Completata: {conteggioStati['Completata']}
+          </span>
+          <span
+            style={{
+              backgroundColor: '#dc3545',
+              color: 'white',
+              padding: '4px 12px',
+              borderRadius: '12px',
+              fontSize: '0.9em',
+              fontWeight: '500',
+            }}
+          >
+            Cancellata: {conteggioStati['Cancellata']}
+          </span>
         </div>
       </div>
 
@@ -493,6 +819,7 @@ function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mez
           onDelete={handleDeletePianificazione}
           onChangeState={handleChangeState}
           onNavigateToFoglio={handleNavigateToFoglio}
+          onDuplicate={handleDuplicatePianificazione}
           clienti={clienti}
           tecnici={tecnici}
           commesse={commesse}
@@ -508,6 +835,7 @@ function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mez
               pianificazioneToEdit={pianificazioneToEdit}
               foglioAssistenzaId={preselectedFoglioId}
               foglio={preselectedFoglio}
+              fogliDisponibili={fogliDisponibili}
               tecnici={tecnici}
               mezzi={mezzi}
               onSave={handleSaveForm}
