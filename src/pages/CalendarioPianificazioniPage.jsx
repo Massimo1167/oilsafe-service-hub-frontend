@@ -62,6 +62,7 @@ function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mez
 
   // Lista fogli disponibili per dropdown form
   const [fogliDisponibili, setFogliDisponibili] = useState([]);
+  const [alertMezzi, setAlertMezzi] = useState({ scadute: 0, inScadenza: 0 });
 
   // Fetch pianificazioni e fogli associati
   const fetchPianificazioni = useCallback(async () => {
@@ -155,6 +156,54 @@ function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mez
   useEffect(() => {
     fetchFogliPianificabili();
   }, [fetchFogliPianificabili]);
+
+  // Fetch alert mezzi
+  const fetchAlertMezzi = useCallback(async () => {
+    try {
+      const { data: configData } = await supabase
+        .from('app_configurazioni')
+        .select('valore')
+        .eq('chiave', 'soglie_alert_mezzi')
+        .single();
+
+      const soglie = configData?.valore || {
+        revisione_giorni: 45,
+        assicurazione_giorni: 30,
+        bollo_giorni: 30,
+        manutenzione_giorni: 15,
+      };
+
+      const oggi = new Date();
+      let scadute = 0;
+      let inScadenza = 0;
+
+      mezzi.forEach(mezzo => {
+        if (!mezzo.attivo) return;
+
+        [
+          { campo: 'scadenza_revisione', soglia: soglie.revisione_giorni },
+          { campo: 'scadenza_assicurazione', soglia: soglie.assicurazione_giorni },
+          { campo: 'scadenza_bollo', soglia: soglie.bollo_giorni },
+          { campo: 'scadenza_manutenzione', soglia: soglie.manutenzione_giorni },
+        ].forEach(({ campo, soglia }) => {
+          const data = mezzo[campo];
+          if (!data) return;
+
+          const giorni = Math.ceil((new Date(data) - oggi) / (1000 * 60 * 60 * 24));
+          if (giorni < 0) scadute++;
+          else if (giorni <= soglia) inScadenza++;
+        });
+      });
+
+      setAlertMezzi({ scadute, inScadenza });
+    } catch (err) {
+      console.error('Errore calcolo alert mezzi:', err);
+    }
+  }, [mezzi]);
+
+  useEffect(() => {
+    fetchAlertMezzi();
+  }, [fetchAlertMezzi]);
 
   // Refresh automatico quando si torna alla pagina (focus window)
   useEffect(() => {
@@ -567,6 +616,34 @@ function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mez
         <button className="button" onClick={fetchPianificazioni}>
           🔄 Ricarica
         </button>
+
+        {/* Alert Mezzi */}
+        {(alertMezzi.scadute > 0 || alertMezzi.inScadenza > 0) && (
+          <div className="alert-mezzi-badge" style={{ marginLeft: 'auto' }}>
+            <span
+              onClick={() => navigate('/scadenze-mezzi')}
+              style={{
+                cursor: 'pointer',
+                background: '#dc3545',
+                color: 'white',
+                padding: '8px 15px',
+                borderRadius: '20px',
+                fontSize: '0.9em',
+                fontWeight: 'bold',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+              }}
+              title="Clicca per visualizzare dettagli scadenze mezzi"
+            >
+              ⚠️ Scadenze Mezzi:
+              {alertMezzi.scadute > 0 && ` ${alertMezzi.scadute} scadute`}
+              {alertMezzi.scadute > 0 && alertMezzi.inScadenza > 0 && ' • '}
+              {alertMezzi.inScadenza > 0 && ` ${alertMezzi.inScadenza} in scadenza`}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Filtri */}
