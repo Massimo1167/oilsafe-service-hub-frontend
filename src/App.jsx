@@ -19,6 +19,9 @@ import FoglioAttivitaStandardPage from './pages/FoglioAttivitaStandardPage';
 import CalendarioFogliPage from './pages/CalendarioFogliPage';
 import CalendarioPianificazioniPage from './pages/CalendarioPianificazioniPage';
 import StatistichePage from './pages/StatistichePage';
+import ScadenzeMezziPage from './pages/ScadenzeMezziPage';
+import CalendarioScadenzeMezziPage from './pages/CalendarioScadenzeMezziPage';
+import ConfigurazioneAppPage from './pages/ConfigurazioneAppPage';
 
 // Importa Componenti Manager Anagrafiche
 import ClientiManager from './components/anagrafiche/ClientiManager';
@@ -361,6 +364,9 @@ function App() {
             {(userRole === 'admin' || userRole === 'manager') && (
               <Link to="/statistiche">Statistiche</Link>
             )}
+            {userRole === 'admin' && (
+              <Link to="/configurazione">Configurazione</Link>
+            )}
             <button
               onClick={handleLogout}
               className="button-logout"
@@ -451,10 +457,15 @@ function App() {
                 <Route path="/unita-misura" element={<UnitaMisuraManager session={session} onDataChanged={reloadAnagrafiche} />} />
                 <Route path="/attivita-standard" element={<AttivitaStandardManager session={session} onDataChanged={reloadAnagrafiche} />} />
                 <Route path="/mezzi" element={<MezziTrasportoManager session={session} onDataChanged={reloadAnagrafiche} />} />
+                <Route path="/scadenze-mezzi" element={<ScadenzeMezziPage session={session} />} />
+                <Route path="/mezzi/calendario-scadenze" element={<CalendarioScadenzeMezziPage session={session} />} />
               </>
             )}
             {(userRole === 'admin' || userRole === 'manager') && (
               <Route path="/statistiche" element={<StatistichePage session={session} />} />
+            )}
+            {userRole === 'admin' && (
+              <Route path="/configurazione" element={<ConfigurazioneAppPage session={session} />} />
             )}
           </Route>
           <Route path="*" element={<Navigate to={session ? "/" : "/login"} replace />} />

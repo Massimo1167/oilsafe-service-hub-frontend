@@ -5,11 +5,13 @@
  */
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../supabaseClient';
+import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
 import './MezziTrasportoManager.css';
 
 function MezziTrasportoManager({ session, onDataChanged }) {
+    const navigate = useNavigate();
     const [mezzi, setMezzi] = useState([]);
     const [loadingActions, setLoadingActions] = useState(false);
     const [pageLoading, setPageLoading] = useState(true);
@@ -27,6 +29,11 @@ function MezziTrasportoManager({ session, onDataChanged }) {
         anno_immatricolazione: '',
         note: '',
         attivo: true,
+        scadenza_revisione: '',
+        scadenza_assicurazione: '',
+        scadenza_bollo: '',
+        scadenza_manutenzione: '',
+        note_stato_mezzo: '',
     });
 
     // Search and filter
@@ -94,6 +101,11 @@ function MezziTrasportoManager({ session, onDataChanged }) {
             anno_immatricolazione: '',
             note: '',
             attivo: true,
+            scadenza_revisione: '',
+            scadenza_assicurazione: '',
+            scadenza_bollo: '',
+            scadenza_manutenzione: '',
+            note_stato_mezzo: '',
         });
         setShowForm(true);
     };
@@ -108,6 +120,11 @@ function MezziTrasportoManager({ session, onDataChanged }) {
             anno_immatricolazione: mezzo.anno_immatricolazione || '',
             note: mezzo.note || '',
             attivo: mezzo.attivo !== undefined ? mezzo.attivo : true,
+            scadenza_revisione: mezzo.scadenza_revisione || '',
+            scadenza_assicurazione: mezzo.scadenza_assicurazione || '',
+            scadenza_bollo: mezzo.scadenza_bollo || '',
+            scadenza_manutenzione: mezzo.scadenza_manutenzione || '',
+            note_stato_mezzo: mezzo.note_stato_mezzo || '',
         });
         setShowForm(true);
     };
@@ -123,6 +140,11 @@ function MezziTrasportoManager({ session, onDataChanged }) {
             anno_immatricolazione: '',
             note: '',
             attivo: true,
+            scadenza_revisione: '',
+            scadenza_assicurazione: '',
+            scadenza_bollo: '',
+            scadenza_manutenzione: '',
+            note_stato_mezzo: '',
         });
     };
 
@@ -132,6 +154,33 @@ function MezziTrasportoManager({ session, onDataChanged }) {
         if (!formData.targa || !formData.tipo_mezzo) {
             alert('Targa e Tipo Mezzo sono obbligatori');
             return;
+        }
+
+        if (!formData.scadenza_revisione || !formData.scadenza_assicurazione ||
+            !formData.scadenza_bollo || !formData.scadenza_manutenzione) {
+            alert('Tutte le date di scadenza sono obbligatorie');
+            return;
+        }
+
+        // Validazione date future (solo per INSERT)
+        if (!editingId) {
+            const oggi = new Date().toISOString().split('T')[0];
+            if (formData.scadenza_revisione < oggi) {
+                alert('La scadenza revisione deve essere futura');
+                return;
+            }
+            if (formData.scadenza_assicurazione < oggi) {
+                alert('La scadenza assicurazione deve essere futura');
+                return;
+            }
+            if (formData.scadenza_bollo < oggi) {
+                alert('La scadenza bollo deve essere futura');
+                return;
+            }
+            if (formData.scadenza_manutenzione < oggi) {
+                alert('La scadenza manutenzione deve essere futura');
+                return;
+            }
         }
 
         try {
@@ -146,6 +195,11 @@ function MezziTrasportoManager({ session, onDataChanged }) {
                 anno_immatricolazione: formData.anno_immatricolazione ? parseInt(formData.anno_immatricolazione) : null,
                 note: formData.note?.trim() || null,
                 attivo: formData.attivo,
+                scadenza_revisione: formData.scadenza_revisione,
+                scadenza_assicurazione: formData.scadenza_assicurazione,
+                scadenza_bollo: formData.scadenza_bollo,
+                scadenza_manutenzione: formData.scadenza_manutenzione,
+                note_stato_mezzo: formData.note_stato_mezzo?.trim() || null,
             };
 
             if (editingId) {
@@ -213,13 +267,19 @@ function MezziTrasportoManager({ session, onDataChanged }) {
 
     // Export to Excel
     const handleExportExcel = () => {
+        const formatDate = (d) => d ? new Date(d).toLocaleDateString('it-IT') : '';
         const exportData = mezziFiltrati.map(m => ({
             Targa: m.targa,
             Tipo: m.tipo_mezzo,
             Modello: m.modello || '',
             Marca: m.marca || '',
             Anno: m.anno_immatricolazione || '',
+            ScadenzaRevisione: formatDate(m.scadenza_revisione),
+            ScadenzaAssicurazione: formatDate(m.scadenza_assicurazione),
+            ScadenzaBollo: formatDate(m.scadenza_bollo),
+            ScadenzaManutenzione: formatDate(m.scadenza_manutenzione),
             Note: m.note || '',
+            NoteStatoMezzo: m.note_stato_mezzo || '',
             Attivo: m.attivo ? 'Sì' : 'No',
         }));
 
@@ -231,13 +291,19 @@ function MezziTrasportoManager({ session, onDataChanged }) {
 
     // Export to CSV
     const handleExportCSV = () => {
+        const formatDate = (d) => d ? new Date(d).toLocaleDateString('it-IT') : '';
         const exportData = mezziFiltrati.map(m => ({
             Targa: m.targa,
             Tipo: m.tipo_mezzo,
             Modello: m.modello || '',
             Marca: m.marca || '',
             Anno: m.anno_immatricolazione || '',
+            ScadenzaRevisione: formatDate(m.scadenza_revisione),
+            ScadenzaAssicurazione: formatDate(m.scadenza_assicurazione),
+            ScadenzaBollo: formatDate(m.scadenza_bollo),
+            ScadenzaManutenzione: formatDate(m.scadenza_manutenzione),
             Note: m.note || '',
+            NoteStatoMezzo: m.note_stato_mezzo || '',
             Attivo: m.attivo ? 'Sì' : 'No',
         }));
 
@@ -331,6 +397,9 @@ function MezziTrasportoManager({ session, onDataChanged }) {
             <div className="manager-toolbar">
                 <button onClick={handleAdd} className="button primary" disabled={loadingActions}>
                     + Nuovo Mezzo
+                </button>
+                <button onClick={() => navigate('/mezzi/calendario-scadenze')} className="button secondary" disabled={loadingActions}>
+                    Calendario Scadenze
                 </button>
                 <button onClick={handleExportExcel} className="button secondary" disabled={loadingActions}>
                     Esporta Excel
@@ -474,6 +543,64 @@ function MezziTrasportoManager({ session, onDataChanged }) {
                             />
                         </div>
 
+                        <h3 style={{ marginTop: '20px', marginBottom: '10px' }}>Scadenze</h3>
+
+                        <div className="form-row">
+                            <div className="form-group">
+                                <label>Scadenza Revisione *</label>
+                                <input
+                                    type="date"
+                                    value={formData.scadenza_revisione}
+                                    onChange={(e) => setFormData({ ...formData, scadenza_revisione: e.target.value })}
+                                    required
+                                    min={editingId ? '' : new Date().toISOString().split('T')[0]}
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label>Scadenza Assicurazione *</label>
+                                <input
+                                    type="date"
+                                    value={formData.scadenza_assicurazione}
+                                    onChange={(e) => setFormData({ ...formData, scadenza_assicurazione: e.target.value })}
+                                    required
+                                    min={editingId ? '' : new Date().toISOString().split('T')[0]}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="form-row">
+                            <div className="form-group">
+                                <label>Scadenza Bollo *</label>
+                                <input
+                                    type="date"
+                                    value={formData.scadenza_bollo}
+                                    onChange={(e) => setFormData({ ...formData, scadenza_bollo: e.target.value })}
+                                    required
+                                    min={editingId ? '' : new Date().toISOString().split('T')[0]}
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label>Scadenza Manutenzione *</label>
+                                <input
+                                    type="date"
+                                    value={formData.scadenza_manutenzione}
+                                    onChange={(e) => setFormData({ ...formData, scadenza_manutenzione: e.target.value })}
+                                    required
+                                    min={editingId ? '' : new Date().toISOString().split('T')[0]}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="form-group">
+                            <label>Note Stato Mezzo</label>
+                            <textarea
+                                value={formData.note_stato_mezzo}
+                                onChange={(e) => setFormData({ ...formData, note_stato_mezzo: e.target.value })}
+                                rows="4"
+                                placeholder="Note sullo stato del mezzo..."
+                            />
+                        </div>
+
                         <div className="form-actions">
                             <button type="submit" className="button primary" disabled={loadingActions}>
                                 {loadingActions ? 'Salvataggio...' : 'Salva'}
@@ -499,6 +626,7 @@ function MezziTrasportoManager({ session, onDataChanged }) {
                             <th>Marca</th>
                             <th>Modello</th>
                             <th>Anno</th>
+                            <th>Prossima Scadenza</th>
                             <th>Note</th>
                             <th>Stato</th>
                             <th>Azioni</th>
@@ -507,43 +635,89 @@ function MezziTrasportoManager({ session, onDataChanged }) {
                     <tbody>
                         {mezziFiltrati.length === 0 ? (
                             <tr>
-                                <td colSpan="8" style={{ textAlign: 'center', padding: '20px' }}>
+                                <td colSpan="9" style={{ textAlign: 'center', padding: '20px' }}>
                                     Nessun mezzo trovato
                                 </td>
                             </tr>
                         ) : (
-                            mezziFiltrati.map(mezzo => (
-                                <tr key={mezzo.id}>
-                                    <td><strong>{mezzo.targa}</strong></td>
-                                    <td>{mezzo.tipo_mezzo}</td>
-                                    <td>{mezzo.marca || '-'}</td>
-                                    <td>{mezzo.modello || '-'}</td>
-                                    <td>{mezzo.anno_immatricolazione || '-'}</td>
-                                    <td>{mezzo.note ? (mezzo.note.length > 50 ? mezzo.note.substring(0, 50) + '...' : mezzo.note) : '-'}</td>
-                                    <td>
-                                        <span className={`status-badge ${mezzo.attivo ? 'status-active' : 'status-inactive'}`}>
-                                            {mezzo.attivo ? 'Attivo' : 'Non attivo'}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <button
-                                            onClick={() => handleEdit(mezzo)}
-                                            className="button small secondary"
-                                            disabled={loadingActions}
-                                        >
-                                            Modifica
-                                        </button>
-                                        <button
-                                            onClick={() => handleDelete(mezzo.id, mezzo.targa)}
-                                            className="button small danger"
-                                            disabled={loadingActions}
-                                            style={{ marginLeft: '5px' }}
-                                        >
-                                            Elimina
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))
+                            mezziFiltrati.map(mezzo => {
+                                // Calcola prossima scadenza
+                                const getProssimaScadenza = () => {
+                                    const oggi = new Date();
+                                    const scadenze = [
+                                        { tipo: 'Revisione', data: mezzo.scadenza_revisione, soglia: 45 },
+                                        { tipo: 'Assicurazione', data: mezzo.scadenza_assicurazione, soglia: 30 },
+                                        { tipo: 'Bollo', data: mezzo.scadenza_bollo, soglia: 30 },
+                                        { tipo: 'Manutenzione', data: mezzo.scadenza_manutenzione, soglia: 15 },
+                                    ].filter(s => s.data)
+                                     .map(s => ({
+                                       ...s,
+                                       dataObj: new Date(s.data),
+                                       giorni: Math.ceil((new Date(s.data) - oggi) / (1000 * 60 * 60 * 24))
+                                     }))
+                                     .sort((a, b) => a.giorni - b.giorni);
+
+                                    if (scadenze.length === 0) return { tipo: 'N/A', giorni: null, status: 'ok' };
+
+                                    const prossima = scadenze[0];
+                                    let status = 'ok';
+                                    if (prossima.giorni < 0) status = 'scaduto';
+                                    else if (prossima.giorni <= prossima.soglia) status = 'warning';
+
+                                    return { ...prossima, status };
+                                };
+
+                                const scadenza = getProssimaScadenza();
+
+                                return (
+                                    <tr key={mezzo.id}>
+                                        <td><strong>{mezzo.targa}</strong></td>
+                                        <td>{mezzo.tipo_mezzo}</td>
+                                        <td>{mezzo.marca || '-'}</td>
+                                        <td>{mezzo.modello || '-'}</td>
+                                        <td>{mezzo.anno_immatricolazione || '-'}</td>
+                                        <td>
+                                            {scadenza.tipo === 'N/A' ? '-' : (
+                                                <span style={{
+                                                    backgroundColor: scadenza.status === 'scaduto' ? '#dc3545' : scadenza.status === 'warning' ? '#ffc107' : '#28a745',
+                                                    color: scadenza.status === 'warning' ? '#333' : 'white',
+                                                    padding: '4px 8px',
+                                                    borderRadius: '4px',
+                                                    fontSize: '0.85em',
+                                                    fontWeight: '500',
+                                                    display: 'inline-block'
+                                                }}>
+                                                    {scadenza.tipo}: {scadenza.dataObj.toLocaleDateString('it-IT')}
+                                                    {scadenza.giorni !== null && ` (${scadenza.giorni}gg)`}
+                                                </span>
+                                            )}
+                                        </td>
+                                        <td>{mezzo.note ? (mezzo.note.length > 50 ? mezzo.note.substring(0, 50) + '...' : mezzo.note) : '-'}</td>
+                                        <td>
+                                            <span className={`status-badge ${mezzo.attivo ? 'status-active' : 'status-inactive'}`}>
+                                                {mezzo.attivo ? 'Attivo' : 'Non attivo'}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <button
+                                                onClick={() => handleEdit(mezzo)}
+                                                className="button small secondary"
+                                                disabled={loadingActions}
+                                            >
+                                                Modifica
+                                            </button>
+                                            <button
+                                                onClick={() => handleDelete(mezzo.id, mezzo.targa)}
+                                                className="button small danger"
+                                                disabled={loadingActions}
+                                                style={{ marginLeft: '5px' }}
+                                            >
+                                                Elimina
+                                            </button>
+                                        </td>
+                                    </tr>
+                                );
+                            })
                         )}
                     </tbody>
                 </table>
