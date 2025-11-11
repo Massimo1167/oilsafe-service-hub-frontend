@@ -25,15 +25,20 @@
     margin-bottom: 20px;
 }
 
-/* Layout filtri: riga singola a tutta larghezza */
-.filter-row-full {
+/* Layout filtri: riga con 4 colonne */
+.filter-row-quad {
     display: grid;
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(4, 1fr);
     gap: 15px;
     margin-bottom: 15px;
 }
 
-/* Layout filtri: riga con 3 colonne */
+/* Filter group che occupa 2 colonne (per Foglio) */
+.filter-group-double {
+    grid-column: span 2;
+}
+
+/* Layout filtri: riga con 3 colonne (mantenuto per compatibilità) */
 .filter-row-triple {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -265,8 +270,13 @@
     }
 
     .filter-row,
-    .filter-row-triple {
+    .filter-row-triple,
+    .filter-row-quad {
         grid-template-columns: 1fr;
+    }
+
+    .filter-group-double {
+        grid-column: span 1; /* Reset su mobile */
     }
 }
 
@@ -275,12 +285,22 @@
     .filter-row-triple {
         grid-template-columns: repeat(2, 1fr); /* 2 colonne su tablet */
     }
+
+    .filter-row-quad {
+        grid-template-columns: repeat(2, 1fr); /* 2 colonne su tablet */
+    }
 }
 
 @media (max-width: 768px) {
-    .filter-row-triple {
+    .filter-row-triple,
+    .filter-row-quad {
         grid-template-columns: 1fr; /* 1 colonna su mobile */
     }
+
+    .filter-group-double {
+        grid-column: span 1; /* Reset su mobile */
+    }
+}
 
     .calendario-container {
         padding: 10px;

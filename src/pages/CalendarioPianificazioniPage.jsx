@@ -670,9 +670,9 @@ function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mez
 
       {/* Filtri */}
       <div className="calendario-filters">
-        {/* RIGA 1: Filtro Foglio a tutta larghezza */}
-        <div className="filter-row-full">
-          <div className="filter-group">
+        {/* RIGA 1: Foglio (doppio), Tecnico, Mezzo (4 colonne) */}
+        <div className="filter-row-quad">
+          <div className="filter-group filter-group-double">
             <label>Filtra per Foglio:</label>
             <select value={filterFoglio} onChange={(e) => setFilterFoglio(e.target.value)}>
               <option value="">-- Tutti --</option>
@@ -685,10 +685,7 @@ function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mez
                 ))}
             </select>
           </div>
-        </div>
 
-        {/* RIGA 2: Tecnico, Mezzo, Stato (3 colonne) */}
-        <div className="filter-row-triple">
           <div className="filter-group">
             <label>Filtra per Tecnico:</label>
             <select value={filterTecnico} onChange={(e) => setFilterTecnico(e.target.value)}>
@@ -712,7 +709,10 @@ function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mez
               ))}
             </select>
           </div>
+        </div>
 
+        {/* RIGA 2: Stato, Commessa, Data Inizio, Data Fine (4 colonne) */}
+        <div className="filter-row-quad">
           <div className="filter-group">
             <label>Filtra per Stato:</label>
             <select value={filterStato} onChange={(e) => setFilterStato(e.target.value)}>
@@ -724,10 +724,7 @@ function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mez
               <option value="Cancellata">Cancellata</option>
             </select>
           </div>
-        </div>
 
-        {/* RIGA 3: Commessa, Data Inizio, Data Fine (3 colonne) */}
-        <div className="filter-row-triple">
           <div className="filter-group">
             <label>Filtra per Commessa:</label>
             <select value={filterCommessa} onChange={(e) => setFilterCommessa(e.target.value)}>
