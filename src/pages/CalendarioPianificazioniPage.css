@@ -25,6 +25,23 @@
     margin-bottom: 20px;
 }
 
+/* Layout filtri: riga singola a tutta larghezza */
+.filter-row-full {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+/* Layout filtri: riga con 3 colonne */
+.filter-row-triple {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+/* Mantieni filter-row per compatibilità */
 .filter-row {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -247,8 +264,22 @@
         width: 100%;
     }
 
-    .filter-row {
+    .filter-row,
+    .filter-row-triple {
         grid-template-columns: 1fr;
+    }
+}
+
+/* Media queries per layout filtri responsive */
+@media (max-width: 992px) {
+    .filter-row-triple {
+        grid-template-columns: repeat(2, 1fr); /* 2 colonne su tablet */
+    }
+}
+
+@media (max-width: 768px) {
+    .filter-row-triple {
+        grid-template-columns: 1fr; /* 1 colonna su mobile */
     }
 
     .calendario-container {

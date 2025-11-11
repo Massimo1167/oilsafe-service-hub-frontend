@@ -479,24 +479,35 @@ function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mez
       const oraInizio = format(start, 'HH:mm:ss');
       const oraFine = format(end, 'HH:mm:ss');
 
+      // Dati aggiornati
+      const updatedData = {
+        data_inizio_pianificata: dataInizio,
+        data_fine_pianificata: dataFine,
+        ora_inizio_pianificata: event.resource.tutto_il_giorno ? null : oraInizio,
+        ora_fine_pianificata: event.resource.tutto_il_giorno ? null : oraFine,
+      };
+
       // Update nel database
       const { error: updateError } = await supabase
         .from('pianificazioni')
-        .update({
-          data_inizio_pianificata: dataInizio,
-          data_fine_pianificata: dataFine,
-          ora_inizio_pianificata: event.resource.tutto_il_giorno ? null : oraInizio,
-          ora_fine_pianificata: event.resource.tutto_il_giorno ? null : oraFine,
-        })
+        .update(updatedData)
         .eq('id', pianificazioneId);
 
       if (updateError) throw updateError;
 
-      // Ricarica pianificazioni
-      await fetchPianificazioni();
+      // Aggiorna stato locale SENZA refresh completo
+      setPianificazioni((prevPianificazioni) =>
+        prevPianificazioni.map((p) =>
+          p.id === pianificazioneId
+            ? { ...p, ...updatedData }
+            : p
+        )
+      );
     } catch (err) {
       console.error('Errore spostamento evento:', err);
       alert(`Errore spostamento evento: ${err.message}`);
+      // In caso di errore, ricarica per sicurezza
+      await fetchPianificazioni();
     }
   };
 
@@ -511,24 +522,35 @@ function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mez
       const oraInizio = format(start, 'HH:mm:ss');
       const oraFine = format(end, 'HH:mm:ss');
 
+      // Dati aggiornati
+      const updatedData = {
+        data_inizio_pianificata: dataInizio,
+        data_fine_pianificata: dataFine,
+        ora_inizio_pianificata: event.resource.tutto_il_giorno ? null : oraInizio,
+        ora_fine_pianificata: event.resource.tutto_il_giorno ? null : oraFine,
+      };
+
       // Update nel database
       const { error: updateError } = await supabase
         .from('pianificazioni')
-        .update({
-          data_inizio_pianificata: dataInizio,
-          data_fine_pianificata: dataFine,
-          ora_inizio_pianificata: event.resource.tutto_il_giorno ? null : oraInizio,
-          ora_fine_pianificata: event.resource.tutto_il_giorno ? null : oraFine,
-        })
+        .update(updatedData)
         .eq('id', pianificazioneId);
 
       if (updateError) throw updateError;
 
-      // Ricarica pianificazioni
-      await fetchPianificazioni();
+      // Aggiorna stato locale SENZA refresh completo
+      setPianificazioni((prevPianificazioni) =>
+        prevPianificazioni.map((p) =>
+          p.id === pianificazioneId
+            ? { ...p, ...updatedData }
+            : p
+        )
+      );
     } catch (err) {
       console.error('Errore ridimensionamento evento:', err);
       alert(`Errore ridimensionamento evento: ${err.message}`);
+      // In caso di errore, ricarica per sicurezza
+      await fetchPianificazioni();
     }
   };
 
@@ -648,7 +670,25 @@ function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mez
 
       {/* Filtri */}
       <div className="calendario-filters">
-        <div className="filter-row">
+        {/* RIGA 1: Filtro Foglio a tutta larghezza */}
+        <div className="filter-row-full">
+          <div className="filter-group">
+            <label>Filtra per Foglio:</label>
+            <select value={filterFoglio} onChange={(e) => setFilterFoglio(e.target.value)}>
+              <option value="">-- Tutti --</option>
+              {fogliDisponibili
+                .sort((a, b) => (b.numero_foglio || '').localeCompare(a.numero_foglio || ''))
+                .map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.numero_foglio} - {f.cliente_nome || 'N/A'}
+                  </option>
+                ))}
+            </select>
+          </div>
+        </div>
+
+        {/* RIGA 2: Tecnico, Mezzo, Stato (3 colonne) */}
+        <div className="filter-row-triple">
           <div className="filter-group">
             <label>Filtra per Tecnico:</label>
             <select value={filterTecnico} onChange={(e) => setFilterTecnico(e.target.value)}>
@@ -684,28 +724,17 @@ function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mez
               <option value="Cancellata">Cancellata</option>
             </select>
           </div>
+        </div>
 
-          <div className="filter-group">
-            <label>Filtra per Foglio:</label>
-            <select value={filterFoglio} onChange={(e) => setFilterFoglio(e.target.value)}>
-              <option value="">-- Tutti --</option>
-              {fogliDisponibili
-                .sort((a, b) => (b.numero_foglio || '').localeCompare(a.numero_foglio || ''))
-                .map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {f.numero_foglio} - {f.cliente_nome || 'N/A'}
-                  </option>
-                ))}
-            </select>
-          </div>
-
+        {/* RIGA 3: Commessa, Data Inizio, Data Fine (3 colonne) */}
+        <div className="filter-row-triple">
           <div className="filter-group">
             <label>Filtra per Commessa:</label>
             <select value={filterCommessa} onChange={(e) => setFilterCommessa(e.target.value)}>
               <option value="">-- Tutte --</option>
               {commesseConPianificazioni.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.codice} - {c.descrizione}
+                  {c.codice_commessa} - {c.descrizione}
                 </option>
               ))}
             </select>
@@ -732,6 +761,7 @@ function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mez
           </div>
         </div>
 
+        {/* Pulsante reset */}
         <div className="filter-actions">
           <button
             className="button small"
