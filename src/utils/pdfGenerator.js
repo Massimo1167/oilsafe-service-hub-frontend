@@ -142,42 +142,57 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, at
             return;
         }
 
-        const segments = parseFormattedText(String(text));
+        // Splitta il testo per newline PRIMA di processare il markdown
+        const lines = String(text).split('\n');
         const fontSize = 10;
         const lineHeight = fontSize / 2.83465 * 1.2;
 
-        let currentLine = [];
-        let currentLineWidth = 0;
+        // Processa ogni riga separatamente
+        lines.forEach((line, lineIndex) => {
+            // Se la riga è vuota, aggiungi solo uno spazio verticale
+            if (line.trim() === '') {
+                checkAndAddPage(currentDoc, lineHeight);
+                yPosition += lineHeight;
+                return;
+            }
 
-        segments.forEach(segment => {
-            const words = segment.text.split(/(\s+)/); // Mantiene anche gli spazi
+            // Processa il markdown per questa singola riga
+            const segments = parseFormattedText(line);
 
-            words.forEach((word) => {
-                if (!word) return; // Skip empty strings
+            let currentLine = [];
+            let currentLineWidth = 0;
 
-                currentDoc.setFont(undefined, segment.style);
-                const wordWidth = currentDoc.getTextWidth(word);
+            segments.forEach(segment => {
+                // IMPORTANTE: Splitta solo su spazi e tab, NON su newline
+                const words = segment.text.split(/( +|\t+)/);
 
-                // Se la parola non entra nella linea corrente, stampa la linea e vai a capo
-                if (currentLineWidth + wordWidth > maxWidth && currentLine.length > 0) {
-                    checkAndAddPage(currentDoc, lineHeight);
-                    renderLineWithStyles(currentDoc, currentLine, x, yPosition);
-                    yPosition += lineHeight;
-                    currentLine = [];
-                    currentLineWidth = 0;
-                }
+                words.forEach((word) => {
+                    if (!word) return; // Skip empty strings
 
-                currentLine.push({ text: word, style: segment.style });
-                currentLineWidth += wordWidth;
+                    currentDoc.setFont(undefined, segment.style);
+                    const wordWidth = currentDoc.getTextWidth(word);
+
+                    // Se la parola non entra nella linea corrente, stampa la linea e vai a capo
+                    if (currentLineWidth + wordWidth > maxWidth && currentLine.length > 0) {
+                        checkAndAddPage(currentDoc, lineHeight);
+                        renderLineWithStyles(currentDoc, currentLine, x, yPosition);
+                        yPosition += lineHeight;
+                        currentLine = [];
+                        currentLineWidth = 0;
+                    }
+
+                    currentLine.push({ text: word, style: segment.style });
+                    currentLineWidth += wordWidth;
+                });
             });
-        });
 
-        // Stampa l'ultima linea rimanente
-        if (currentLine.length > 0) {
-            checkAndAddPage(currentDoc, lineHeight);
-            renderLineWithStyles(currentDoc, currentLine, x, yPosition);
-            yPosition += lineHeight;
-        }
+            // Stampa l'ultima linea di questa riga logica
+            if (currentLine.length > 0) {
+                checkAndAddPage(currentDoc, lineHeight);
+                renderLineWithStyles(currentDoc, currentLine, x, yPosition);
+                yPosition += lineHeight;
+            }
+        });
 
         yPosition += 2; // Margine dopo blocco di testo
     };
