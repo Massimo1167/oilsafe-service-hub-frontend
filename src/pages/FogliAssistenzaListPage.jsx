@@ -37,6 +37,11 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
     const [filtroOrdineTesto, setFiltroOrdineTesto] = useState('');
     const [filtroStato, setFiltroStato] = useState(''); // NUOVO STATO PER IL FILTRO STATO ('' significa 'Tutti')
 
+    // Stati per la paginazione
+    const [righePerPagina, setRighePerPagina] = useState(50);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalFogli, setTotalFogli] = useState(0);
+
     const [sortConfig, setSortConfig] = useState({ column: '', direction: 'asc' });
 
     // Stato per pianificazioni (per mostrare badge)
@@ -57,6 +62,10 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
         setLoadingFogli(true);
         setError(null);
 
+        // Calcola range per paginazione
+        const from = (currentPage - 1) * righePerPagina;
+        const to = currentPage * righePerPagina - 1;
+
         let query = supabase
             .from('fogli_assistenza')
             .select(`
@@ -67,7 +76,7 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                 email_report_cliente, email_report_interno,
                 motivo_intervento_generale,
                 interventi_assistenza!left(tecnico_id, tecnici (email))
-            `)
+            `, { count: 'exact' })
             .order('data_apertura_foglio', { ascending: false });
 
         // Applica filtri server-side (solo per data, che è più efficiente)
@@ -77,8 +86,14 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
             dataAEndDate.setDate(dataAEndDate.getDate() + 1);
             query = query.lt('data_apertura_foglio', dataAEndDate.toISOString().split('T')[0]);
         }
-        
-        const { data, error: fetchError } = await query;
+
+        // Applica paginazione
+        query = query.range(from, to);
+
+        const { data, error: fetchError, count } = await query;
+
+        // Salva il totale dei fogli trovati
+        setTotalFogli(count || 0);
 
         if (fetchError) {
             console.error('Errore fetch fogli da server:', fetchError);
@@ -122,7 +137,7 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
             setFogli(processedFogli);
         }
         setLoadingFogli(false);
-    }, [loadingAnagrafiche, userRole, currentUserId, filtroDataDa, filtroDataA, allClienti, allCommesse, allOrdini, allTecnici]);
+    }, [loadingAnagrafiche, userRole, currentUserId, filtroDataDa, filtroDataA, currentPage, righePerPagina, allClienti, allCommesse, allOrdini, allTecnici]);
 
     // Funzione per caricare pianificazioni attive per ogni foglio
     const fetchPianificazioni = useCallback(async () => {
@@ -232,6 +247,29 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
             }
             return { column, direction: 'asc' };
         });
+    };
+
+    // Gestione paginazione
+    const totalPages = Math.ceil(totalFogli / righePerPagina);
+
+    const goToPage = (page) => {
+        if (page >= 1 && page <= totalPages) {
+            setCurrentPage(page);
+        }
+    };
+
+    const handleRighePerPaginaChange = (nuovoValore) => {
+        const valore = parseInt(nuovoValore, 10);
+        if (!isNaN(valore) && valore > 0) {
+            setRighePerPagina(valore);
+            setCurrentPage(1); // Reset alla prima pagina
+        }
+    };
+
+    // Reset pagina quando cambiano i filtri
+    const resetPaginaEImpostaFiltro = (setter, value) => {
+        setter(value);
+        setCurrentPage(1);
     };
 
     const handlePrintSelected = async () => {
@@ -529,17 +567,81 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
 
             <div className="filtri-container">
                 <h4>Filtri di Ricerca</h4>
-                <div className="filtri-grid">
-                    <div> <label htmlFor="filtroDataDa">Da Data Apertura:</label> <input type="date" id="filtroDataDa" value={filtroDataDa} onChange={e => setFiltroDataDa(e.target.value)} /> </div>
-                    <div> <label htmlFor="filtroDataA">A Data Apertura:</label> <input type="date" id="filtroDataA" value={filtroDataA} onChange={e => setFiltroDataA(e.target.value)} /> </div>
-                    <div> <label htmlFor="filtroClienteTesto">Cliente:</label> <input type="text" id="filtroClienteTesto" placeholder="Cerca nome cliente..." value={filtroClienteTesto} onChange={e => setFiltroClienteTesto(e.target.value)} /> </div>
-                    <div> <label htmlFor="filtroTecnicoTesto">Tecnico Coinvolto:</label> <input type="text" id="filtroTecnicoTesto" placeholder="Cerca nome tecnico..." value={filtroTecnicoTesto} onChange={e => setFiltroTecnicoTesto(e.target.value)} /> </div>
-                    <div> <label htmlFor="filtroCommessaTesto">Commessa:</label> <input type="text" id="filtroCommessaTesto" placeholder="Cerca codice commessa..." value={filtroCommessaTesto} onChange={e => setFiltroCommessaTesto(e.target.value)} /> </div>
-                    <div> <label htmlFor="filtroOrdineTesto">Ordine Cliente:</label> <input type="text" id="filtroOrdineTesto" placeholder="Cerca numero ordine..." value={filtroOrdineTesto} onChange={e => setFiltroOrdineTesto(e.target.value)} /> </div>
-                    {/* NUOVO Dropdown per il filtro stato */}
-                    <div> 
+                <div className="filtri-grid" style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(4, 1fr)',
+                    gap: '15px',
+                    marginBottom: '15px'
+                }}>
+                    {/* RIGA 1: Da Data | A Data | Tecnico | (vuoto) */}
+                    <div>
+                        <label htmlFor="filtroDataDa">Da Data Apertura:</label>
+                        <input
+                            type="date"
+                            id="filtroDataDa"
+                            value={filtroDataDa}
+                            onChange={e => resetPaginaEImpostaFiltro(setFiltroDataDa, e.target.value)}
+                        />
+                    </div>
+                    <div>
+                        <label htmlFor="filtroDataA">A Data Apertura:</label>
+                        <input
+                            type="date"
+                            id="filtroDataA"
+                            value={filtroDataA}
+                            onChange={e => resetPaginaEImpostaFiltro(setFiltroDataA, e.target.value)}
+                        />
+                    </div>
+                    <div>
+                        <label htmlFor="filtroTecnicoTesto">Tecnico Coinvolto:</label>
+                        <input
+                            type="text"
+                            id="filtroTecnicoTesto"
+                            placeholder="Cerca nome tecnico..."
+                            value={filtroTecnicoTesto}
+                            onChange={e => resetPaginaEImpostaFiltro(setFiltroTecnicoTesto, e.target.value)}
+                        />
+                    </div>
+                    <div></div> {/* cella vuota */}
+
+                    {/* RIGA 2: Cliente | Ordine | Commessa | Stato */}
+                    <div>
+                        <label htmlFor="filtroClienteTesto">Cliente:</label>
+                        <input
+                            type="text"
+                            id="filtroClienteTesto"
+                            placeholder="Cerca nome cliente..."
+                            value={filtroClienteTesto}
+                            onChange={e => resetPaginaEImpostaFiltro(setFiltroClienteTesto, e.target.value)}
+                        />
+                    </div>
+                    <div>
+                        <label htmlFor="filtroOrdineTesto">Ordine Cliente:</label>
+                        <input
+                            type="text"
+                            id="filtroOrdineTesto"
+                            placeholder="Cerca numero ordine..."
+                            value={filtroOrdineTesto}
+                            onChange={e => resetPaginaEImpostaFiltro(setFiltroOrdineTesto, e.target.value)}
+                        />
+                    </div>
+                    <div>
+                        <label htmlFor="filtroCommessaTesto">Commessa:</label>
+                        <input
+                            type="text"
+                            id="filtroCommessaTesto"
+                            placeholder="Cerca codice commessa..."
+                            value={filtroCommessaTesto}
+                            onChange={e => resetPaginaEImpostaFiltro(setFiltroCommessaTesto, e.target.value)}
+                        />
+                    </div>
+                    <div>
                         <label htmlFor="filtroStato">Stato Foglio:</label>
-                        <select id="filtroStato" value={filtroStato} onChange={e => setFiltroStato(e.target.value)}>
+                        <select
+                            id="filtroStato"
+                            value={filtroStato}
+                            onChange={e => resetPaginaEImpostaFiltro(setFiltroStato, e.target.value)}
+                        >
                             <option value="">Tutti gli Stati</option>
                             {STATO_FOGLIO_STEPS.map(st => (
                                 <option key={st} value={st}>{st}</option>
@@ -547,7 +649,56 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                         </select>
                     </div>
                 </div>
-                <button onClick={resetAllFilters} className="button secondary" style={{marginTop:'10px'}} disabled={loadingFogli || stampaLoading}>Azzera Filtri</button>
+
+                {/* Controlli: Azzera Filtri + Paginazione */}
+                <div style={{display: 'flex', gap: '15px', alignItems: 'center', flexWrap: 'wrap'}}>
+                    <button
+                        onClick={resetAllFilters}
+                        className="button secondary"
+                        disabled={loadingFogli || stampaLoading}
+                    >
+                        Azzera Filtri
+                    </button>
+
+                    <div style={{display: 'flex', gap: '10px', alignItems: 'center'}}>
+                        <label htmlFor="righePerPagina" style={{margin: 0}}>Max fogli:</label>
+                        <input
+                            type="number"
+                            id="righePerPagina"
+                            min="1"
+                            max="500"
+                            value={righePerPagina}
+                            onChange={e => handleRighePerPaginaChange(e.target.value)}
+                            style={{width: '70px', padding: '4px'}}
+                        />
+                    </div>
+
+                    {totalPages > 1 && (
+                        <div className="pagination-controls" style={{display: 'flex', gap: '10px', alignItems: 'center'}}>
+                            <button
+                                onClick={() => goToPage(currentPage - 1)}
+                                disabled={currentPage === 1 || loadingFogli}
+                                className="button secondary small"
+                            >
+                                Pagina Indietro
+                            </button>
+                            <span style={{fontWeight: '600'}}>
+                                Pagina {currentPage} di {totalPages}
+                            </span>
+                            <button
+                                onClick={() => goToPage(currentPage + 1)}
+                                disabled={currentPage === totalPages || loadingFogli}
+                                className="button secondary small"
+                            >
+                                Pagina Avanti
+                            </button>
+                        </div>
+                    )}
+
+                    <span style={{marginLeft: 'auto', fontSize: '0.9em', color: '#666'}}>
+                        Totale fogli: {totalFogli}
+                    </span>
+                </div>
             </div>
             
             <div className="azioni-gruppo" style={{ margin: '20px 0', display: 'flex', gap: '10px', alignItems: 'center' }}>

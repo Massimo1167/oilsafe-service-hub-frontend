@@ -8,6 +8,7 @@ import { useParams, Link, useNavigate, Navigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient'; // Assicurati che il percorso sia corretto
 import InterventoAssistenzaForm from '../components/InterventoAssistenzaForm'; // Assicurati che il percorso sia corretto
 import InterventoCard from '../components/InterventoCard';
+import FormattedText from '../components/common/FormattedText';
 import { generateFoglioAssistenzaPDF } from '../utils/pdfGenerator'; // Assicurati che il percorso sia corretto
 import { STATO_FOGLIO_STEPS } from '../utils/statoFoglio';
 
@@ -716,10 +717,10 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
                 {foglio.ordini_cliente && <div><strong>Ordine Cliente:</strong> {`${foglio.ordini_cliente.numero_ordine_cliente} (${foglio.ordini_cliente.descrizione_ordine || 'N/D'})`}</div>}
                 {foglio.email_report_cliente && <div><strong>Email Cliente Report:</strong> {foglio.email_report_cliente}</div>}
                 {foglio.email_report_interno && <div><strong>Email Interna Report:</strong> {foglio.email_report_interno}</div>}
-                <div><strong>Motivo Intervento:</strong> {foglio.motivo_intervento_generale || 'N/D'}</div>
-                <div style={{gridColumn: '1 / -1'}}><strong>Descrizione Lavoro Generale:</strong> <pre>{foglio.descrizione_lavoro_generale || 'N/D'}</pre></div>
-                <div style={{gridColumn: '1 / -1'}}><strong>Materiali Forniti:</strong> <pre>{foglio.materiali_forniti_generale || 'N/D'}</pre></div>
-                <div style={{gridColumn: '1 / -1'}}><strong>Osservazioni Generali:</strong> <pre style={{whiteSpace:'pre-wrap'}}>{foglio.osservazioni_generali || 'N/D'}</pre></div>
+                <div style={{gridColumn: '1 / -1'}}><strong>Motivo Intervento:</strong> <FormattedText text={foglio.motivo_intervento_generale} /></div>
+                <div style={{gridColumn: '1 / -1'}}><strong>Descrizione Lavoro Generale:</strong> <div style={{marginTop: '5px'}}><FormattedText text={foglio.descrizione_lavoro_generale} /></div></div>
+                <div style={{gridColumn: '1 / -1'}}><strong>Materiali Forniti:</strong> <div style={{marginTop: '5px'}}><FormattedText text={foglio.materiali_forniti_generale} /></div></div>
+                <div style={{gridColumn: '1 / -1'}}><strong>Osservazioni Generali:</strong> <div style={{marginTop: '5px'}}><FormattedText text={foglio.osservazioni_generali} /></div></div>
                 <div><strong>Stato Foglio:</strong> <span className={`status-badge status-${foglio.stato_foglio?.toLowerCase().replace(/\s+/g, '-')}`}>{foglio.stato_foglio}</span></div>
                 {foglio.nota_stato_foglio && (
                     <div style={{gridColumn: '1 / -1'}}>

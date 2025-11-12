@@ -1,4 +1,5 @@
 import React from 'react';
+import FormattedText from './common/FormattedText';
 
 function InterventoCard({ intervento, canModify, onEdit, onDelete, onView, isSelected, onToggleSelect }) {
     if (!intervento) return null;
@@ -62,9 +63,9 @@ function InterventoCard({ intervento, canModify, onEdit, onDelete, onView, isSel
                 </tbody>
             </table>
             <p><strong>Descrizione Attività:</strong></p>
-            <p>{intervento.descrizione_attivita_svolta_intervento || '-'}</p>
+            <p><FormattedText text={intervento.descrizione_attivita_svolta_intervento} /></p>
             <p><strong>Osservazioni:</strong></p>
-            <p>{intervento.osservazioni_intervento || '-'}</p>
+            <p><FormattedText text={intervento.osservazioni_intervento} /></p>
             {intervento.interventi_attivita_standard?.length > 0 && (
                 <div style={{marginTop: '15px', padding: '10px', backgroundColor: '#f0f8ff', borderRadius: '4px'}}>
                     <h5 style={{marginTop: 0, marginBottom: '10px'}}>Attività Standard Eseguite:</h5>

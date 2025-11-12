@@ -247,3 +247,61 @@ header nav { /* Aggiunto per allineare il bottone a destra */
     font-size: 1.2rem;
 }
 
+/* CSS per filtri e paginazione - Fogli Assistenza */
+.filtri-container {
+    margin-bottom: 20px;
+    padding: 15px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    background: #f9f9f9;
+}
+
+.filtri-container h4 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: #003366;
+}
+
+.filtri-grid > div {
+    display: flex;
+    flex-direction: column;
+}
+
+.filtri-grid label {
+    margin-bottom: 5px;
+    font-weight: 600;
+    font-size: 0.9em;
+    color: #333;
+}
+
+.filtri-grid input,
+.filtri-grid select {
+    padding: 6px 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 0.95em;
+}
+
+.filtri-grid input[type="text"],
+.filtri-grid input[type="date"] {
+    background-color: #fff;
+}
+
+.pagination-controls button.small {
+    padding: 0.5rem 0.9rem;
+    font-size: 0.9rem;
+}
+
+/* Responsive filtri */
+@media (max-width: 992px) {
+    .filtri-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+}
+
+@media (max-width: 576px) {
+    .filtri-grid {
+        grid-template-columns: 1fr !important;
+    }
+}
+
