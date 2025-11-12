@@ -22,6 +22,7 @@ import StatistichePage from './pages/StatistichePage';
 import ScadenzeMezziPage from './pages/ScadenzeMezziPage';
 import CalendarioScadenzeMezziPage from './pages/CalendarioScadenzeMezziPage';
 import ConfigurazioneAppPage from './pages/ConfigurazioneAppPage';
+import AnagrafichePage from './pages/AnagrafichePage';
 
 // Importa Componenti Manager Anagrafiche
 import ClientiManager from './components/anagrafiche/ClientiManager';
@@ -351,18 +352,9 @@ function App() {
             {(userRole === 'admin' || userRole === 'manager') && (
               <>
                 <Link to="/pianificazioni">Pianificazioni</Link>
-                <Link to="/clienti">Clienti</Link>
-                <Link to="/tecnici">Tecnici</Link>
-                <Link to="/commesse">Commesse</Link>
-                <Link to="/ordini">Ordini</Link>
-                <Link to="/mansioni">Mansioni</Link>
-                <Link to="/unita-misura">Unità di Misura</Link>
-                <Link to="/attivita-standard">Attività Standard</Link>
-                <Link to="/mezzi">Mezzi di Trasporto</Link>
+                <Link to="/anagrafiche">Anagrafiche</Link>
+                <Link to="/statistiche">Statistiche</Link>
               </>
-            )}
-            {(userRole === 'admin' || userRole === 'manager') && (
-              <Link to="/statistiche">Statistiche</Link>
             )}
             {userRole === 'admin' && (
               <Link to="/configurazione">Configurazione</Link>
@@ -449,6 +441,7 @@ function App() {
                     />
                   }
                 />
+                <Route path="/anagrafiche" element={<AnagrafichePage />} />
                 <Route path="/clienti" element={<ClientiManager session={session} onDataChanged={reloadAnagrafiche} />} />
                 <Route path="/tecnici" element={<TecniciManager session={session} onDataChanged={reloadAnagrafiche} />} />
                 <Route path="/commesse" element={<CommesseManager session={session} clienti={clienti} onDataChanged={reloadAnagrafiche} />} />
