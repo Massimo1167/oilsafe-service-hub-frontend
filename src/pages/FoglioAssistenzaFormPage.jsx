@@ -23,6 +23,11 @@ function dataURLtoBlob(dataurl) {
     } catch (e) { console.error("Errore conversione dataURLtoBlob:", e); return null; }
 }
 
+// Helper: verifica se uno stato è uno stato finale (che completa il foglio)
+const isStatoFinale = (stato) => {
+    return ['Completato', 'Consuntivato', 'Inviato', 'In attesa accettazione', 'Fatturato', 'Chiuso'].includes(stato);
+};
+
 function FoglioAssistenzaFormPage({ session, clienti, commesse, ordini, tecnici }) {
     const navigate = useNavigate();
     const { foglioIdParam } = useParams();
@@ -51,6 +56,7 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
  const [formEmailInterno, setFormEmailInterno] = useState('');
     const [formCreatoDaUserIdOriginal, setFormCreatoDaUserIdOriginal] = useState('');
     const [numeroFoglioVisualizzato, setNumeroFoglioVisualizzato] = useState('');
+    const [statoFoglioOriginale, setStatoFoglioOriginale] = useState(''); // Stato originale del foglio per confronto
 
     const [indirizziClienteSelezionato, setIndirizziClienteSelezionato] = useState([]);
     const [formSelectedIndirizzoId, setFormSelectedIndirizzoId] = useState(''); 
@@ -156,6 +162,27 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
         }
     }, [draftKey, pageLoading]);
 
+    // Funzione per verificare se esistono pianificazioni future per il foglio
+    const verificaPianificazioniFuture = async (foglioId) => {
+        try {
+            const { data, error } = await supabase
+                .from('pianificazioni')
+                .select('id, data_inizio, data_fine, stato_pianificazione')
+                .eq('foglio_assistenza_id', foglioId)
+                .in('stato_pianificazione', ['Pianificata', 'Confermata', 'In Corso']);
+
+            if (error) {
+                console.error('Errore verifica pianificazioni:', error);
+                return { count: 0, pianificazioni: [] };
+            }
+
+            return { count: data?.length || 0, pianificazioni: data || [] };
+        } catch (e) {
+            console.error('Eccezione verifica pianificazioni:', e);
+            return { count: 0, pianificazioni: [] };
+        }
+    };
+
     useEffect(() => {
         if (!pageLoading) {
             const draft = {
@@ -226,6 +253,7 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
                     setFormOsservazioniGenerali(data.osservazioni_generali || '');
                     setFormMaterialiForniti(data.materiali_forniti_generale || '');
                     setFormStatoFoglio(data.stato_foglio || 'Aperto');
+                    setStatoFoglioOriginale(data.stato_foglio || 'Aperto'); // Salva lo stato originale
                     setFormNotaStatoFoglio(data.nota_stato_foglio || '');
                     setFormEmailCliente(data.email_report_cliente || '');
                     setFormEmailInterno(data.email_report_interno || '');
@@ -451,14 +479,14 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
             }
 
             const foglioPayload = {
-              data_apertura_foglio: formDataApertura, 
+              data_apertura_foglio: formDataApertura,
               cliente_id: formSelectedClienteId,
               indirizzo_intervento_id: formSelectedIndirizzoId || null,
-              referente_cliente_richiesta: formReferenteCliente.trim(), 
+              referente_cliente_richiesta: formReferenteCliente.trim(),
               motivo_intervento_generale: formMotivoGenerale.trim(),
-              commessa_id: formSelectedCommessaId || null, 
+              commessa_id: formSelectedCommessaId || null,
               ordine_cliente_id: formSelectedOrdineId || null,
-              descrizione_lavoro_generale: formDescrizioneGenerale.trim(), 
+              descrizione_lavoro_generale: formDescrizioneGenerale.trim(),
               osservazioni_generali: formOsservazioniGenerali.trim(),
               materiali_forniti_generale: formMaterialiForniti.trim(),
               email_report_cliente: formEmailCliente.trim() || null,
@@ -469,9 +497,30 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
               stato_foglio: formStatoFoglio,
               assegnato_a_user_id: formAssignedTecnicoId || currentUserId || null,
             };
-            
+
+            // VERIFICA PIANIFICAZIONI FUTURE prima di salvare (solo in edit mode e se lo stato diventa finale)
+            if (isEditMode && isStatoFinale(formStatoFoglio)) {
+                // Verifica se lo stato è cambiato rispetto all'originale
+                if (statoFoglioOriginale && statoFoglioOriginale !== formStatoFoglio) {
+                    const { count } = await verificaPianificazioniFuture(foglioIdParam);
+
+                    if (count > 0) {
+                        const conferma = window.confirm(
+                            `ATTENZIONE: Ci sono ${count} pianificazion${count === 1 ? 'e' : 'i'} futur${count === 1 ? 'a' : 'e'} per questo foglio.\n\n` +
+                            `Cambiando lo stato a "${formStatoFoglio}", ${count === 1 ? 'la pianificazione verrà' : 'le pianificazioni verranno'} automaticamente aggiornata a "Completata".\n\n` +
+                            `Vuoi procedere?`
+                        );
+
+                        if (!conferma) {
+                            setLoadingSubmit(false);
+                            return; // L'utente ha annullato l'operazione
+                        }
+                    }
+                }
+            }
+
             let resultData, resultError;
-            if (isEditMode) { 
+            if (isEditMode) {
                 const { data, error } = await supabase.from('fogli_assistenza').update(foglioPayload).eq('id', foglioIdParam).select().single();
                 resultData = data; resultError = error;
             } else { 
