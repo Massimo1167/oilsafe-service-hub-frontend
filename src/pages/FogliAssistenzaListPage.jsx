@@ -77,7 +77,7 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                 motivo_intervento_generale,
                 interventi_assistenza!left(tecnico_id, tecnici (email))
             `, { count: 'exact' })
-            .order('data_apertura_foglio', { ascending: false });
+            .order('numero_foglio', { ascending: false });
 
         // Applica filtri server-side (solo per data, che è più efficiente)
         if (filtroDataDa) query = query.gte('data_apertura_foglio', filtroDataDa);

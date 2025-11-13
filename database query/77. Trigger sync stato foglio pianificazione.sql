@@ -75,12 +75,23 @@ RETURNS TRIGGER AS $$
 DECLARE
     v_stato_foglio TEXT;
 BEGIN
+    -- SKIP VALIDAZIONE per update automatici dal trigger di sincronizzazione
+    -- Quando il trigger sync_pianificazione_on_foglio_update aggiorna le pianificazioni
+    -- a "Completata", non deve validare lo stato del foglio (che è già cambiato)
+    IF TG_OP = 'UPDATE'
+       AND NEW.stato_pianificazione = 'Completata'
+       AND OLD.stato_pianificazione IN ('Pianificata', 'Confermata', 'In Corso') THEN
+        -- Questo è un update automatico dal trigger, permetti senza validare stato foglio
+        RETURN NEW;
+    END IF;
+
     -- Recupera lo stato corrente del foglio associato
     SELECT stato_foglio INTO v_stato_foglio
     FROM public.fogli_assistenza
     WHERE id = NEW.foglio_assistenza_id;
 
     -- Verifica che il foglio sia in uno stato pianificabile
+    -- (solo per INSERT o UPDATE manuali, non per quelli automatici dal trigger)
     IF v_stato_foglio NOT IN ('Aperto', 'In Lavorazione', 'Attesa Firma') THEN
         RAISE EXCEPTION 'Impossibile pianificare: il foglio % è in stato "%" (solo fogli in stato Aperto, In Lavorazione o Attesa Firma sono pianificabili)',
             NEW.foglio_assistenza_id, v_stato_foglio;
