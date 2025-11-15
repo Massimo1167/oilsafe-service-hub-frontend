@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
 import { it } from 'date-fns/locale';
@@ -39,6 +39,7 @@ const messages = {
 
 function CalendarioFogliPage({ clienti, tecnici, commesse }) {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [eventi, setEventi] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -237,10 +238,20 @@ function CalendarioFogliPage({ clienti, tecnici, commesse }) {
     return (
       <div className="calendario-page">
         <div className="calendario-container">
-          <h1>Calendario Fogli di Assistenza</h1>
-          <div className="empty-state">
-            <p>Nessun foglio selezionato.</p>
-            <p>Torna alla lista fogli e seleziona almeno un foglio per visualizzarlo sul calendario.</p>
+          <h1>Storico Interventi</h1>
+          <div className="empty-state" style={{ padding: '3rem 2rem', textAlign: 'center' }}>
+            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📋</div>
+            <h2 style={{ color: '#003366', marginBottom: '1rem' }}>Nessun foglio selezionato</h2>
+            <p style={{ fontSize: '1.1rem', color: '#666', marginBottom: '2rem' }}>
+              Per visualizzare gli interventi sul calendario, devi prima selezionare uno o più fogli dalla lista.
+            </p>
+            <button
+              className="button primary"
+              onClick={() => navigate('/fogli-assistenza')}
+              style={{ fontSize: '1rem', padding: '0.75rem 1.5rem' }}
+            >
+              Vai alla Lista Fogli
+            </button>
           </div>
         </div>
       </div>
@@ -253,7 +264,7 @@ function CalendarioFogliPage({ clienti, tecnici, commesse }) {
         <div className="calendario-header">
           <div className="calendario-header-top">
             <div>
-              <h1>Calendario Fogli di Assistenza</h1>
+              <h1>Storico Interventi</h1>
               <p className="fogli-count">
                 {foglioIds.length} {foglioIds.length === 1 ? 'foglio selezionato' : 'fogli selezionati'}
               </p>
