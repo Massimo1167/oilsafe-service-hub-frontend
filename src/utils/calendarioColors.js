@@ -1,6 +1,7 @@
 /**
  * Utility per gestione colori nel calendario
  * - Genera colori deterministici per commesse (basati su hash ID)
+ * - Genera colori deterministici per tecnici (basati su hash ID)
  * - Genera stili bordo per differenziare tecnici
  */
 
@@ -40,6 +41,35 @@ export function getColorForCommessa(commessaId) {
 
   // Luminosità: 45-65% per buona leggibilità del testo
   const lightness = 45 + (hash % 20);
+
+  return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+}
+
+/**
+ * Genera un colore HSL deterministico da un ID tecnico
+ * Usa una diversa strategia di distribuzione rispetto alle commesse
+ * per garantire buona differenziazione visiva
+ * @param {string} tecnicoId - UUID del tecnico
+ * @returns {string} Colore in formato "hsl(h, s%, l%)"
+ */
+export function getColorForTecnico(tecnicoId) {
+  if (!tecnicoId) {
+    return 'hsl(0, 0%, 80%)'; // Grigio per tecnici senza ID
+  }
+
+  const hash = hashString(tecnicoId);
+
+  // Hue: distribuiamo su range diversi per evitare sovrapposizioni
+  // Privilegiamo blu, verde, arancione, viola
+  const baseHues = [200, 120, 30, 270, 340, 160, 60, 300];
+  const baseHue = baseHues[hash % baseHues.length];
+  const hue = (baseHue + (hash % 40) - 20) % 360;
+
+  // Saturazione: 65-85% per colori distintivi
+  const saturation = 65 + (hash % 20);
+
+  // Luminosità: 40-60% per contrasto con testo bianco
+  const lightness = 40 + (hash % 20);
 
   return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
 }

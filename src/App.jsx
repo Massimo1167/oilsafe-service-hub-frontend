@@ -18,11 +18,13 @@ import FoglioAssistenzaDetailPage from './pages/FoglioAssistenzaDetailPage';
 import FoglioAttivitaStandardPage from './pages/FoglioAttivitaStandardPage';
 import CalendarioFogliPage from './pages/CalendarioFogliPage';
 import CalendarioPianificazioniPage from './pages/CalendarioPianificazioniPage';
+import CalendarioPianificazioniOperatoriPage from './pages/CalendarioPianificazioniOperatoriPage';
 import StatistichePage from './pages/StatistichePage';
 import ScadenzeMezziPage from './pages/ScadenzeMezziPage';
 import CalendarioScadenzeMezziPage from './pages/CalendarioScadenzeMezziPage';
 import ConfigurazioneAppPage from './pages/ConfigurazioneAppPage';
 import AnagrafichePage from './pages/AnagrafichePage';
+import PianificazioniPage from './pages/PianificazioniPage';
 
 // Importa Componenti Manager Anagrafiche
 import ClientiManager from './components/anagrafiche/ClientiManager';
@@ -348,10 +350,9 @@ function App() {
           <nav>
             <Link to="/">Dashboard</Link>
             <Link to="/fogli-assistenza">Fogli Assistenza</Link>
-            <Link to="/fogli-assistenza/calendario">Calendario</Link>
+            <Link to="/pianificazioni-menu">Pianificazioni</Link>
             {(userRole === 'admin' || userRole === 'manager') && (
               <>
-                <Link to="/pianificazioni">Pianificazioni</Link>
                 <Link to="/anagrafiche">Anagrafiche</Link>
                 <Link to="/statistiche">Statistiche</Link>
               </>
@@ -427,10 +428,26 @@ function App() {
                 />
               }
             />
+            <Route
+              path="/pianificazioni-menu"
+              element={<PianificazioniPage userRole={userRole} />}
+            />
+            <Route
+              path="/calendario-pianificazioni"
+              element={
+                <CalendarioPianificazioniOperatoriPage
+                  user={session?.user}
+                  userRole={userRole}
+                  clienti={clienti}
+                  tecnici={tecnici}
+                  commesse={commesse}
+                />
+              }
+            />
             {(userRole === 'admin' || userRole === 'manager') && (
               <>
                 <Route
-                  path="/pianificazioni"
+                  path="/pianificazioni-gestione"
                   element={
                     <CalendarioPianificazioniPage
                       session={session}
