@@ -682,7 +682,7 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
                             <Link to={`/fogli-assistenza/${foglioId}/attivita-standard`} className="button secondary">
                                 Elenco Attività Standard
                             </Link>
-                            <Link to={`/pianificazioni?foglioId=${foglioId}`} className="button secondary">
+                            <Link to={`/pianificazioni-gestione?foglioId=${foglioId}`} className="button secondary">
                                 📅 Pianifica Intervento
                             </Link>
                         </>
