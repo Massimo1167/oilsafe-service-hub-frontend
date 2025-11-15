@@ -228,43 +228,55 @@ function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mez
     };
   }, [fetchPianificazioni]);
 
-  // Gestisce query param foglioId per apertura diretta form
+  // Gestisce query param foglioId per apertura diretta form o filtro
   useEffect(() => {
     const foglioIdParam = searchParams.get('foglioId');
-    if (foglioIdParam && !showForm) {
-      // Carica dati foglio
-      const loadFoglioForPianificazione = async () => {
-        try {
-          const { data: foglioData, error: foglioError } = await supabase
-            .from('fogli_assistenza')
-            .select('*, clienti(nome_azienda), commesse(codice_commessa)')
-            .eq('id', foglioIdParam)
-            .single();
+    if (foglioIdParam && !showForm && pianificazioni.length > 0) {
+      // Verifica se esistono pianificazioni per questo foglio
+      const pianificazioniFoglio = pianificazioni.filter(
+        p => p.foglio_assistenza_id === foglioIdParam
+      );
 
-          if (foglioError) {
-            console.error('Errore caricamento foglio:', foglioError);
-            alert('Foglio non trovato o non hai i permessi');
+      if (pianificazioniFoglio.length === 0) {
+        // Nessuna pianificazione esistente → Apri form creazione con pre-compilazione
+        const loadFoglioForPianificazione = async () => {
+          try {
+            const { data: foglioData, error: foglioError } = await supabase
+              .from('fogli_assistenza')
+              .select('*, clienti(nome_azienda), commesse(codice_commessa)')
+              .eq('id', foglioIdParam)
+              .single();
+
+            if (foglioError) {
+              console.error('Errore caricamento foglio:', foglioError);
+              alert('Foglio non trovato o non hai i permessi');
+              setSearchParams({});
+              return;
+            }
+
+            setPreselectedFoglioId(foglioIdParam);
+            setPreselectedFoglio({
+              ...foglioData,
+              numero_foglio: foglioData.numero_foglio,
+              cliente_nome: foglioData.clienti?.nome_azienda,
+              commessa_codice: foglioData.commesse?.codice_commessa,
+              assegnato_a_user_id: foglioData.assegnato_a_user_id, // Per pre-compilare il tecnico
+            });
+            setShowForm(true);
+          } catch (err) {
+            console.error('Errore:', err);
             setSearchParams({});
-            return;
           }
+        };
 
-          setPreselectedFoglioId(foglioIdParam);
-          setPreselectedFoglio({
-            ...foglioData,
-            numero_foglio: foglioData.numero_foglio,
-            cliente_nome: foglioData.clienti?.nome_azienda,
-            commessa_codice: foglioData.commesse?.codice_commessa,
-          });
-          setShowForm(true);
-        } catch (err) {
-          console.error('Errore:', err);
-          setSearchParams({});
-        }
-      };
-
-      loadFoglioForPianificazione();
+        loadFoglioForPianificazione();
+      } else {
+        // Esistono pianificazioni → Applica filtro per mostrare solo quelle di questo foglio
+        setFilterFoglio(foglioIdParam);
+        // Opzionalmente, scorri verso il calendario per mostrare le pianificazioni
+      }
     }
-  }, [searchParams, showForm, setSearchParams]);
+  }, [searchParams, showForm, pianificazioni, setSearchParams]);
 
   // Trasforma pianificazioni in eventi calendario
   const eventiCalendario = useMemo(() => {

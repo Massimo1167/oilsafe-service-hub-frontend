@@ -63,6 +63,20 @@ function PianificazioneForm({
     }
   }, [isEditMode, pianificazioneToEdit]);
 
+  // Pre-compila tecnico dal foglio se presente
+  useEffect(() => {
+    if (!isEditMode && foglio && foglio.assegnato_a_user_id && tecnici.length > 0) {
+      // Trova il tecnico_id corrispondente al user_id assegnato nel foglio
+      const tecnicoAssegnato = tecnici.find(t => t.user_id === foglio.assegnato_a_user_id);
+      if (tecnicoAssegnato) {
+        setFormData(prev => ({
+          ...prev,
+          tecnici_assegnati: [tecnicoAssegnato.id]
+        }));
+      }
+    }
+  }, [isEditMode, foglio, tecnici]);
+
   // Filtra mezzi attivi
   const mezziAttivi = useMemo(() => {
     return mezzi.filter((m) => m.attivo);
