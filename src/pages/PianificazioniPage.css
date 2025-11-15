@@ -1,0 +1,121 @@
+.pianificazioni-container {
+    padding: 2rem;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.pianificazioni-container h1 {
+    color: #003366;
+    margin-bottom: 0.5rem;
+    font-size: 2rem;
+}
+
+.pianificazioni-subtitle {
+    color: #666;
+    margin-bottom: 2rem;
+    font-size: 1.1rem;
+}
+
+.pianificazioni-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+    margin-top: 2rem;
+}
+
+.pianificazione-card {
+    background: white;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 2rem 1.5rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.pianificazione-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 6px 12px rgba(0, 51, 102, 0.15);
+    border-color: #0066cc;
+}
+
+.pianificazione-card:active {
+    transform: translateY(-2px);
+}
+
+.pianificazione-card-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    line-height: 1;
+}
+
+.pianificazione-card-title {
+    color: #003366;
+    font-size: 1.3rem;
+    margin: 0.5rem 0;
+    font-weight: 600;
+}
+
+.pianificazione-card-description {
+    color: #666;
+    font-size: 0.95rem;
+    margin: 0.5rem 0 0 0;
+    line-height: 1.4;
+}
+
+/* Responsive design */
+@media (max-width: 992px) {
+    .pianificazioni-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    .pianificazioni-container {
+        padding: 1.5rem;
+    }
+
+    .pianificazione-card {
+        padding: 1.5rem 1rem;
+    }
+
+    .pianificazione-card-icon {
+        font-size: 2.5rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .pianificazioni-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    .pianificazioni-container {
+        padding: 1rem;
+    }
+
+    .pianificazioni-container h1 {
+        font-size: 1.5rem;
+    }
+
+    .pianificazioni-subtitle {
+        font-size: 1rem;
+    }
+
+    .pianificazione-card {
+        padding: 1.25rem 1rem;
+    }
+
+    .pianificazione-card-icon {
+        font-size: 2rem;
+    }
+
+    .pianificazione-card-title {
+        font-size: 1.1rem;
+    }
+
+    .pianificazione-card-description {
+        font-size: 0.9rem;
+    }
+}
