@@ -19,6 +19,7 @@ import FoglioAttivitaStandardPage from './pages/FoglioAttivitaStandardPage';
 import CalendarioFogliPage from './pages/CalendarioFogliPage';
 import CalendarioPianificazioniPage from './pages/CalendarioPianificazioniPage';
 import CalendarioPianificazioniOperatoriPage from './pages/CalendarioPianificazioniOperatoriPage';
+import ProgrammazioneSettimanalePage from './pages/ProgrammazioneSettimanalePage';
 import StatistichePage from './pages/StatistichePage';
 import ScadenzeMezziPage from './pages/ScadenzeMezziPage';
 import CalendarioScadenzeMezziPage from './pages/CalendarioScadenzeMezziPage';
@@ -441,6 +442,7 @@ function App() {
                   clienti={clienti}
                   tecnici={tecnici}
                   commesse={commesse}
+                  mezzi={mezzi}
                 />
               }
             />
@@ -455,6 +457,18 @@ function App() {
                       tecnici={tecnici}
                       commesse={commesse}
                       mezzi={mezzi}
+                    />
+                  }
+                />
+                <Route
+                  path="/programmazione-settimanale"
+                  element={
+                    <ProgrammazioneSettimanalePage
+                      user={session?.user}
+                      userRole={userRole}
+                      tecnici={tecnici}
+                      commesse={commesse}
+                      clienti={clienti}
                     />
                   }
                 />

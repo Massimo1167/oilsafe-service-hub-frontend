@@ -80,8 +80,8 @@ function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mez
 
       setPianificazioni(pianiData || []);
 
-      // Fetch fogli associati
-      const foglioIds = [...new Set(pianiData.map((p) => p.foglio_assistenza_id))];
+      // Fetch fogli associati (filtra null per pianificazioni dirette con commessa)
+      const foglioIds = [...new Set(pianiData.map((p) => p.foglio_assistenza_id).filter(id => id !== null))];
       if (foglioIds.length > 0) {
         const { data: fogliData, error: fogliError } = await supabase
           .from('fogli_assistenza')
@@ -297,7 +297,9 @@ function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mez
     if (filterCommessa) {
       filtered = filtered.filter((p) => {
         const foglio = foglioMap[p.foglio_assistenza_id];
-        return foglio?.commessa_id === filterCommessa;
+        // Controlla sia campo diretto che campo del foglio
+        const commessaId = p.commessa_id || foglio?.commessa_id;
+        return commessaId === filterCommessa;
       });
     }
     if (filterFoglio) {
@@ -313,8 +315,11 @@ function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mez
     // Trasforma in eventi
     return filtered.map((p) => {
       const foglio = foglioMap[p.foglio_assistenza_id] || {};
-      const cliente = clienti.find((c) => c.id === foglio.cliente_id);
-      const commessa = commesse.find((c) => c.id === foglio.commessa_id);
+      // Usa campi diretti con fallback ai campi del foglio
+      const commessaId = p.commessa_id || foglio.commessa_id;
+      const clienteId = p.cliente_id || foglio.cliente_id;
+      const cliente = clienti.find((c) => c.id === clienteId);
+      const commessa = commesse.find((c) => c.id === commessaId);
 
       // Risolvi nomi tecnici
       const tecniciNomi = (p.tecnici_assegnati || [])
@@ -362,13 +367,18 @@ function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mez
   // Commesse filtrate - solo quelle con pianificazioni
   const commesseConPianificazioni = useMemo(() => {
     const commesseIds = new Set();
+    // Aggiungi commesse dai fogli
     Object.values(foglioMap).forEach((f) => {
       if (f.commessa_id) commesseIds.add(f.commessa_id);
+    });
+    // Aggiungi commesse dirette dalle pianificazioni
+    pianificazioni.forEach((p) => {
+      if (p.commessa_id) commesseIds.add(p.commessa_id);
     });
     return commesse
       .filter((c) => commesseIds.has(c.id))
       .sort((a, b) => (a.codice || '').localeCompare(b.codice || ''));
-  }, [commesse, foglioMap]);
+  }, [commesse, foglioMap, pianificazioni]);
 
   // Handler click evento
   const handleSelectEvent = useCallback((event) => {
@@ -957,6 +967,8 @@ function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mez
               foglioAssistenzaId={preselectedFoglioId}
               foglio={preselectedFoglio}
               fogliDisponibili={fogliDisponibili}
+              commesse={commesse}
+              clienti={clienti}
               tecnici={tecnici}
               mezzi={mezzi}
               onSave={handleSaveForm}

@@ -4,14 +4,18 @@ import { supabase } from '../supabaseClient';
 
 /**
  * Form per creazione/modifica pianificazioni interventi
- * Permette di assegnare tecnici, mezzi, definire date/orari, esclusioni giorni
- * Validazione conflitti risorse tramite funzioni helper database
+ * Supporta:
+ * - Pianificazioni con foglio (tradizionale) o senza foglio (solo commessa)
+ * - Pianificazioni ricorrenti (template che genera istanze multiple)
+ * - Validazione conflitti risorse tramite funzioni helper database
  */
 function PianificazioneForm({
   pianificazioneToEdit = null,
   foglioAssistenzaId = null,
   foglio = null,
   fogliDisponibili = [],
+  commesse = [],
+  clienti = [],
   tecnici,
   mezzi,
   onSave,
@@ -21,31 +25,75 @@ function PianificazioneForm({
 
   // Form state
   const [formData, setFormData] = useState({
+    // Riferimenti (foglio OR commessa obbligatorio)
     foglio_assistenza_id: foglioAssistenzaId || '',
+    commessa_id: '',
+    cliente_id: '',
+
+    // Date e orari
     data_inizio_pianificata: '',
     ora_inizio_pianificata: '08:00',
     data_fine_pianificata: '',
     ora_fine_pianificata: '17:00',
     tutto_il_giorno: false,
+
+    // Esclusioni
     salta_sabato: false,
     salta_domenica: true,
     salta_festivi: true,
+
+    // Risorse
     tecnici_assegnati: [],
     mezzo_principale_id: '',
     mezzi_secondari_ids: [],
+
+    // Stato e descrizione
     stato_pianificazione: 'Pianificata',
     descrizione: '',
+
+    // Ricorrenza
+    ricorrente: false,
+    giorni_settimana: [], // [0=Dom, 1=Lun, 2=Mar, 3=Mer, 4=Gio, 5=Ven, 6=Sab]
+    data_fine_ricorrenza: '',
   });
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [conflictWarnings, setConflictWarnings] = useState([]);
+  const [commessaSearchFilter, setCommessaSearchFilter] = useState('');
+
+  // Filtra commesse: solo "Aperta" o "In Lavorazione" + ricerca testuale
+  const commesseFiltrate = useMemo(() => {
+    if (!commesse || commesse.length === 0) return [];
+
+    return commesse.filter(c => {
+      // Filtro per stato
+      if (!['Aperta', 'In Lavorazione'].includes(c.stato)) return false;
+
+      // Filtro per ricerca testuale
+      if (commessaSearchFilter.trim() !== '') {
+        const searchLower = commessaSearchFilter.toLowerCase();
+        const codiceMatch = c.codice_commessa?.toLowerCase().includes(searchLower);
+        const descrizioneMatch = c.descrizione_commessa?.toLowerCase().includes(searchLower);
+
+        // Trova nome cliente
+        const cliente = clienti.find(cl => cl.id === c.cliente_id);
+        const clienteMatch = cliente?.nome_azienda?.toLowerCase().includes(searchLower);
+
+        return codiceMatch || descrizioneMatch || clienteMatch;
+      }
+
+      return true;
+    });
+  }, [commesse, clienti, commessaSearchFilter]);
 
   // Inizializza form in modalità edit
   useEffect(() => {
     if (isEditMode && pianificazioneToEdit) {
       setFormData({
-        foglio_assistenza_id: pianificazioneToEdit.foglio_assistenza_id,
+        foglio_assistenza_id: pianificazioneToEdit.foglio_assistenza_id || '',
+        commessa_id: pianificazioneToEdit.commessa_id || '',
+        cliente_id: pianificazioneToEdit.cliente_id || '',
         data_inizio_pianificata: pianificazioneToEdit.data_inizio_pianificata,
         ora_inizio_pianificata: pianificazioneToEdit.ora_inizio_pianificata || '08:00',
         data_fine_pianificata: pianificazioneToEdit.data_fine_pianificata,
@@ -59,20 +107,32 @@ function PianificazioneForm({
         mezzi_secondari_ids: pianificazioneToEdit.mezzi_secondari_ids || [],
         stato_pianificazione: pianificazioneToEdit.stato_pianificazione || 'Pianificata',
         descrizione: pianificazioneToEdit.descrizione || '',
+        ricorrente: pianificazioneToEdit.ricorrente || false,
+        giorni_settimana: pianificazioneToEdit.giorni_settimana || [],
+        data_fine_ricorrenza: pianificazioneToEdit.data_fine_ricorrenza || '',
       });
     }
   }, [isEditMode, pianificazioneToEdit]);
 
-  // Pre-compila tecnico dal foglio se presente
+  // Pre-compila dati dal foglio se presente
   useEffect(() => {
-    if (!isEditMode && foglio && foglio.assegnato_a_user_id && tecnici.length > 0) {
-      // Trova il tecnico_id corrispondente al user_id assegnato nel foglio
-      const tecnicoAssegnato = tecnici.find(t => t.user_id === foglio.assegnato_a_user_id);
-      if (tecnicoAssegnato) {
-        setFormData(prev => ({
-          ...prev,
-          tecnici_assegnati: [tecnicoAssegnato.id]
-        }));
+    if (!isEditMode && foglio) {
+      const updates = {};
+
+      // Pre-compila commessa e cliente dal foglio
+      if (foglio.commessa_id) updates.commessa_id = foglio.commessa_id;
+      if (foglio.cliente_id) updates.cliente_id = foglio.cliente_id;
+
+      // Pre-compila tecnico dal foglio
+      if (foglio.assegnato_a_user_id && tecnici.length > 0) {
+        const tecnicoAssegnato = tecnici.find(t => t.user_id === foglio.assegnato_a_user_id);
+        if (tecnicoAssegnato) {
+          updates.tecnici_assegnati = [tecnicoAssegnato.id];
+        }
+      }
+
+      if (Object.keys(updates).length > 0) {
+        setFormData(prev => ({ ...prev, ...updates }));
       }
     }
   }, [isEditMode, foglio, tecnici]);
@@ -112,12 +172,29 @@ function PianificazioneForm({
     handleChange('mezzi_secondari_ids', newMezzi);
   };
 
+  // Gestione checkbox giorni settimana
+  const handleGiornoSettimanaToggle = (giorno) => {
+    const isSelected = formData.giorni_settimana.includes(giorno);
+    const newGiorni = isSelected
+      ? formData.giorni_settimana.filter((g) => g !== giorno)
+      : [...formData.giorni_settimana, giorno].sort((a, b) => a - b); // Ordina per giorno
+    handleChange('giorni_settimana', newGiorni);
+  };
+
   // Validazione form
   const validateForm = () => {
-    if (!formData.foglio_assistenza_id) {
-      setError('Il foglio di assistenza è obbligatorio');
+    // Almeno uno tra foglio o commessa deve essere specificato
+    if (!formData.foglio_assistenza_id && !formData.commessa_id) {
+      setError('Seleziona un foglio di assistenza o una commessa');
       return false;
     }
+
+    // Se non c'è foglio, commessa è obbligatoria
+    if (!formData.foglio_assistenza_id && !formData.commessa_id) {
+      setError('La commessa è obbligatoria se non hai selezionato un foglio');
+      return false;
+    }
+
     if (!formData.data_inizio_pianificata) {
       setError('La data di inizio è obbligatoria');
       return false;
@@ -147,6 +224,15 @@ function PianificazioneForm({
         return false;
       }
     }
+
+    // Validazione ricorrenza
+    if (formData.ricorrente) {
+      if (formData.giorni_settimana.length === 0) {
+        setError('Seleziona almeno un giorno della settimana per la ricorrenza');
+        return false;
+      }
+    }
+
     return true;
   };
 
@@ -229,20 +315,43 @@ function PianificazioneForm({
 
     try {
       const payload = {
-        foglio_assistenza_id: formData.foglio_assistenza_id,
+        // Riferimenti (foglio opzionale, commessa/cliente diretti)
+        // Converti stringhe vuote e 'SELECT' in null per evitare errori UUID
+        foglio_assistenza_id: (formData.foglio_assistenza_id && formData.foglio_assistenza_id !== 'SELECT')
+          ? formData.foglio_assistenza_id
+          : null,
+        commessa_id: (formData.commessa_id && formData.commessa_id !== 'SELECT')
+          ? formData.commessa_id
+          : null,
+        cliente_id: formData.cliente_id || null,
+
+        // Date e orari
         data_inizio_pianificata: formData.data_inizio_pianificata,
         ora_inizio_pianificata: formData.tutto_il_giorno ? null : formData.ora_inizio_pianificata,
         data_fine_pianificata: formData.data_fine_pianificata,
         ora_fine_pianificata: formData.tutto_il_giorno ? null : formData.ora_fine_pianificata,
         tutto_il_giorno: formData.tutto_il_giorno,
+
+        // Esclusioni
         salta_sabato: formData.salta_sabato,
         salta_domenica: formData.salta_domenica,
         salta_festivi: formData.salta_festivi,
+
+        // Risorse
         tecnici_assegnati: formData.tecnici_assegnati,
-        mezzo_principale_id: formData.mezzo_principale_id || null,
+        mezzo_principale_id: (formData.mezzo_principale_id && formData.mezzo_principale_id !== '')
+          ? formData.mezzo_principale_id
+          : null,
         mezzi_secondari_ids: formData.mezzi_secondari_ids,
+
+        // Stato e descrizione
         stato_pianificazione: formData.stato_pianificazione,
         descrizione: formData.descrizione || null,
+
+        // Ricorrenza
+        ricorrente: formData.ricorrente,
+        giorni_settimana: formData.ricorrente ? formData.giorni_settimana : [],
+        data_fine_ricorrenza: formData.ricorrente && formData.data_fine_ricorrenza ? formData.data_fine_ricorrenza : null,
       };
 
       let result;
@@ -290,14 +399,57 @@ function PianificazioneForm({
         </div>
       )}
 
-      {/* Selezione Foglio (se NON preselezionato e NON in modalità edit) */}
+      {/* Tipo Pianificazione: CON o SENZA foglio */}
       {!foglioAssistenzaId && !isEditMode && (
+        <section style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#e3f2fd', borderRadius: '4px' }}>
+          <h3 style={{ fontSize: '1.1em', marginBottom: '10px' }}>Tipo Pianificazione</h3>
+          <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+              <input
+                type="radio"
+                name="tipoPianificazione"
+                checked={!!formData.foglio_assistenza_id}
+                onChange={() => {
+                  setFormData(prev => ({ ...prev, foglio_assistenza_id: 'SELECT', commessa_id: '', cliente_id: '' }));
+                }}
+              />
+              Pianifica un foglio di assistenza esistente
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+              <input
+                type="radio"
+                name="tipoPianificazione"
+                checked={formData.foglio_assistenza_id === '' && !!formData.commessa_id}
+                onChange={() => {
+                  setFormData(prev => ({ ...prev, foglio_assistenza_id: '', commessa_id: 'SELECT', cliente_id: '' }));
+                }}
+              />
+              Pianifica direttamente una commessa (senza foglio)
+            </label>
+          </div>
+        </section>
+      )}
+
+      {/* Selezione Foglio (solo se utente sceglie pianificazione CON foglio) */}
+      {!foglioAssistenzaId && !isEditMode && !!formData.foglio_assistenza_id && formData.commessa_id === '' && (
         <section style={{ marginBottom: '20px' }}>
-          <h3 style={{ fontSize: '1.1em', marginBottom: '10px' }}>Seleziona Foglio di Assistenza *</h3>
+          <h3 style={{ fontSize: '1.1em', marginBottom: '10px' }}>Seleziona Foglio di Assistenza</h3>
           <select
-            value={formData.foglio_assistenza_id}
-            onChange={(e) => handleChange('foglio_assistenza_id', e.target.value)}
-            required
+            value={formData.foglio_assistenza_id === 'SELECT' ? '' : formData.foglio_assistenza_id}
+            onChange={(e) => {
+              const foglioId = e.target.value;
+              if (foglioId) {
+                const selectedFoglio = fogliDisponibili.find(f => f.id === foglioId);
+                setFormData(prev => ({
+                  ...prev,
+                  foglio_assistenza_id: foglioId,
+                  commessa_id: selectedFoglio?.commessa_id || '',
+                  cliente_id: selectedFoglio?.cliente_id || ''
+                }));
+              } else {
+                setFormData(prev => ({ ...prev, foglio_assistenza_id: 'SELECT', commessa_id: '', cliente_id: '' }));
+              }
+            }}
             style={{ width: '100%', padding: '8px 12px', fontSize: '0.95em', border: '1px solid #ddd', borderRadius: '4px' }}
           >
             <option value="">-- Seleziona Foglio --</option>
@@ -308,11 +460,100 @@ function PianificazioneForm({
               </option>
             ))}
           </select>
-          {formData.foglio_assistenza_id === '' && (
-            <p style={{ color: '#dc3545', fontSize: '0.9em', margin: '5px 0 0 0' }}>
-              Seleziona un foglio per procedere
+        </section>
+      )}
+
+      {/* Selezione Commessa Diretta (solo se utente sceglie pianificazione SENZA foglio) */}
+      {!foglioAssistenzaId && !isEditMode && formData.foglio_assistenza_id === '' && formData.commessa_id !== '' && (
+        <section style={{ marginBottom: '20px' }}>
+          <h3 style={{ fontSize: '1.1em', marginBottom: '10px' }}>Commessa *</h3>
+
+          {/* Campo di ricerca testuale */}
+          <input
+            type="text"
+            placeholder="🔍 Cerca per codice, descrizione o cliente..."
+            value={commessaSearchFilter}
+            onChange={(e) => setCommessaSearchFilter(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '8px 12px',
+              fontSize: '0.95em',
+              border: '1px solid #ddd',
+              borderRadius: '4px',
+              marginBottom: '10px'
+            }}
+          />
+
+          {/* Dropdown commesse filtrate */}
+          <select
+            value={formData.commessa_id === 'SELECT' ? '' : formData.commessa_id}
+            onChange={(e) => {
+              const commessaId = e.target.value;
+              if (commessaId) {
+                const selectedCommessa = commesse.find(c => c.id === commessaId);
+                setFormData(prev => ({
+                  ...prev,
+                  commessa_id: commessaId,
+                  cliente_id: selectedCommessa?.cliente_id || ''
+                }));
+              } else {
+                setFormData(prev => ({ ...prev, commessa_id: 'SELECT', cliente_id: '' }));
+              }
+            }}
+            required
+            style={{ width: '100%', padding: '8px 12px', fontSize: '0.95em', border: '1px solid #ddd', borderRadius: '4px' }}
+          >
+            <option value="">-- Seleziona Commessa --</option>
+            {commesseFiltrate.map((c) => {
+              const cliente = clienti.find(cl => cl.id === c.cliente_id);
+              const clienteNome = cliente?.nome_azienda || 'N/D';
+              const descrizione = c.descrizione_commessa || 'Nessuna descrizione';
+
+              return (
+                <option key={c.id} value={c.id}>
+                  {c.codice_commessa} - {descrizione} - Cliente: {clienteNome}
+                </option>
+              );
+            })}
+          </select>
+
+          {commesseFiltrate.length === 0 && commessaSearchFilter.trim() !== '' && (
+            <p style={{ marginTop: '8px', color: '#666', fontSize: '0.9em', fontStyle: 'italic' }}>
+              Nessuna commessa trovata con il filtro "{commessaSearchFilter}"
             </p>
           )}
+
+          {commesseFiltrate.length === 0 && commessaSearchFilter.trim() === '' && (
+            <p style={{ marginTop: '8px', color: '#ff9800', fontSize: '0.9em', fontStyle: 'italic' }}>
+              ⚠️ Nessuna commessa "Aperta" o "In Lavorazione" disponibile
+            </p>
+          )}
+        </section>
+      )}
+
+      {/* Informazioni Commessa Selezionata (solo se commessa diretta è stata selezionata) */}
+      {!foglioAssistenzaId && !isEditMode && formData.commessa_id && formData.commessa_id !== 'SELECT' && (
+        <section style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#e3f2fd', borderRadius: '4px', border: '1px solid #90caf9' }}>
+          <h3 style={{ fontSize: '1em', marginBottom: '10px', color: '#1976d2' }}>📋 Commessa Selezionata</h3>
+          <div>
+            {(() => {
+              const commessaSelezionata = commesse.find(c => c.id === formData.commessa_id);
+              const clienteSelezionato = clienti.find(cl => cl.id === commessaSelezionata?.cliente_id);
+              return (
+                <>
+                  <div style={{ marginBottom: '8px' }}>
+                    <strong>Codice:</strong> {commessaSelezionata?.codice_commessa || 'N/D'}
+                  </div>
+                  <div style={{ marginBottom: '8px' }}>
+                    <strong>Descrizione:</strong> {commessaSelezionata?.descrizione_commessa || 'Nessuna descrizione'}
+                  </div>
+                  <div>
+                    <strong>Cliente:</strong> {clienteSelezionato?.nome_azienda || 'N/D'}
+                  </div>
+                </>
+              );
+            })()}
+          </div>
         </section>
       )}
 
@@ -512,6 +753,111 @@ function PianificazioneForm({
         )}
       </section>
 
+      {/* Ricorrenza (solo in creazione, non in edit) */}
+      {!isEditMode && (
+        <section style={{ marginBottom: '20px', padding: '15px', border: '2px solid #ddd', borderRadius: '4px' }}>
+          <h3 style={{ fontSize: '1.1em', marginBottom: '10px' }}>Pianificazione Ricorrente (Template)</h3>
+          <p style={{ fontSize: '0.9em', color: '#666', marginBottom: '15px' }}>
+            Abilita questa opzione per creare pianificazioni che si ripetono settimanalmente nei giorni selezionati.
+          </p>
+
+          <div style={{ marginBottom: '15px' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={formData.ricorrente}
+                onChange={(e) => handleChange('ricorrente', e.target.checked)}
+              />
+              <strong>Abilita Ricorrenza</strong>
+            </label>
+          </div>
+
+          {formData.ricorrente && (
+            <>
+              {/* Giorni Settimana */}
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ fontWeight: '500', marginBottom: '10px', display: 'block' }}>
+                  Giorni della Settimana *
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '10px' }}>
+                  {[
+                    { value: 1, label: 'Lunedì' },
+                    { value: 2, label: 'Martedì' },
+                    { value: 3, label: 'Mercoledì' },
+                    { value: 4, label: 'Giovedì' },
+                    { value: 5, label: 'Venerdì' },
+                    { value: 6, label: 'Sabato' },
+                    { value: 0, label: 'Domenica' },
+                  ].map(({ value, label }) => (
+                    <label
+                      key={value}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '8px',
+                        border: formData.giorni_settimana.includes(value) ? '2px solid #0066cc' : '1px solid #ddd',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        backgroundColor: formData.giorni_settimana.includes(value) ? '#e3f2fd' : 'white',
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={formData.giorni_settimana.includes(value)}
+                        onChange={() => handleGiornoSettimanaToggle(value)}
+                      />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+                {formData.giorni_settimana.length === 0 && (
+                  <p style={{ color: '#dc3545', fontSize: '0.9em', margin: '5px 0 0 0' }}>
+                    Seleziona almeno un giorno
+                  </p>
+                )}
+              </div>
+
+              {/* Data Fine Ricorrenza */}
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ fontWeight: '500', marginBottom: '10px', display: 'block' }}>
+                  Data Fine Ricorrenza (opzionale)
+                </label>
+                <input
+                  type="date"
+                  value={formData.data_fine_ricorrenza}
+                  onChange={(e) => handleChange('data_fine_ricorrenza', e.target.value)}
+                  style={{
+                    width: '100%',
+                    maxWidth: '300px',
+                    padding: '8px 12px',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px',
+                  }}
+                />
+                <p style={{ fontSize: '0.85em', color: '#666', margin: '5px 0 0 0' }}>
+                  Lascia vuoto per ricorrenza illimitata
+                </p>
+              </div>
+
+              {/* Preview Count */}
+              {formData.giorni_settimana.length > 0 && formData.data_inizio_pianificata && formData.data_fine_pianificata && (
+                <div style={{ padding: '12px', backgroundColor: '#fff3cd', borderRadius: '4px', border: '1px solid #ffeaa7' }}>
+                  <p style={{ margin: 0, fontSize: '0.95em', color: '#856404' }}>
+                    <strong>ℹ️ Anteprima:</strong> Verrà creata una pianificazione per ogni occorrenza del giorno selezionato nel periodo specificato.
+                  </p>
+                  {formData.data_fine_ricorrenza && (
+                    <p style={{ margin: '5px 0 0 0', fontSize: '0.85em', color: '#856404' }}>
+                      Le occorrenze termineranno il {new Date(formData.data_fine_ricorrenza).toLocaleDateString('it-IT')}.
+                    </p>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+        </section>
+      )}
+
       {/* Azioni */}
       <div className="form-actions">
         <button type="submit" className="button" disabled={saving}>
@@ -530,6 +876,8 @@ PianificazioneForm.propTypes = {
   foglioAssistenzaId: PropTypes.string,
   foglio: PropTypes.object,
   fogliDisponibili: PropTypes.array,
+  commesse: PropTypes.array,
+  clienti: PropTypes.array,
   tecnici: PropTypes.array.isRequired,
   mezzi: PropTypes.array.isRequired,
   onSave: PropTypes.func.isRequired,
