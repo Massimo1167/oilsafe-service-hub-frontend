@@ -14,16 +14,23 @@ import './ProgrammazioneSettimanalePage.css';
  * - Navigazione settimana per settimana
  * - FUTURO: Drag & drop per spostare pianificazioni (PHASE 4)
  */
-function ProgrammazioneSettimanalePage({ user, userRole, tecnici, commesse, clienti }) {
+function ProgrammazioneSettimanalePage({ user, userRole, tecnici, commesse, clienti, reparti }) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [pianificazioni, setPianificazioni] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [filterReparto, setFilterReparto] = useState('');
 
   // Calcola inizio e fine settimana (Lunedì-Domenica)
   const weekStart = useMemo(() => startOfWeek(currentDate, { weekStartsOn: 1, locale: it }), [currentDate]);
   const weekEnd = useMemo(() => endOfWeek(currentDate, { weekStartsOn: 1, locale: it }), [currentDate]);
   const weekDays = useMemo(() => eachDayOfInterval({ start: weekStart, end: weekEnd }), [weekStart, weekEnd]);
+
+  // Filtra tecnici per reparto
+  const tecniciVisibili = useMemo(() => {
+    if (!filterReparto) return tecnici;
+    return tecnici.filter(t => t.reparto_id === filterReparto);
+  }, [tecnici, filterReparto]);
 
   // Fetch pianificazioni per la settimana corrente
   useEffect(() => {
@@ -78,7 +85,7 @@ function ProgrammazioneSettimanalePage({ user, userRole, tecnici, commesse, clie
     const organized = {};
 
     // Inizializza struttura per ogni tecnico
-    tecnici.forEach(tecnico => {
+    tecniciVisibili.forEach(tecnico => {
       organized[tecnico.id] = { tecnico, giorni: {} };
       weekDays.forEach(day => {
         const dayKey = format(day, 'yyyy-MM-dd');
@@ -132,7 +139,7 @@ function ProgrammazioneSettimanalePage({ user, userRole, tecnici, commesse, clie
     });
 
     return organized;
-  }, [pianificazioni, tecnici, weekDays, commesse, clienti]);
+  }, [pianificazioni, tecniciVisibili, weekDays, commesse, clienti]);
 
   // Handlers navigazione settimana
   const handlePrevWeek = () => {
@@ -300,6 +307,33 @@ function ProgrammazioneSettimanalePage({ user, userRole, tecnici, commesse, clie
           </div>
         </div>
 
+        {/* Filtro Reparto */}
+        {reparti && reparti.length > 0 && (
+          <div style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#f5f5f5', borderRadius: '5px' }}>
+            <label htmlFor="filterRepartoProgSettimanale" style={{ marginRight: '10px', fontWeight: 'bold' }}>
+              Filtra per Reparto:
+            </label>
+            <select
+              id="filterRepartoProgSettimanale"
+              value={filterReparto}
+              onChange={(e) => setFilterReparto(e.target.value)}
+              style={{ padding: '8px', minWidth: '250px', fontSize: '1em' }}
+            >
+              <option value="">Tutti i reparti ({tecnici.length} tecnici)</option>
+              {reparti.map(r => (
+                <option key={r.id} value={r.id}>
+                  {r.codice} - {r.descrizione}
+                </option>
+              ))}
+            </select>
+            {filterReparto && (
+              <span style={{ marginLeft: '15px', color: '#666' }}>
+                {tecniciVisibili.length} tecnici visualizzati
+              </span>
+            )}
+          </div>
+        )}
+
         {/* Loading/Error States */}
         {loading && (
           <div className="loading-message">Caricamento pianificazioni...</div>
@@ -330,7 +364,7 @@ function ProgrammazioneSettimanalePage({ user, userRole, tecnici, commesse, clie
                 </tr>
               </thead>
               <tbody>
-                {tecnici.map(tecnico => {
+                {tecniciVisibili.map(tecnico => {
                   const tecnicoData = pianificazioniPerTecnicoGiorno[tecnico.id];
                   if (!tecnicoData) return null;
 

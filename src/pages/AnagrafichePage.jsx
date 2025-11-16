@@ -19,6 +19,12 @@ function AnagrafichePage() {
             icon: '🔧'
         },
         {
+            title: 'Reparti',
+            description: 'Gestione reparti e dipartimenti',
+            route: '/reparti',
+            icon: '🏢'
+        },
+        {
             title: 'Commesse',
             description: 'Gestione commesse di lavoro',
             route: '/commesse',
