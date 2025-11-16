@@ -26,6 +26,8 @@ function ModalDettagliPianificazione({
   const {
     id,
     foglio_assistenza_id,
+    commessa_id,
+    cliente_id,
     numeroFoglio,
     clienteNome,
     commessaCodice,
@@ -316,21 +318,34 @@ function ModalDettagliPianificazione({
         </div>
 
         <div className="modal-footer">
-          <button className="button" onClick={() => onNavigateToFoglio(foglio_assistenza_id)}>
-            Vai al Foglio
-          </button>
+          {foglio_assistenza_id ? (
+            <button className="button" onClick={() => onNavigateToFoglio(foglio_assistenza_id)}>
+              📄 Vai al Foglio
+            </button>
+          ) : (
+            <button
+              className="button primary"
+              onClick={() => {
+                // TODO: Implement onCreateFoglio callback
+                alert('Funzionalità in sviluppo: Crea foglio da pianificazione');
+              }}
+              title="Crea un nuovo foglio di assistenza per questa pianificazione"
+            >
+              ➕ Crea Foglio
+            </button>
+          )}
           <button className="button" onClick={() => onEdit(pianificazione)}>
-            Modifica
+            ✏️ Modifica
           </button>
           <button className="button" onClick={handleDuplicate}>
-            Duplica
+            📋 Duplica
           </button>
           <button
             className="button danger"
             onClick={handleDelete}
             disabled={deleting}
           >
-            {deleting ? 'Eliminazione...' : 'Elimina'}
+            {deleting ? 'Eliminazione...' : '🗑️ Elimina'}
           </button>
           <button className="button" onClick={onClose}>
             Chiudi
@@ -344,7 +359,9 @@ function ModalDettagliPianificazione({
 ModalDettagliPianificazione.propTypes = {
   pianificazione: PropTypes.shape({
     id: PropTypes.string.isRequired,
-    foglio_assistenza_id: PropTypes.string.isRequired,
+    foglio_assistenza_id: PropTypes.string, // OPTIONAL ora
+    commessa_id: PropTypes.string, // Nuovo campo
+    cliente_id: PropTypes.string, // Nuovo campo
     numeroFoglio: PropTypes.string,
     clienteNome: PropTypes.string,
     commessaCodice: PropTypes.string,

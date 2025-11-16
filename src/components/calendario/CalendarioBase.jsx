@@ -33,7 +33,11 @@ const CalendarioBase = ({
     formats,
     messages,
     style,
-    className
+    className,
+    date,
+    onNavigate,
+    view,
+    onView
 }) => {
     // Messaggi italiani di default
     const defaultMessages = {
@@ -86,6 +90,10 @@ const CalendarioBase = ({
             eventPropGetter={eventPropGetter}
             views={views}
             defaultView={defaultView || 'month'}
+            view={view}
+            onView={onView}
+            date={date}
+            onNavigate={onNavigate}
             toolbar={toolbar !== undefined ? toolbar : true}
             style={{ height: 600, ...style }}
             className={className}
@@ -106,6 +114,10 @@ CalendarioBase.propTypes = {
     eventPropGetter: PropTypes.func,
     views: PropTypes.array,
     defaultView: PropTypes.string,
+    view: PropTypes.string,
+    onView: PropTypes.func,
+    date: PropTypes.instanceOf(Date),
+    onNavigate: PropTypes.func,
     toolbar: PropTypes.bool,
     formats: PropTypes.object,
     messages: PropTypes.object,

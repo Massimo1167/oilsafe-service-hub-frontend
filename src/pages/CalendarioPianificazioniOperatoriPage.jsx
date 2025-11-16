@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
+import { useNavigate } from 'react-router-dom';
 import CalendarioBase from '../components/calendario/CalendarioBase';
 import CalendarioToolbar from '../components/calendario/CalendarioToolbar';
 import EventoPianificazioneCompatto from '../components/calendario/EventoPianificazioneCompatto';
 import TimelineView from '../components/calendario/TimelineView';
 import AgendaView from '../components/calendario/AgendaView';
 import { getColorForCommessa, getColorForTecnico } from '../utils/calendarioColors';
-import ModalDettagliEventoCalendario from '../components/ModalDettagliEventoCalendario';
+import { formatNumeroFoglio } from '../utils/formatters';
+import ModalDettagliPianificazione from '../components/ModalDettagliPianificazione';
 import './CalendarioPianificazioniOperatoriPage.css';
 
 /**
@@ -16,7 +18,8 @@ import './CalendarioPianificazioniOperatoriPage.css';
  * - Toggle colori per tecnico o commessa
  * - Ottimizzato per mobile/tablet
  */
-function CalendarioPianificazioniOperatoriPage({ user, userRole, clienti, tecnici, commesse }) {
+function CalendarioPianificazioniOperatoriPage({ user, userRole, clienti, tecnici, commesse, mezzi }) {
+  const navigate = useNavigate();
   const [pianificazioni, setPianificazioni] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -28,102 +31,106 @@ function CalendarioPianificazioniOperatoriPage({ user, userRole, clienti, tecnic
   const [colorMode, setColorMode] = useState('commessa'); // 'tecnico' o 'commessa'
   const [tecnicoFilter, setTecnicoFilter] = useState(null); // Per admin/manager
 
-  // Determina se mostrare filtro tecnico (solo admin/manager)
-  const showTecnicoFilter = userRole === 'admin' || userRole === 'manager';
+  // Mostra filtro tecnico per tutti gli utenti
+  const showTecnicoFilter = true;
 
   // Se è operatore, prendi solo le sue pianificazioni
   const userId = user?.id;
 
-  // Fetch pianificazioni future
+  // Imposta tecnico loggato come default per utenti "user"
   useEffect(() => {
-    const fetchPianificazioni = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        const oggi = new Date();
-        oggi.setHours(0, 0, 0, 0);
-        const oggiStr = oggi.toISOString().split('T')[0]; // Formato DATE: YYYY-MM-DD
-
-        let query = supabase
-          .from('pianificazioni')
-          .select(`
-            id,
-            data_inizio_pianificata,
-            data_fine_pianificata,
-            stato_pianificazione,
-            foglio_assistenza_id,
-            tecnici_assegnati,
-            fogli_assistenza (
-              id,
-              numero_foglio,
-              cliente_id,
-              commessa_id
-            )
-          `)
-          .gte('data_inizio_pianificata', oggiStr)
-          .in('stato_pianificazione', ['Pianificata', 'Confermata', 'In Corso'])
-          .order('data_inizio_pianificata', { ascending: true });
-
-        // Se operatore, filtra solo le sue pianificazioni
-        if (userRole === 'user' && userId) {
-          // Prima recupera il tecnico_id dell'utente
-          const { data: tecnicoData } = await supabase
-            .from('tecnici')
-            .select('id')
-            .eq('user_id', userId)
-            .single();
-
-          if (tecnicoData?.id) {
-            // Filtra pianificazioni dove il tecnico è nell'array tecnici_assegnati
-            query = query.contains('tecnici_assegnati', [tecnicoData.id]);
-          } else {
-            // Se l'utente non ha un tecnico associato, non mostrare nulla
-            setPianificazioni([]);
-            setLoading(false);
-            return;
-          }
+    const setDefaultTecnicoForUser = async () => {
+      if (userRole === 'user' && userId && tecnici.length > 0) {
+        // Trova il tecnico associato all'utente loggato
+        const tecnicoLoggato = tecnici.find(t => t.user_id === userId);
+        if (tecnicoLoggato && !tecnicoFilter) {
+          // Imposta il filtro solo se non è già impostato
+          setTecnicoFilter(tecnicoLoggato.id);
         }
-
-        const { data, error: fetchError } = await query;
-
-        if (fetchError) throw fetchError;
-
-        setPianificazioni(data || []);
-      } catch (err) {
-        console.error('Errore nel caricamento delle pianificazioni:', err);
-        setError('Impossibile caricare le pianificazioni. Riprova.');
-      } finally {
-        setLoading(false);
       }
     };
 
-    fetchPianificazioni();
+    setDefaultTecnicoForUser();
+  }, [userRole, userId, tecnici, tecnicoFilter]);
+
+  // Fetch pianificazioni future
+  const fetchPianificazioni = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const oggi = new Date();
+      oggi.setHours(0, 0, 0, 0);
+      const oggiStr = oggi.toISOString().split('T')[0]; // Formato DATE: YYYY-MM-DD
+
+      const { data, error: fetchError } = await supabase
+        .from('pianificazioni')
+        .select(`
+          id,
+          data_inizio_pianificata,
+          data_fine_pianificata,
+          stato_pianificazione,
+          foglio_assistenza_id,
+          commessa_id,
+          cliente_id,
+          tecnici_assegnati,
+          mezzo_principale_id,
+          mezzi_secondari_ids,
+          fogli_assistenza (
+            id,
+            numero_foglio,
+            cliente_id,
+            commessa_id
+          )
+        `)
+        .gte('data_inizio_pianificata', oggiStr)
+        .in('stato_pianificazione', ['Pianificata', 'Confermata', 'In Corso'])
+        .order('data_inizio_pianificata', { ascending: true });
+
+      if (fetchError) throw fetchError;
+
+      setPianificazioni(data || []);
+    } catch (err) {
+      console.error('Errore nel caricamento delle pianificazioni:', err);
+      setError('Impossibile caricare le pianificazioni. Riprova.');
+    } finally {
+      setLoading(false);
+    }
   }, [userId, userRole]);
+
+  useEffect(() => {
+    fetchPianificazioni();
+  }, [fetchPianificazioni]);
 
   // Converti pianificazioni in eventi per calendario
   // IMPORTANTE: Duplica eventi per ogni tecnico assegnato
   const eventiCalendario = useMemo(() => {
     if (!pianificazioni.length) return [];
 
-    // Applica filtro tecnico se impostato (solo per admin/manager)
+    // Applica filtro tecnico se impostato
     let pianificazioniFiltrate = pianificazioni;
-    if (showTecnicoFilter && tecnicoFilter) {
+    if (showTecnicoFilter && tecnicoFilter !== null && tecnicoFilter !== '') {
       // Filtra solo pianificazioni che includono il tecnico selezionato
-      pianificazioniFiltrate = pianificazioni.filter(p =>
-        p.tecnici_assegnati?.includes(tecnicoFilter)
-      );
+      // Confronto type-safe: converte entrambi a stringa per gestire ID numerici o UUID
+      pianificazioniFiltrate = pianificazioni.filter(p => {
+        if (!p.tecnici_assegnati || !Array.isArray(p.tecnici_assegnati)) return false;
+        return p.tecnici_assegnati.some(tecId => String(tecId) === String(tecnicoFilter));
+      });
     }
 
     // Duplica eventi: crea un evento per ogni tecnico nell'array tecnici_assegnati
     return pianificazioniFiltrate.flatMap(p => {
-      const commessa = commesse?.find(c => c.id === p.fogli_assistenza?.commessa_id);
-      const cliente = clienti?.find(cl => cl.id === p.fogli_assistenza?.cliente_id);
+      // Usa campi diretti con fallback ai campi del foglio
+      const commessaId = p.commessa_id || p.fogli_assistenza?.commessa_id;
+      const clienteId = p.cliente_id || p.fogli_assistenza?.cliente_id;
+      const commessa = commesse?.find(c => c.id === commessaId);
+      const cliente = clienti?.find(cl => cl.id === clienteId);
 
       // Se non ci sono tecnici assegnati, crea un evento generico
       if (!p.tecnici_assegnati || p.tecnici_assegnati.length === 0) {
+        const numeroFoglioAbbreviato = formatNumeroFoglio(p.fogli_assistenza?.numero_foglio);
         return [{
-          title: `#${p.fogli_assistenza?.numero_foglio || 'N/D'} - ${commessa?.codice_commessa || 'N/A'}`,
+          title: `#${numeroFoglioAbbreviato} - ${commessa?.codice_commessa || 'N/A'}`,
           start: new Date(p.data_inizio_pianificata + 'T00:00:00'),
           end: new Date(p.data_fine_pianificata + 'T23:59:59'),
           resource: {
@@ -132,12 +139,13 @@ function CalendarioPianificazioniOperatoriPage({ user, userRole, clienti, tecnic
             stato: p.stato_pianificazione,
             tecnico_id: null,
             tecnico_nome: 'Nessun tecnico',
-            commessa_id: p.fogli_assistenza?.commessa_id,
+            commessa_id: commessaId,
             commessa_codice: commessa?.codice_commessa,
             commessa_descrizione: commessa?.descrizione,
-            cliente_id: p.fogli_assistenza?.cliente_id,
+            cliente_id: clienteId,
             cliente_nome: cliente?.ragione_sociale,
             foglio_id: p.foglio_assistenza_id,
+            mezzo_principale_id: p.mezzo_principale_id,
           }
         }];
       }
@@ -145,9 +153,10 @@ function CalendarioPianificazioniOperatoriPage({ user, userRole, clienti, tecnic
       // Crea un evento separato per ogni tecnico assegnato
       return p.tecnici_assegnati.map(tecnicoId => {
         const tecnico = tecnici?.find(t => t.id === tecnicoId);
+        const numeroFoglioAbbreviato = formatNumeroFoglio(p.fogli_assistenza?.numero_foglio);
 
         return {
-          title: `#${p.fogli_assistenza?.numero_foglio || 'N/D'} - ${commessa?.codice_commessa || 'N/A'}`,
+          title: `#${numeroFoglioAbbreviato} - ${commessa?.codice_commessa || 'N/A'}`,
           start: new Date(p.data_inizio_pianificata + 'T00:00:00'),
           end: new Date(p.data_fine_pianificata + 'T23:59:59'),
           resource: {
@@ -156,12 +165,13 @@ function CalendarioPianificazioniOperatoriPage({ user, userRole, clienti, tecnic
             stato: p.stato_pianificazione,
             tecnico_id: tecnicoId,
             tecnico_nome: tecnico ? `${tecnico.nome} ${tecnico.cognome}` : 'N/D',
-            commessa_id: p.fogli_assistenza?.commessa_id,
+            commessa_id: commessaId,
             commessa_codice: commessa?.codice_commessa,
             commessa_descrizione: commessa?.descrizione,
-            cliente_id: p.fogli_assistenza?.cliente_id,
+            cliente_id: clienteId,
             cliente_nome: cliente?.ragione_sociale,
             foglio_id: p.foglio_assistenza_id,
+            mezzo_principale_id: p.mezzo_principale_id,
           }
         };
       });
@@ -205,14 +215,91 @@ function CalendarioPianificazioniOperatoriPage({ user, userRole, clienti, tecnic
   }, [getEventColor]);
 
   // Handler per click su evento
-  const handleSelectEvent = useCallback((event) => {
-    setSelectedEvento(event.resource);
-  }, []);
+  const handleSelectEvent = useCallback(async (event) => {
+    // Fetch complete pianificazione data from database
+    try {
+      const { data, error } = await supabase
+        .from('pianificazioni')
+        .select(`
+          id,
+          data_inizio_pianificata,
+          ora_inizio_pianificata,
+          data_fine_pianificata,
+          ora_fine_pianificata,
+          tutto_il_giorno,
+          salta_sabato,
+          salta_domenica,
+          salta_festivi,
+          stato_pianificazione,
+          foglio_assistenza_id,
+          commessa_id,
+          cliente_id,
+          tecnici_assegnati,
+          mezzo_principale_id,
+          mezzi_secondari_ids,
+          descrizione,
+          fogli_assistenza (
+            id,
+            numero_foglio,
+            cliente_id,
+            commessa_id
+          )
+        `)
+        .eq('id', event.resource.id)
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        // Enrich with resolved data
+        const commessaId = data.commessa_id || data.fogli_assistenza?.commessa_id;
+        const clienteId = data.cliente_id || data.fogli_assistenza?.cliente_id;
+        const commessa = commesse?.find(c => c.id === commessaId);
+        const cliente = clienti?.find(cl => cl.id === clienteId);
+
+        const enrichedData = {
+          ...data,
+          numeroFoglio: data.fogli_assistenza?.numero_foglio,
+          clienteNome: cliente?.ragione_sociale,
+          commessaCodice: commessa?.codice_commessa,
+          commessaDescrizione: commessa?.descrizione,
+        };
+
+        setSelectedEvento(enrichedData);
+      }
+    } catch (err) {
+      console.error('Errore nel caricamento dei dettagli pianificazione:', err);
+      // Fallback to basic resource data
+      setSelectedEvento(event.resource);
+    }
+  }, [commesse, clienti]);
 
   // Handler per chiusura modal
   const handleCloseModal = useCallback(() => {
     setSelectedEvento(null);
   }, []);
+
+  // Handler navigazione al foglio
+  const handleNavigateToFoglio = useCallback((foglioId) => {
+    navigate(`/fogli-assistenza/${foglioId}`);
+  }, [navigate]);
+
+  // Handlers per ModalDettagliPianificazione (read-only mode - no edit/delete/duplicate)
+  const handleEditPianificazione = () => {
+    alert('Modifica pianificazione non disponibile in modalità visualizzazione.');
+  };
+
+  const handleDeletePianificazione = () => {
+    alert('Eliminazione pianificazione non disponibile in modalità visualizzazione.');
+  };
+
+  const handleChangeStatePianificazione = () => {
+    alert('Cambio stato non disponibile in modalità visualizzazione.');
+  };
+
+  const handleDuplicatePianificazione = () => {
+    alert('Duplicazione non disponibile in modalità visualizzazione.');
+  };
 
   // Custom toolbar
   const CustomToolbar = useCallback((toolbarProps) => {
@@ -237,16 +324,19 @@ function CalendarioPianificazioniOperatoriPage({ user, userRole, clienti, tecnic
     if (view === 'timeline') {
       return (
         <TimelineView
+          key={`${currentDate.toISOString()}-timeline`}
           events={eventiCalendario}
           date={currentDate}
           tecnici={tecniciConPianificazioni}
           onSelectEvent={handleSelectEvent}
           getEventColor={getEventColor}
+          onPianificazioneUpdated={fetchPianificazioni}
         />
       );
     } else if (view === 'agenda') {
       return (
         <AgendaView
+          key={`${currentDate.toISOString()}-agenda`}
           events={eventiCalendario}
           date={currentDate}
           onSelectEvent={handleSelectEvent}
@@ -257,6 +347,7 @@ function CalendarioPianificazioniOperatoriPage({ user, userRole, clienti, tecnic
       // Month o Week - usa CalendarioBase
       return (
         <CalendarioBase
+          key={`${currentDate.toISOString()}-${view}`}
           events={eventiCalendario}
           onSelectEvent={handleSelectEvent}
           eventPropGetter={eventStyleGetter}
@@ -264,8 +355,11 @@ function CalendarioPianificazioniOperatoriPage({ user, userRole, clienti, tecnic
             event: EventoPianificazioneCompatto,
           }}
           views={['month', 'week']}
-          defaultView={view}
           toolbar={false}
+          date={currentDate}
+          onNavigate={(newDate) => setCurrentDate(newDate)}
+          view={view}
+          onView={setView}
           style={{ height: 600 }}
         />
       );
@@ -278,7 +372,7 @@ function CalendarioPianificazioniOperatoriPage({ user, userRole, clienti, tecnic
         <div className="calendario-header">
           <h1>Calendario Pianificazioni</h1>
           <p className="calendario-subtitle">
-            {showTecnicoFilter ? 'Visualizza tutte le pianificazioni future' : 'Le tue pianificazioni future'}
+            Visualizza le pianificazioni future di tutti i tecnici
           </p>
         </div>
 
@@ -334,11 +428,20 @@ function CalendarioPianificazioniOperatoriPage({ user, userRole, clienti, tecnic
         )}
       </div>
 
-      {/* Modal dettagli evento */}
+      {/* Modal dettagli pianificazione */}
       {selectedEvento && (
-        <ModalDettagliEventoCalendario
-          evento={selectedEvento}
+        <ModalDettagliPianificazione
+          pianificazione={selectedEvento}
           onClose={handleCloseModal}
+          onEdit={handleEditPianificazione}
+          onDelete={handleDeletePianificazione}
+          onChangeState={handleChangeStatePianificazione}
+          onNavigateToFoglio={handleNavigateToFoglio}
+          onDuplicate={handleDuplicatePianificazione}
+          clienti={clienti || []}
+          tecnici={tecnici || []}
+          commesse={commesse || []}
+          mezzi={mezzi || []}
         />
       )}
     </div>

@@ -166,13 +166,19 @@
     display: flex;
     flex-direction: column;
     gap: 0.25rem;
+    transition: background-color 0.2s, box-shadow 0.2s;
+}
+
+.timeline-day-cell.drop-target {
+    box-shadow: inset 0 0 0 2px #0066cc;
+    background-color: rgba(0, 102, 204, 0.05);
 }
 
 .timeline-event {
     padding: 0.4rem 0.5rem;
     border-radius: 4px;
-    cursor: pointer;
-    transition: transform 0.2s, box-shadow 0.2s;
+    cursor: move;
+    transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
     font-size: 0.85em;
     line-height: 1.3;
 }
@@ -180,6 +186,11 @@
 .timeline-event:hover {
     transform: translateY(-2px);
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.timeline-event:active {
+    cursor: grabbing;
+    opacity: 0.7;
 }
 
 .timeline-event-foglio {

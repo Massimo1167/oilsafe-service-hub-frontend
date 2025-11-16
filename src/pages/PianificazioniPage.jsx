@@ -7,18 +7,18 @@ function PianificazioniPage({ userRole }) {
 
     const pianificazioni = [
         {
-            title: 'Storico Interventi',
-            description: 'Visualizza interventi passati su calendario',
-            route: '/fogli-assistenza/calendario',
-            icon: '📅',
-            roles: ['admin', 'manager', 'user']
-        },
-        {
             title: 'Calendario Pianificazioni',
             description: 'Consulta le pianificazioni future',
             route: '/calendario-pianificazioni',
             icon: '📆',
             roles: ['admin', 'manager', 'user']
+        },
+        {
+            title: 'Programmazione Settimanale',
+            description: 'Vista tabellare per tecnici e giorni (drag & drop)',
+            route: '/programmazione-settimanale',
+            icon: '📋',
+            roles: ['admin', 'manager']
         },
         {
             title: 'Gestione Pianificazioni',
