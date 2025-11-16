@@ -1,0 +1,371 @@
+.programmazione-settimanale-page {
+    padding: 1rem;
+    max-width: 1800px;
+    margin: 0 auto;
+}
+
+.programmazione-container {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    padding: 1.5rem;
+}
+
+/* Header */
+.programmazione-header {
+    margin-bottom: 1.5rem;
+}
+
+.programmazione-header h1 {
+    color: #003366;
+    margin: 0 0 0.5rem 0;
+}
+
+.programmazione-subtitle {
+    color: #666;
+    margin: 0;
+    font-size: 0.95em;
+}
+
+/* Toolbar */
+.programmazione-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 6px;
+}
+
+.programmazione-nav {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.programmazione-label h2 {
+    margin: 0;
+    font-size: 1.3rem;
+    color: #003366;
+    text-align: center;
+}
+
+/* Table Wrapper */
+.programmazione-table-wrapper {
+    overflow-x: auto;
+    margin-bottom: 1.5rem;
+}
+
+/* Table */
+.programmazione-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9em;
+}
+
+.programmazione-table thead {
+    background: linear-gradient(135deg, #003366 0%, #0055aa 100%);
+    color: white;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.programmazione-table th {
+    padding: 1rem 0.75rem;
+    text-align: center;
+    font-weight: 600;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.programmazione-table th.tecnico-column {
+    min-width: 150px;
+    text-align: left;
+    background: #002244;
+}
+
+.programmazione-table th.today-column {
+    background: #0066cc;
+}
+
+.day-header {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.day-name {
+    font-size: 0.9em;
+    text-transform: capitalize;
+}
+
+.day-date {
+    font-size: 0.85em;
+    opacity: 0.9;
+}
+
+/* Table Body */
+.programmazione-table tbody tr {
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.programmazione-table tbody tr:hover {
+    background: #f8f9fa;
+}
+
+.tecnico-cell {
+    background: #f0f0f0;
+    font-weight: 600;
+    padding: 0.75rem;
+    position: sticky;
+    left: 0;
+    z-index: 5;
+    border-right: 2px solid #003366;
+}
+
+.tecnico-nome {
+    color: #003366;
+}
+
+.day-cell {
+    padding: 0.5rem;
+    min-height: 80px;
+    vertical-align: top;
+    border: 1px solid #e0e0e0;
+    position: relative;
+}
+
+.day-cell.today-cell {
+    background: #e3f2fd;
+    border-color: #0066cc;
+}
+
+.day-cell.empty-cell {
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.day-cell.empty-cell:hover {
+    background-color: #f0f0f0;
+}
+
+.day-cell.drop-target {
+    box-shadow: inset 0 0 0 2px #0066cc;
+    background-color: rgba(0, 102, 204, 0.05);
+}
+
+.day-cell.drop-target.empty-cell {
+    background-color: rgba(0, 102, 204, 0.1);
+}
+
+.empty-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    min-height: 60px;
+    font-size: 2rem;
+    color: #ccc;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.empty-cell:hover .empty-placeholder {
+    opacity: 1;
+}
+
+/* Eventi */
+.eventi-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.programmazione-evento {
+    padding: 0.4rem 0.5rem;
+    border-radius: 4px;
+    cursor: move;
+    transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
+    color: white;
+    font-size: 0.85em;
+    line-height: 1.3;
+    border: 1px solid rgba(0, 0, 0, 0.2);
+}
+
+.programmazione-evento:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.programmazione-evento:active {
+    cursor: grabbing;
+    opacity: 0.7;
+}
+
+.evento-codice {
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.evento-foglio {
+    font-size: 0.9em;
+    opacity: 0.9;
+}
+
+/* Legenda */
+.programmazione-legenda {
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 6px;
+    border: 1px solid #e0e0e0;
+}
+
+.programmazione-legenda h3 {
+    margin: 0 0 0.75rem 0;
+    font-size: 1em;
+    color: #003366;
+}
+
+.legenda-items {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.legenda-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9em;
+}
+
+.legenda-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 30px;
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 0.85em;
+}
+
+.empty-icon {
+    background: #f0f0f0;
+    border: 1px dashed #ccc;
+    color: #999;
+    font-size: 1.5rem;
+}
+
+.event-icon {
+    color: white;
+}
+
+.today-icon {
+    background: #e3f2fd;
+    border: 2px solid #0066cc;
+}
+
+/* Loading & Error States */
+.loading-message,
+.error-message,
+.empty-state {
+    padding: 2rem;
+    text-align: center;
+    border-radius: 6px;
+}
+
+.loading-message {
+    background: #e3f2fd;
+    color: #1976d2;
+}
+
+.error-message {
+    background: #ffebee;
+    color: #c62828;
+}
+
+.empty-state {
+    background: #f5f5f5;
+    color: #666;
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+    .programmazione-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .programmazione-label {
+        order: -1;
+    }
+
+    .programmazione-nav {
+        justify-content: space-between;
+    }
+}
+
+@media (max-width: 768px) {
+    .programmazione-settimanale-page {
+        padding: 0.5rem;
+    }
+
+    .programmazione-container {
+        padding: 1rem;
+    }
+
+    .programmazione-toolbar {
+        padding: 0.75rem;
+    }
+
+    .programmazione-nav {
+        flex-direction: column;
+    }
+
+    .programmazione-table {
+        font-size: 0.8em;
+    }
+
+    .tecnico-cell {
+        min-width: 100px;
+        font-size: 0.85em;
+    }
+
+    .day-cell {
+        min-height: 60px;
+        padding: 0.25rem;
+    }
+
+    .programmazione-evento {
+        font-size: 0.75em;
+        padding: 0.3rem 0.4rem;
+    }
+
+    .legenda-items {
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .programmazione-header h1 {
+        font-size: 1.5rem;
+    }
+
+    .programmazione-label h2 {
+        font-size: 1.1rem;
+    }
+
+    .programmazione-table-wrapper {
+        margin-left: -1rem;
+        margin-right: -1rem;
+    }
+
+    .empty-placeholder {
+        font-size: 1.5rem;
+    }
+}

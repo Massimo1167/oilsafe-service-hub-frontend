@@ -1,5 +1,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
+import { formatNumeroFoglio } from '../../utils/formatters';
 
 /**
  * Componente per visualizzare eventi di pianificazione in formato compatto
@@ -12,13 +13,13 @@ const EventoPianificazioneCompatto = ({ event }) => {
         return <span>{event.title}</span>;
     }
 
-    const numeroFoglio = resource.numero_foglio || 'N/D';
+    const numeroFoglioAbbreviato = formatNumeroFoglio(resource.numero_foglio);
     const commessa = resource.commessa_descrizione || resource.commessa_codice || 'Nessuna commessa';
 
     return (
         <div className="evento-pianificazione-compatto">
             <div className="evento-foglio-numero">
-                #{numeroFoglio}
+                #{numeroFoglioAbbreviato}
             </div>
             <div className="evento-commessa">
                 {commessa}

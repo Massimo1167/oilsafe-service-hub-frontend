@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import PropTypes from 'prop-types';
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, isWithinInterval } from 'date-fns';
 import { it } from 'date-fns/locale';
+import { formatNumeroFoglio } from '../../utils/formatters';
 
 /**
  * Vista Agenda: lista di eventi raggruppati per giorno
@@ -79,7 +80,7 @@ const AgendaView = ({ events, date, onSelectEvent, getEventColor }) => {
                                 dayEvents.map((event, idx) => {
                                     const backgroundColor = getEventColor(event);
                                     const tecnicoNome = event.resource?.tecnico_nome || 'N/D';
-                                    const numeroFoglio = event.resource?.numero_foglio || 'N/D';
+                                    const numeroFoglioAbbreviato = formatNumeroFoglio(event.resource?.numero_foglio);
                                     const commessa = event.resource?.commessa_descrizione || event.resource?.commessa_codice || 'Nessuna commessa';
                                     const cliente = event.resource?.cliente_nome || 'N/D';
 
@@ -96,7 +97,7 @@ const AgendaView = ({ events, date, onSelectEvent, getEventColor }) => {
                                             <div className="agenda-event-content">
                                                 <div className="agenda-event-header">
                                                     <div className="agenda-event-foglio">
-                                                        <strong>Foglio #{numeroFoglio}</strong>
+                                                        <strong>Foglio #{numeroFoglioAbbreviato}</strong>
                                                     </div>
                                                     <div className="agenda-event-time">
                                                         {format(event.start, 'HH:mm', { locale: it })} - {format(event.end, 'HH:mm', { locale: it })}
