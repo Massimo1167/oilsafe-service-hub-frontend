@@ -36,6 +36,7 @@ import MansioniManager from './components/anagrafiche/MansioniManager';
 import AttivitaStandardManager from './components/anagrafiche/AttivitaStandardManager';
 import UnitaMisuraManager from './components/anagrafiche/UnitaMisuraManager';
 import MezziTrasportoManager from './components/anagrafiche/MezziTrasportoManager';
+import RepartiManager from './components/anagrafiche/RepartiManager';
 
 import './App.css';
 
@@ -70,6 +71,7 @@ function App() {
   const [ordini, setOrdini] = useState([]);
   const [mansioni, setMansioni] = useState([]);
   const [mezzi, setMezzi] = useState([]);
+  const [reparti, setReparti] = useState([]);
 
   const initialSessionCheckTriggered = useRef(false);
   const sessionRef = useRef(session); 
@@ -212,13 +214,14 @@ function App() {
       if (session && session.user) {
         setLoadingAnagrafiche(true); 
         try {
-            const [clientiRes, tecniciRes, commesseRes, ordiniRes, mansioniRes, mezziRes] = await Promise.all([
+            const [clientiRes, tecniciRes, commesseRes, ordiniRes, mansioniRes, mezziRes, repartiRes] = await Promise.all([
                 supabase.from('clienti').select('*').order('nome_azienda'),
                 supabase.from('tecnici').select('*').order('cognome'),
                 supabase.from('commesse').select('*').order('codice_commessa'),
                 supabase.from('ordini_cliente').select('*').order('numero_ordine_cliente'),
                 supabase.from('mansioni').select('*').eq('attivo', true).order('categoria').order('livello'),
-                supabase.from('mezzi_trasporto').select('*').order('targa')
+                supabase.from('mezzi_trasporto').select('*').order('targa'),
+                supabase.from('reparti').select('*').eq('attivo', true).order('codice')
             ]);
 
             setClienti(clientiRes.data || []);
@@ -238,14 +241,17 @@ function App() {
 
             setMezzi(mezziRes.data || []);
             if(mezziRes.error) console.error("APP.JSX: Errore fetch mezzi:", mezziRes.error.message);
+
+            setReparti(repartiRes.data || []);
+            if(repartiRes.error) console.error("APP.JSX: Errore fetch reparti:", repartiRes.error.message);
         } catch (e) {
             console.error("APP.JSX: Eccezione imprevista durante fetchCommonData:", e);
-            setClienti([]); setTecnici([]); setCommesse([]); setOrdini([]); setMansioni([]); setMezzi([]);
+            setClienti([]); setTecnici([]); setCommesse([]); setOrdini([]); setMansioni([]); setMezzi([]); setReparti([]);
         } finally {
             setLoadingAnagrafiche(false);
         }
       } else {
-        setClienti([]); setTecnici([]); setCommesse([]); setOrdini([]); setMezzi([]);
+        setClienti([]); setTecnici([]); setCommesse([]); setOrdini([]); setMezzi([]); setReparti([]);
         setLoadingAnagrafiche(false);
       }
     };
@@ -258,13 +264,14 @@ function App() {
     if (session && session.user) {
       setLoadingAnagrafiche(true);
       try {
-        const [clientiRes, tecniciRes, commesseRes, ordiniRes, mansioniRes, mezziRes] = await Promise.all([
+        const [clientiRes, tecniciRes, commesseRes, ordiniRes, mansioniRes, mezziRes, repartiRes] = await Promise.all([
           supabase.from('clienti').select('*').order('nome_azienda'),
           supabase.from('tecnici').select('*').order('cognome'),
           supabase.from('commesse').select('*').order('codice_commessa'),
           supabase.from('ordini_cliente').select('*').order('numero_ordine_cliente'),
           supabase.from('mansioni').select('*').eq('attivo', true).order('categoria').order('livello'),
-          supabase.from('mezzi_trasporto').select('*').order('targa')
+          supabase.from('mezzi_trasporto').select('*').order('targa'),
+          supabase.from('reparti').select('*').eq('attivo', true).order('codice')
         ]);
 
         setClienti(clientiRes.data || []);
@@ -284,6 +291,9 @@ function App() {
 
         setMezzi(mezziRes.data || []);
         if(mezziRes.error) console.error("APP.JSX: Errore ricarica mezzi:", mezziRes.error.message);
+
+        setReparti(repartiRes.data || []);
+        if(repartiRes.error) console.error("APP.JSX: Errore ricarica reparti:", repartiRes.error.message);
 
         console.log('APP.JSX: Anagrafiche ricaricate con successo');
       } catch (e) {
@@ -469,15 +479,17 @@ function App() {
                       tecnici={tecnici}
                       commesse={commesse}
                       clienti={clienti}
+                      reparti={reparti}
                     />
                   }
                 />
                 <Route path="/anagrafiche" element={<AnagrafichePage />} />
                 <Route path="/clienti" element={<ClientiManager session={session} onDataChanged={reloadAnagrafiche} />} />
-                <Route path="/tecnici" element={<TecniciManager session={session} onDataChanged={reloadAnagrafiche} />} />
+                <Route path="/tecnici" element={<TecniciManager session={session} mansioni={mansioni} reparti={reparti} onDataChanged={reloadAnagrafiche} />} />
                 <Route path="/commesse" element={<CommesseManager session={session} clienti={clienti} onDataChanged={reloadAnagrafiche} />} />
                 <Route path="/ordini" element={<OrdiniClienteManager session={session} clienti={clienti} commesse={commesse} onDataChanged={reloadAnagrafiche} />} />
                 <Route path="/mansioni" element={<MansioniManager session={session} onDataChanged={reloadAnagrafiche} />} />
+                <Route path="/reparti" element={<RepartiManager session={session} onDataChanged={reloadAnagrafiche} />} />
                 <Route path="/unita-misura" element={<UnitaMisuraManager session={session} onDataChanged={reloadAnagrafiche} />} />
                 <Route path="/attivita-standard" element={<AttivitaStandardManager session={session} onDataChanged={reloadAnagrafiche} />} />
                 <Route path="/mezzi" element={<MezziTrasportoManager session={session} onDataChanged={reloadAnagrafiche} />} />
