@@ -143,7 +143,7 @@ function CalendarioPianificazioniOperatoriPage({ user, userRole, clienti, tecnic
             commessa_codice: commessa?.codice_commessa,
             commessa_descrizione: commessa?.descrizione,
             cliente_id: clienteId,
-            cliente_nome: cliente?.ragione_sociale,
+            cliente_nome: cliente?.nome_azienda,
             foglio_id: p.foglio_assistenza_id,
             mezzo_principale_id: p.mezzo_principale_id,
           }
@@ -169,7 +169,7 @@ function CalendarioPianificazioniOperatoriPage({ user, userRole, clienti, tecnic
             commessa_codice: commessa?.codice_commessa,
             commessa_descrizione: commessa?.descrizione,
             cliente_id: clienteId,
-            cliente_nome: cliente?.ragione_sociale,
+            cliente_nome: cliente?.nome_azienda,
             foglio_id: p.foglio_assistenza_id,
             mezzo_principale_id: p.mezzo_principale_id,
           }
@@ -260,7 +260,7 @@ function CalendarioPianificazioniOperatoriPage({ user, userRole, clienti, tecnic
         const enrichedData = {
           ...data,
           numeroFoglio: data.fogli_assistenza?.numero_foglio,
-          clienteNome: cliente?.ragione_sociale,
+          clienteNome: cliente?.nome_azienda,
           commessaCodice: commessa?.codice_commessa,
           commessaDescrizione: commessa?.descrizione,
         };

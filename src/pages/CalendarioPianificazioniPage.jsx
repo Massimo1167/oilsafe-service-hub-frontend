@@ -80,8 +80,8 @@ function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mez
 
       setPianificazioni(pianiData || []);
 
-      // Fetch fogli associati
-      const foglioIds = [...new Set(pianiData.map((p) => p.foglio_assistenza_id))];
+      // Fetch fogli associati (filtra null per pianificazioni dirette con commessa)
+      const foglioIds = [...new Set(pianiData.map((p) => p.foglio_assistenza_id).filter(id => id !== null))];
       if (foglioIds.length > 0) {
         const { data: fogliData, error: fogliError } = await supabase
           .from('fogli_assistenza')
