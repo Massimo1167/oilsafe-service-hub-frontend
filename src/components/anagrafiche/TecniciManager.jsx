@@ -9,7 +9,7 @@ import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import { Navigate } from 'react-router-dom';
 
-function TecniciManager({ session, onDataChanged }) {
+function TecniciManager({ session, mansioni, reparti, onDataChanged }) {
     const [tecnici, setTecnici] = useState([]);
     const [loadingActions, setLoadingActions] = useState(false);
     const [pageLoading, setPageLoading] = useState(true);
@@ -25,11 +25,12 @@ function TecniciManager({ session, onDataChanged }) {
     const [formEmail, setFormEmail] = useState('');
     const [formUserId, setFormUserId] = useState('');
     const [formMansioneId, setFormMansioneId] = useState('');
+    const [formRepartoId, setFormRepartoId] = useState('');
     const [editingTecnico, setEditingTecnico] = useState(null);
     const [users, setUsers] = useState([]);
-    const [mansioni, setMansioni] = useState([]);
     const [filterUser, setFilterUser] = useState('');
     const [filterMansione, setFilterMansione] = useState('');
+    const [filterReparto, setFilterReparto] = useState('');
 
     const userRole = (session?.user?.role || '').trim().toLowerCase();
     const canManage = userRole === 'admin' || userRole === 'manager';
@@ -48,6 +49,14 @@ function TecniciManager({ session, onDataChanged }) {
             (m.categoria || '').toLowerCase().includes(filterMansione.toLowerCase())
         ),
         [mansioni, filterMansione]
+    );
+
+    const filteredReparti = useMemo(
+        () => reparti.filter(r =>
+            (r.codice || '').toLowerCase().includes(filterReparto.toLowerCase()) ||
+            (r.descrizione || '').toLowerCase().includes(filterReparto.toLowerCase())
+        ),
+        [reparti, filterReparto]
     );
 
     const fetchTecnici = async (nomeFiltro, cognomeFiltro) => {
@@ -103,20 +112,6 @@ function TecniciManager({ session, onDataChanged }) {
 
     useEffect(() => {
         if (!canManage) return;
-        const fetchMansioni = async () => {
-            const { data, error: mansioniError } = await supabase
-                .from('mansioni')
-                .select('id, ruolo, categoria, livello')
-                .eq('attivo', true)
-                .order('categoria')
-                .order('livello')
-                .order('ruolo');
-            if (mansioniError) {
-                console.error('Errore fetch mansioni:', mansioniError);
-            }
-            setMansioni(data || []);
-        };
-        fetchMansioni();
     }, [canManage]);
 
     const resetForm = () => {
@@ -125,8 +120,10 @@ function TecniciManager({ session, onDataChanged }) {
         setFormEmail('');
         setFormUserId('');
         setFormMansioneId('');
+        setFormRepartoId('');
         setFilterUser('');
         setFilterMansione('');
+        setFilterReparto('');
         setEditingTecnico(null);
     };
     
@@ -138,8 +135,10 @@ function TecniciManager({ session, onDataChanged }) {
         setFormEmail(tecnico.email || '');
         setFormUserId(tecnico.user_id || '');
         setFormMansioneId(tecnico.mansione_id || '');
+        setFormRepartoId(tecnico.reparto_id || '');
         setFilterUser('');
         setFilterMansione('');
+        setFilterReparto('');
         window.scrollTo(0, 0);
     };
 
@@ -153,7 +152,8 @@ function TecniciManager({ session, onDataChanged }) {
             cognome: formCognome.trim(),
             email: formEmail.trim() || null,
             user_id: formUserId.trim() || null,
-            mansione_id: formMansioneId.trim() || null
+            mansione_id: formMansioneId.trim() || null,
+            reparto_id: formRepartoId.trim() || null
         };
         let opError;
         if (editingTecnico) { 
@@ -401,6 +401,29 @@ function TecniciManager({ session, onDataChanged }) {
                             {filteredMansioni.map(m => (
                                 <option key={m.id} value={m.id}>
                                     {m.ruolo} ({m.categoria} - {m.livello})
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                    <div>
+                        <label htmlFor="formRepartoTecnico">Reparto:</label>
+                        <input
+                            type="text"
+                            id="filterRepartoTecnico"
+                            value={filterReparto}
+                            onChange={e => setFilterReparto(e.target.value)}
+                            placeholder="Filtra per codice o descrizione..."
+                            style={{marginBottom:'5px'}}
+                        />
+                        <select
+                            id="formRepartoTecnico"
+                            value={formRepartoId}
+                            onChange={e => { setFormRepartoId(e.target.value); setFilterReparto(''); }}
+                        >
+                            <option value="">Nessun reparto ({filteredReparti.length} trovati)</option>
+                            {filteredReparti.map(r => (
+                                <option key={r.id} value={r.id}>
+                                    {r.codice} - {r.descrizione}
                                 </option>
                             ))}
                         </select>
