@@ -287,6 +287,22 @@ function InterventoAssistenzaForm({
                 .eq('intervento_assistenza_id', savedInterventoId);
         }
 
+        // Aggiorna il foglio padre per tracciamento stampa
+        // (modifica intervento = richiesta nuova stampa)
+        if (foglioAssistenzaId) {
+            const { error: updateFoglioError } = await supabase
+                .from('fogli_assistenza')
+                .update({
+                    ultima_data_modifica: new Date().toISOString(),
+                    richiesta_nuova_stampa: true
+                })
+                .eq('id', foglioAssistenzaId);
+
+            if (updateFoglioError) {
+                console.error('Errore aggiornamento tracciamento stampa foglio:', updateFoglioError);
+            }
+        }
+
         onInterventoSaved();
         alert(isEditMode ? "Intervento modificato!" : "Intervento aggiunto!");
         setLoading(false);
