@@ -36,6 +36,7 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
     const [filtroCommessaTesto, setFiltroCommessaTesto] = useState('');
     const [filtroOrdineTesto, setFiltroOrdineTesto] = useState('');
     const [filtroStato, setFiltroStato] = useState(''); // NUOVO STATO PER IL FILTRO STATO ('' significa 'Tutti')
+    const [filtroDaStampare, setFiltroDaStampare] = useState(false); // Filtro per mostrare solo fogli da stampare
 
     // Stati per la paginazione
     const [righePerPagina, setRighePerPagina] = useState(50);
@@ -75,6 +76,7 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                 cliente_id, commessa_id, ordine_cliente_id,
                 email_report_cliente, email_report_interno,
                 motivo_intervento_generale,
+                ultima_data_stampa, richiesta_nuova_stampa,
                 interventi_assistenza!left(tecnico_id, tecnici (email))
             `, { count: 'exact' })
             .order('numero_foglio', { ascending: false });
@@ -85,6 +87,11 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
             const dataAEndDate = new Date(filtroDataA);
             dataAEndDate.setDate(dataAEndDate.getDate() + 1);
             query = query.lt('data_apertura_foglio', dataAEndDate.toISOString().split('T')[0]);
+        }
+
+        // Filtro per fogli da stampare
+        if (filtroDaStampare) {
+            query = query.eq('richiesta_nuova_stampa', true);
         }
 
         // Applica paginazione
@@ -137,7 +144,7 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
             setFogli(processedFogli);
         }
         setLoadingFogli(false);
-    }, [loadingAnagrafiche, userRole, currentUserId, filtroDataDa, filtroDataA, currentPage, righePerPagina, allClienti, allCommesse, allOrdini, allTecnici]);
+    }, [loadingAnagrafiche, userRole, currentUserId, filtroDataDa, filtroDataA, filtroDaStampare, currentPage, righePerPagina, allClienti, allCommesse, allOrdini, allTecnici]);
 
     // Funzione per caricare pianificazioni attive per ogni foglio
     const fetchPianificazioni = useCallback(async () => {
@@ -320,6 +327,19 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                 if (attivitaError) console.warn(`Attenzione: Errore nel recuperare le attività previste per il foglio ${foglioId}: ${attivitaError.message}`);
 
                 await generateFoglioAssistenzaPDF(foglioData, interventiData || [], attivitaPreviste || [], { layout: layoutStampa });
+
+                // Aggiorna tracciamento stampa nel database
+                const { error: updateError } = await supabase
+                    .from('fogli_assistenza')
+                    .update({
+                        ultima_data_stampa: new Date().toISOString(),
+                        richiesta_nuova_stampa: false
+                    })
+                    .eq('id', foglioId);
+
+                if (updateError) {
+                    console.error(`Errore aggiornamento tracciamento stampa per foglio ${foglioId}:`, updateError);
+                }
             } catch (err) {
                 console.error(`Errore durante la generazione del PDF per il foglio ${foglioId}:`, err);
                 printErrors.push(`Foglio ${foglioId.substring(0,8)}: ${err.message}`);
@@ -328,6 +348,8 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
         if (printErrors.length > 0) { setError(`Si sono verificati errori durante la stampa:\n${printErrors.join('\n')}`); }
         else { setSuccessMessage(`Operazione di stampa PDF completata per ${selectedFogli.size} fogli.`); setTimeout(() => setSuccessMessage(''), 3000); }
         setStampaLoading(false); setSelectedFogli(new Set());
+        // Ricarica i dati per aggiornare le colonne di stampa
+        fetchFogliDaServer();
     };
 
     const handlePreviewSelected = async () => {
@@ -552,6 +574,7 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
         setFiltroClienteTesto(''); setFiltroTecnicoTesto('');
         setFiltroCommessaTesto(''); setFiltroOrdineTesto('');
         setFiltroStato(''); // Resetta anche il filtro stato
+        setFiltroDaStampare(false); // Resetta filtro da stampare
     };
 
     if (loadingAnagrafiche || loadingFogli) {
@@ -648,6 +671,29 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                             ))}
                         </select>
                     </div>
+                </div>
+
+                {/* Filtro Da Stampare */}
+                <div style={{ marginTop: '10px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                        <input
+                            type="checkbox"
+                            checked={filtroDaStampare}
+                            onChange={e => {
+                                setFiltroDaStampare(e.target.checked);
+                                setCurrentPage(1);
+                            }}
+                        />
+                        <span style={{
+                            backgroundColor: filtroDaStampare ? '#dc3545' : 'transparent',
+                            color: filtroDaStampare ? 'white' : 'inherit',
+                            padding: filtroDaStampare ? '2px 8px' : '0',
+                            borderRadius: '4px',
+                            fontWeight: filtroDaStampare ? 'bold' : 'normal'
+                        }}>
+                            Mostra solo fogli da stampare
+                        </span>
+                    </label>
                 </div>
 
                 {/* Controlli: Azzera Filtri + Paginazione */}
@@ -798,6 +844,10 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                             </th>
                             <th>Motivo Intervento</th>
                             <th>Stato</th>
+                            <th onClick={() => handleSort('ultima_data_stampa')} style={{cursor:'pointer'}}>
+                                Ultima Stampa {sortConfig.column === 'ultima_data_stampa' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}
+                            </th>
+                            <th>Da Stampare</th>
                             {(userRole === 'admin' || userRole === 'manager') && (
                                 <th>Pianificato</th>
                             )}
@@ -829,6 +879,30 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                                     {foglio.motivo_intervento_generale}
                                 </td>
                                 <td><span className={`status-badge status-${foglio.stato_foglio?.toLowerCase().replace(/\s+/g, '-')}`}>{foglio.stato_foglio}</span></td>
+                                <td style={{ textAlign: 'center' }}>
+                                    {foglio.ultima_data_stampa
+                                        ? new Date(foglio.ultima_data_stampa).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                                        : '-'}
+                                </td>
+                                <td style={{ textAlign: 'center' }}>
+                                    {foglio.richiesta_nuova_stampa ? (
+                                        <span
+                                            style={{
+                                                backgroundColor: '#dc3545',
+                                                color: 'white',
+                                                padding: '2px 8px',
+                                                borderRadius: '12px',
+                                                fontSize: '0.85em',
+                                                fontWeight: 'bold',
+                                            }}
+                                            title="Foglio modificato dopo l'ultima stampa"
+                                        >
+                                            Da stampare
+                                        </span>
+                                    ) : (
+                                        <span style={{ color: '#28a745' }}>✓</span>
+                                    )}
+                                </td>
                                 {(userRole === 'admin' || userRole === 'manager') && (
                                     <td style={{ textAlign: 'center' }}>
                                         {pianificazioniMap[foglio.id] ? (

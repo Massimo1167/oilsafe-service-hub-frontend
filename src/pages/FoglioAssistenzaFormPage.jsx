@@ -28,6 +28,39 @@ const isStatoFinale = (stato) => {
     return ['Completato', 'Consuntivato', 'Inviato', 'In attesa accettazione', 'Fatturato', 'Chiuso'].includes(stato);
 };
 
+// Helper: verifica se ci sono modifiche significative (escluso stato_foglio e nota_stato_foglio)
+const haModificheSignificative = (originale, nuovo) => {
+    if (!originale) return true; // Se non c'è originale, considera come modifica
+
+    // Campi da confrontare (esclusi stato_foglio e nota_stato_foglio)
+    const campiDaConfrontare = [
+        'data_apertura_foglio',
+        'cliente_id',
+        'indirizzo_intervento_id',
+        'referente_cliente_richiesta',
+        'motivo_intervento_generale',
+        'commessa_id',
+        'ordine_cliente_id',
+        'descrizione_lavoro_generale',
+        'osservazioni_generali',
+        'materiali_forniti_generale',
+        'email_report_cliente',
+        'email_report_interno',
+        'firma_cliente_url',
+        'firma_tecnico_principale_url',
+        'assegnato_a_user_id',
+    ];
+
+    for (const campo of campiDaConfrontare) {
+        const valOrig = originale[campo] || '';
+        const valNuovo = nuovo[campo] || '';
+        if (valOrig !== valNuovo) {
+            return true;
+        }
+    }
+    return false;
+};
+
 function FoglioAssistenzaFormPage({ session, clienti, commesse, ordini, tecnici }) {
     const navigate = useNavigate();
     const { foglioIdParam } = useParams();
@@ -57,6 +90,7 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
     const [formCreatoDaUserIdOriginal, setFormCreatoDaUserIdOriginal] = useState('');
     const [numeroFoglioVisualizzato, setNumeroFoglioVisualizzato] = useState('');
     const [statoFoglioOriginale, setStatoFoglioOriginale] = useState(''); // Stato originale del foglio per confronto
+    const [foglioOriginale, setFoglioOriginale] = useState(null); // Dati originali per confronto modifiche
 
     const [indirizziClienteSelezionato, setIndirizziClienteSelezionato] = useState([]);
     const [formSelectedIndirizzoId, setFormSelectedIndirizzoId] = useState(''); 
@@ -263,6 +297,24 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
                     setClienteFile(null);
                     setTecnicoFile(null);
 
+                    // Salva i dati originali per confronto modifiche (per tracciamento stampa)
+                    setFoglioOriginale({
+                        data_apertura_foglio: data.data_apertura_foglio ? new Date(data.data_apertura_foglio).toISOString().split('T')[0] : '',
+                        cliente_id: data.cliente_id || '',
+                        indirizzo_intervento_id: data.indirizzo_intervento_id || '',
+                        referente_cliente_richiesta: data.referente_cliente_richiesta || '',
+                        motivo_intervento_generale: data.motivo_intervento_generale || '',
+                        commessa_id: data.commessa_id || '',
+                        ordine_cliente_id: data.ordine_cliente_id || '',
+                        descrizione_lavoro_generale: data.descrizione_lavoro_generale || '',
+                        osservazioni_generali: data.osservazioni_generali || '',
+                        materiali_forniti_generale: data.materiali_forniti_generale || '',
+                        email_report_cliente: data.email_report_cliente || '',
+                        email_report_interno: data.email_report_interno || '',
+                        firma_cliente_url: data.firma_cliente_url || null,
+                        firma_tecnico_principale_url: data.firma_tecnico_principale_url || null,
+                        assegnato_a_user_id: data.assegnato_a_user_id || '',
+                    });
                 }
                 setPageLoading(false);
             };
@@ -497,6 +549,38 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
               stato_foglio: formStatoFoglio,
               assegnato_a_user_id: formAssignedTecnicoId || currentUserId || null,
             };
+
+            // Verifica se ci sono modifiche significative per il tracciamento stampa
+            // (escluso cambio stato_foglio e nota_stato_foglio)
+            if (isEditMode && foglioOriginale) {
+                const nuoviDati = {
+                    data_apertura_foglio: formDataApertura,
+                    cliente_id: formSelectedClienteId,
+                    indirizzo_intervento_id: formSelectedIndirizzoId || '',
+                    referente_cliente_richiesta: formReferenteCliente.trim(),
+                    motivo_intervento_generale: formMotivoGenerale.trim(),
+                    commessa_id: formSelectedCommessaId || '',
+                    ordine_cliente_id: formSelectedOrdineId || '',
+                    descrizione_lavoro_generale: formDescrizioneGenerale.trim(),
+                    osservazioni_generali: formOsservazioniGenerali.trim(),
+                    materiali_forniti_generale: formMaterialiForniti.trim(),
+                    email_report_cliente: formEmailCliente.trim() || '',
+                    email_report_interno: formEmailInterno.trim() || '',
+                    firma_cliente_url: firmaClienteUrlToSave || '',
+                    firma_tecnico_principale_url: firmaTecnicoUrlToSave || '',
+                    assegnato_a_user_id: formAssignedTecnicoId || currentUserId || '',
+                };
+
+                if (haModificheSignificative(foglioOriginale, nuoviDati)) {
+                    // Ci sono modifiche significative: imposta flag per nuova stampa
+                    foglioPayload.ultima_data_modifica = new Date().toISOString();
+                    foglioPayload.richiesta_nuova_stampa = true;
+                }
+            } else if (!isEditMode) {
+                // Nuovo foglio: inizializza con richiesta stampa
+                foglioPayload.ultima_data_modifica = new Date().toISOString();
+                foglioPayload.richiesta_nuova_stampa = true;
+            }
 
             // VERIFICA PIANIFICAZIONI FUTURE prima di salvare (solo in edit mode e se lo stato diventa finale)
             if (isEditMode && isStatoFinale(formStatoFoglio)) {
