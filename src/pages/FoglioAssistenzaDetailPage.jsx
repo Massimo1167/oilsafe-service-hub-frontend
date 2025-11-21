@@ -262,6 +262,15 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
                 setError("Errore eliminazione intervento: " + deleteError.message);
                 alert("Errore eliminazione intervento: " + deleteError.message);
             } else {
+                // Aggiorna tracciamento stampa del foglio padre
+                await supabase
+                    .from('fogli_assistenza')
+                    .update({
+                        ultima_data_modifica: new Date().toISOString(),
+                        richiesta_nuova_stampa: true
+                    })
+                    .eq('id', foglioId);
+
                 await fetchFoglioData();
                 alert("Intervento eliminato.");
             }
@@ -303,6 +312,15 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
             if (deleteError) {
                 throw deleteError;
             }
+
+            // Aggiorna tracciamento stampa del foglio padre
+            await supabase
+                .from('fogli_assistenza')
+                .update({
+                    ultima_data_modifica: new Date().toISOString(),
+                    richiesta_nuova_stampa: true
+                })
+                .eq('id', foglioId);
 
             await fetchFoglioData(); // Ricarica i dati
             setSelectedInterventi([]); // Resetta la selezione
@@ -629,6 +647,22 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
                 attivitaPreviste || [],
                 { layout: layoutStampa }
             );
+
+            // Aggiorna tracciamento stampa nel database
+            const { error: updateError } = await supabase
+                .from('fogli_assistenza')
+                .update({
+                    ultima_data_stampa: new Date().toISOString(),
+                    richiesta_nuova_stampa: false
+                })
+                .eq('id', foglioId);
+
+            if (updateError) {
+                console.error(`Errore aggiornamento tracciamento stampa per foglio ${foglioId}:`, updateError);
+            } else {
+                // Ricarica i dati per aggiornare la visualizzazione
+                await fetchFoglioData();
+            }
         } catch (err) {
             console.error(`Errore durante la generazione del PDF per il foglio singolo ${foglioId}:`, err);
             setError(`Errore PDF: ${err.message}`);
