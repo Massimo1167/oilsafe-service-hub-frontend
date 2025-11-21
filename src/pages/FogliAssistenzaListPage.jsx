@@ -847,7 +847,7 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                             <th onClick={() => handleSort('ultima_data_stampa')} style={{cursor:'pointer'}}>
                                 Ultima Stampa {sortConfig.column === 'ultima_data_stampa' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}
                             </th>
-                            <th>Da Stampare</th>
+                            <th>Stampa</th>
                             {(userRole === 'admin' || userRole === 'manager') && (
                                 <th>Pianificato</th>
                             )}
@@ -888,19 +888,15 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                                     {foglio.richiesta_nuova_stampa ? (
                                         <span
                                             style={{
-                                                backgroundColor: '#dc3545',
-                                                color: 'white',
-                                                padding: '2px 8px',
-                                                borderRadius: '12px',
-                                                fontSize: '0.85em',
-                                                fontWeight: 'bold',
+                                                fontSize: '1.3em',
+                                                cursor: 'default',
                                             }}
-                                            title="Foglio modificato dopo l'ultima stampa"
+                                            title="Richiesta ristampa - Foglio modificato dopo l'ultima stampa"
                                         >
-                                            Da stampare
+                                            🖨️
                                         </span>
                                     ) : (
-                                        <span style={{ color: '#28a745' }}>✓</span>
+                                        <span style={{ color: '#28a745' }} title="Già stampato">✓</span>
                                     )}
                                 </td>
                                 {(userRole === 'admin' || userRole === 'manager') && (
