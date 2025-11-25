@@ -48,9 +48,11 @@ Dopo il login vedrai la tua dashboard personale con:
 3. Compila i campi:
    - **Cliente**: cerca e seleziona dal menu
    - **Indirizzo**: si compila automaticamente (puoi cambiarlo)
-   - **Commessa**: seleziona dal menu
-   - **Ordine cliente**: se presente
+   - **Commessa**: seleziona dal menu (**OBBLIGATORIO**)
+   - **Ordine Interno**: seleziona dal menu (**OBBLIGATORIO**)
 4. Clicca **Salva**
+
+> **IMPORTANTE**: Commessa e Ordine Interno sono campi obbligatori per garantire la tracciabilità completa del lavoro secondo le procedure di qualità aziendali.
 
 > Il sistema salva automaticamente la bozza, non perderai mai i dati!
 

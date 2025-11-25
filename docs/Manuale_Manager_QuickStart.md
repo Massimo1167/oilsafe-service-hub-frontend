@@ -142,6 +142,22 @@ Usa i filtri in alto per cercare per nome, codice, etc.
 
 Puoi modificare lo stato dei fogli anche dopo il completamento (per correzioni).
 
+### ⚠️ Nuova Regola: Campi Obbligatori
+
+Da ora in avanti, **tutti i fogli** (nuovi o modificati) richiedono obbligatoriamente:
+- **Commessa**
+- **Ordine Interno**
+
+**Perché?** Per garantire la tracciabilità completa del flusso di lavoro secondo le procedure ISO 9001:
+- Cliente → Commessa → Ordine Interno → Foglio Lavoro
+
+**Benefici**:
+- ✅ Tracciabilità totale
+- ✅ Riduzione errori fatturazione
+- ✅ Conformità procedure qualità
+
+> **Nota**: I fogli già esistenti senza questi dati rimangono validi e consultabili.
+
 ---
 
 ## 6. Export e Report
