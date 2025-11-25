@@ -120,24 +120,39 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
           .select(`
             *,
             assegnato_a_user_id,
-            profilo_tecnico_assegnato:profiles (full_name),
+            profilo_tecnico_assegnato:profiles!assegnato_a_user_id (full_name),
             clienti (id, nome_azienda),
             commesse (*),
-            ordini_cliente (id, numero_ordine_cliente, descrizione_ordine),
+            ordini_interni (id, numero_ordine_cliente, descrizione_ordine, codice_ordine_cliente, data_ordine_cliente, data_conferma_ordine, data_ordine),
             indirizzi_clienti!indirizzo_intervento_id (id, indirizzo_completo, descrizione)
           `)
           .eq('id', foglioId)
           .single();
 
-        if (foglioError) { 
+        if (foglioError) {
           setError("Errore caricamento foglio: " + foglioError.message + ". Potrebbe non esistere o non hai i permessi per visualizzarlo.");
           console.error("Errore fetch foglio:", foglioError);
-          setFoglio(null); 
+          setFoglio(null);
           setLoadingPage(false);
           return;
         }
+
         const tecnicoAss = (tecnici || []).find(t => t.user_id === foglioData.assegnato_a_user_id);
         const nomeTecnicoAss = tecnicoAss ? `${tecnicoAss.nome} ${tecnicoAss.cognome}` : foglioData.profilo_tecnico_assegnato?.full_name || null;
+
+        // Carica il profilo del creatore separatamente (creato_da_user_id -> profiles.id)
+        if (foglioData.creato_da_user_id) {
+          const { data: creatoreProfile } = await supabase
+            .from('profiles')
+            .select('full_name')
+            .eq('id', foglioData.creato_da_user_id)
+            .maybeSingle();
+
+          if (creatoreProfile) {
+            foglioData.profilo_creatore = creatoreProfile;
+          }
+        }
+
         setFoglio({ ...foglioData, tecnico_assegnato_nome: nomeTecnicoAss });
 
         const { data: interventiData, error: interventiError } = await supabase
@@ -557,11 +572,24 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
             if (!foglio.clienti || !foglio.indirizzi_clienti) { // Aggiunto check per indirizzi_clienti
                 console.warn("Ricarico dati foglio completi per anteprima (dati relazionati mancanti)...");
                 const { data: fullData, error: fullErr } = await supabase.from('fogli_assistenza')
-                    .select(`*, assegnato_a_user_id, profilo_tecnico_assegnato:profiles (full_name), clienti (*), commesse (*), ordini_cliente (*), indirizzi_clienti!indirizzo_intervento_id (*)`)
+                    .select(`*, assegnato_a_user_id, profilo_tecnico_assegnato:profiles!assegnato_a_user_id (full_name), clienti (*), commesse (*), ordini_interni (*, codice_ordine_cliente, data_ordine_cliente, data_conferma_ordine, data_ordine), indirizzi_clienti!indirizzo_intervento_id (*)`)
                     .eq('id', foglioId).single();
                 if (fullErr || !fullData) throw new Error(fullErr?.message || "Impossibile ricaricare dati foglio per anteprima.");
                 const tecnicoAss = (tecnici || []).find(t => t.user_id === fullData.assegnato_a_user_id);
                 fullData.tecnico_assegnato_nome = tecnicoAss ? `${tecnicoAss.nome} ${tecnicoAss.cognome}` : fullData.profilo_tecnico_assegnato?.full_name || null;
+
+                // Carica il profilo del creatore
+                if (fullData.creato_da_user_id) {
+                    const { data: creatoreProfile } = await supabase
+                        .from('profiles')
+                        .select('full_name')
+                        .eq('id', fullData.creato_da_user_id)
+                        .maybeSingle();
+
+                    if (creatoreProfile) {
+                        fullData.profilo_creatore = creatoreProfile;
+                    }
+                }
                 foglioCompletoPerStampa = fullData;
             }
 
@@ -614,11 +642,25 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
             if (!foglio.clienti || !foglio.indirizzi_clienti) { // Aggiunto check per indirizzi_clienti
                 console.warn("Ricarico dati foglio completi per stampa (dati relazionati mancanti)...");
                 const { data: fullData, error: fullErr } = await supabase.from('fogli_assistenza')
-                    .select(`*, assegnato_a_user_id, profilo_tecnico_assegnato:profiles (full_name), clienti (*), commesse (*), ordini_cliente (*), indirizzi_clienti!indirizzo_intervento_id (*)`)
+                    .select(`*, assegnato_a_user_id, profilo_tecnico_assegnato:profiles!assegnato_a_user_id (full_name), clienti (*), commesse (*), ordini_interni (*, codice_ordine_cliente, data_ordine_cliente, data_conferma_ordine, data_ordine), indirizzi_clienti!indirizzo_intervento_id (*)`)
                     .eq('id', foglioId).single();
                 if (fullErr || !fullData) throw new Error(fullErr?.message || "Impossibile ricaricare dati foglio per stampa.");
                 const tecnicoAss = (tecnici || []).find(t => t.user_id === fullData.assegnato_a_user_id);
                 fullData.tecnico_assegnato_nome = tecnicoAss ? `${tecnicoAss.nome} ${tecnicoAss.cognome}` : fullData.profilo_tecnico_assegnato?.full_name || null;
+
+                // Carica il profilo del creatore
+                if (fullData.creato_da_user_id) {
+                    const { data: creatoreProfile } = await supabase
+                        .from('profiles')
+                        .select('full_name')
+                        .eq('id', fullData.creato_da_user_id)
+                        .maybeSingle();
+
+                    if (creatoreProfile) {
+                        fullData.profilo_creatore = creatoreProfile;
+                    }
+                }
+
                 foglioCompletoPerStampa = fullData;
             }
 
@@ -748,7 +790,7 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
                     <div><strong>Tecnico Assegnato:</strong> {foglio.tecnico_assegnato_nome}</div>
                 )}
                 {foglio.commesse && <div><strong>Commessa:</strong> {`${foglio.commesse.codice_commessa} (${foglio.commesse.descrizione_commessa || 'N/D'})`}</div>}
-                {foglio.ordini_cliente && <div><strong>Ordine Cliente:</strong> {`${foglio.ordini_cliente.numero_ordine_cliente} (${foglio.ordini_cliente.descrizione_ordine || 'N/D'})`}</div>}
+                {foglio.ordini_interni && <div><strong>Ordine Interno:</strong> {`${foglio.ordini_interni.numero_ordine_cliente} (${foglio.ordini_interni.descrizione_ordine || 'N/D'})`}</div>}
                 {foglio.email_report_cliente && <div><strong>Email Cliente Report:</strong> {foglio.email_report_cliente}</div>}
                 {foglio.email_report_interno && <div><strong>Email Interna Report:</strong> {foglio.email_report_interno}</div>}
                 <div style={{gridColumn: '1 / -1'}}><strong>Motivo Intervento:</strong> <FormattedText text={foglio.motivo_intervento_generale} /></div>

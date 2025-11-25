@@ -375,7 +375,7 @@ function ClientiManager({ session, onDataChanged }) {
                 );
             if (fogliErr) throw fogliErr;
             const { data: ordiniData, error: ordiniErr } = await supabase
-                .from('ordini_cliente')
+                .from('ordini_interni')
                 .select('id, cliente_id, numero_ordine_cliente');
             if (ordiniErr) throw ordiniErr;
             const { data: commesseData, error: commesseErr } = await supabase

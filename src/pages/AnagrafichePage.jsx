@@ -31,8 +31,8 @@ function AnagrafichePage() {
             icon: '📋'
         },
         {
-            title: 'Ordini Cliente',
-            description: 'Gestione ordini cliente',
+            title: 'Ordini Interni',
+            description: 'Gestione ordini interni',
             route: '/ordini',
             icon: '📦'
         },
