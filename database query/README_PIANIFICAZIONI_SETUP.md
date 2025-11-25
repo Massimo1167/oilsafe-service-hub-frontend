@@ -1,3 +1,7 @@
+---
+marp: true
+---
+
 # Setup Database - Sistema Pianificazione Interventi
 
 ## Panoramica
