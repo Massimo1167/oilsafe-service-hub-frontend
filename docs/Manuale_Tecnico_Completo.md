@@ -210,24 +210,48 @@ Per ogni foglio vedi:
    - Dopo aver scelto il cliente, l'indirizzo si compila automaticamente
    - Se il cliente ha più indirizzi, seleziona quello corretto dal menu
 
-4. **Seleziona la Commessa**
+4. **Seleziona la Commessa** (**OBBLIGATORIO**)
    - Clicca sul campo "Commessa"
    - Cerca per codice o descrizione
    - Seleziona dalla lista
+   - ⚠️ **Campo obbligatorio**: non puoi salvare senza commessa
 
-5. **Ordine Cliente (opzionale)**
-   - Se c'è un ordine cliente associato, selezionalo
+5. **Seleziona l'Ordine Interno** (**OBBLIGATORIO**)
+   - Clicca sul campo "Ordine Interno"
+   - Gli ordini visualizzati sono filtrati in base alla commessa selezionata
+   - Seleziona l'ordine corretto dalla lista
+   - ⚠️ **Campo obbligatorio**: non puoi salvare senza ordine interno
 
 6. **Note iniziali (opzionale)**
    - Aggiungi eventuali note generali sul lavoro
 
 7. **Salva**
    - Clicca **Salva** per creare il foglio
+   - Il sistema verifica la presenza di commessa e ordine interno
+   - Se mancano, riceverai un messaggio di errore
    - Verrai portato alla pagina di dettaglio
 
 #### Salvataggio automatico bozze
 
 Mentre compili il form, il sistema **salva automaticamente** i dati come bozza. Se chiudi per errore il browser o perdi connessione, ritroverai i dati al prossimo accesso.
+
+#### Perché Commessa e Ordine Interno sono obbligatori?
+
+L'obbligatorietà di questi campi risponde a precise **esigenze di qualità e tracciabilità** secondo la procedura ISO 9001:
+
+**Tracciabilità completa**: Ogni foglio di lavoro è collegato a:
+- **Cliente** → chi ha richiesto il servizio
+- **Commessa** → quale progetto/contratto
+- **Ordine Interno** → numero d'ordine del gestionale Oilsafe
+- **Foglio di Lavoro** → interventi effettivamente svolti
+
+**Benefici concreti**:
+- ✅ Completa tracciabilità di ogni intervento
+- ✅ Riduzione errori di fatturazione
+- ✅ Conformità alle procedure di qualità
+- ✅ Storico completo per ogni commessa
+
+> **Nota**: L'obbligatorietà si applica solo ai nuovi fogli creati da ora in avanti e alle modifiche di fogli esistenti. I fogli già creati rimangono validi anche senza questi dati.
 
 ---
 
