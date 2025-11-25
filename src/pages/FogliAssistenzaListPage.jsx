@@ -73,7 +73,7 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                 id, numero_foglio, data_apertura_foglio, stato_foglio, creato_da_user_id,
                 assegnato_a_user_id,
                 profilo_tecnico_assegnato:profiles (full_name),
-                cliente_id, commessa_id, ordine_cliente_id,
+                cliente_id, commessa_id, ordine_interno_id,
                 email_report_cliente, email_report_interno,
                 motivo_intervento_generale,
                 ultima_data_stampa, richiesta_nuova_stampa,
@@ -117,7 +117,7 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
             const processedFogli = (data || []).map(foglio => {
                 const cliente = safeAllClienti.find(c => c.id === foglio.cliente_id);
                 const commessa = safeAllCommesse.find(c => c.id === foglio.commessa_id);
-                const ordine = safeAllOrdini.find(o => o.id === foglio.ordine_cliente_id);
+                const ordine = safeAllOrdini.find(o => o.id === foglio.ordine_interno_id);
                 
                 const tecniciNomiSet = new Set();
                 if (foglio.interventi_assistenza && Array.isArray(foglio.interventi_assistenza)) {
@@ -285,10 +285,23 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
         let printErrors = [];
         for (const foglioId of Array.from(selectedFogli)) {
             try {
-                const { data: foglioData, error: foglioError } = await supabase.from('fogli_assistenza').select(`*, assegnato_a_user_id, profilo_tecnico_assegnato:profiles (full_name), clienti (*), commesse (*), ordini_cliente (*), indirizzi_clienti!indirizzo_intervento_id (*)`).eq('id', foglioId).single();
+                const { data: foglioData, error: foglioError } = await supabase.from('fogli_assistenza').select(`*, assegnato_a_user_id, profilo_tecnico_assegnato:profiles!assegnato_a_user_id (full_name), clienti (*), commesse (*), ordini_interni (*, codice_ordine_cliente, data_ordine_cliente, data_conferma_ordine, data_ordine), indirizzi_clienti!indirizzo_intervento_id (*)`).eq('id', foglioId).single();
                 if (foglioError || !foglioData) throw new Error(foglioError?.message || `Foglio ${foglioId} non trovato.`);
                 const tecnicoAss = (allTecnici || []).find(t => t.user_id === foglioData.assegnato_a_user_id);
                 foglioData.tecnico_assegnato_nome = tecnicoAss ? `${tecnicoAss.nome} ${tecnicoAss.cognome}` : foglioData.profilo_tecnico_assegnato?.full_name || null;
+
+                // Carica il profilo del creatore
+                if (foglioData.creato_da_user_id) {
+                    const { data: creatoreProfile } = await supabase
+                        .from('profiles')
+                        .select('full_name')
+                        .eq('id', foglioData.creato_da_user_id)
+                        .maybeSingle();
+
+                    if (creatoreProfile) {
+                        foglioData.profilo_creatore = creatoreProfile;
+                    }
+                }
 
                 const { data: interventiData, error: interventiError } = await supabase
                     .from('interventi_assistenza')
@@ -360,10 +373,23 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
         const foglioId = Array.from(selectedFogli)[0];
 
         try {
-            const { data: foglioData, error: foglioError } = await supabase.from('fogli_assistenza').select(`*, assegnato_a_user_id, profilo_tecnico_assegnato:profiles (full_name), clienti (*), commesse (*), ordini_cliente (*), indirizzi_clienti!indirizzo_intervento_id (*)`).eq('id', foglioId).single();
+            const { data: foglioData, error: foglioError } = await supabase.from('fogli_assistenza').select(`*, assegnato_a_user_id, profilo_tecnico_assegnato:profiles!assegnato_a_user_id (full_name), clienti (*), commesse (*), ordini_interni (*, codice_ordine_cliente, data_ordine_cliente, data_conferma_ordine, data_ordine), indirizzi_clienti!indirizzo_intervento_id (*)`).eq('id', foglioId).single();
             if (foglioError || !foglioData) throw new Error(foglioError?.message || `Foglio ${foglioId} non trovato.`);
             const tecnicoAss = (allTecnici || []).find(t => t.user_id === foglioData.assegnato_a_user_id);
             foglioData.tecnico_assegnato_nome = tecnicoAss ? `${tecnicoAss.nome} ${tecnicoAss.cognome}` : foglioData.profilo_tecnico_assegnato?.full_name || null;
+
+            // Carica il profilo del creatore
+            if (foglioData.creato_da_user_id) {
+                const { data: creatoreProfile } = await supabase
+                    .from('profiles')
+                    .select('full_name')
+                    .eq('id', foglioData.creato_da_user_id)
+                    .maybeSingle();
+
+                if (creatoreProfile) {
+                    foglioData.profilo_creatore = creatoreProfile;
+                }
+            }
 
             const { data: interventiData, error: interventiError } = await supabase
                 .from('interventi_assistenza')
@@ -471,7 +497,7 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
             'motivo_intervento',
             'materiali_forniti',
             'commessa',
-            'ordine_cliente',
+            'ordine_interno',
             'km_totali',
             'ore_viaggio_tecnici',
             'ore_lavoro_tecnici',
@@ -494,7 +520,7 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                         clienti (nome_azienda),
                         indirizzi_clienti!indirizzo_intervento_id (indirizzo_completo, descrizione),
                         commesse (codice_commessa),
-                        ordini_cliente (numero_ordine_cliente)
+                        ordini_interni (numero_ordine_cliente)
                     `)
                     .eq('id', foglioId)
                     .single();
@@ -535,7 +561,7 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                     motivo_intervento: foglioData.motivo_intervento_generale || 'N/D',
                     materiali_forniti: foglioData.materiali_forniti_generale || 'N/D',
                     commessa: foglioData.commesse?.codice_commessa || '-',
-                    ordine_cliente: foglioData.ordini_cliente?.numero_ordine_cliente || '-',
+                    ordine_interno: foglioData.ordini_interni?.numero_ordine_cliente || '-',
                     km_totali: kmTot.toFixed(1),
                     ore_viaggio_tecnici: oreVia.toFixed(2),
                     ore_lavoro_tecnici: oreLav.toFixed(2),
@@ -639,7 +665,7 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                         />
                     </div>
                     <div>
-                        <label htmlFor="filtroOrdineTesto">Ordine Cliente:</label>
+                        <label htmlFor="filtroOrdineTesto">Ordine Interno:</label>
                         <input
                             type="text"
                             id="filtroOrdineTesto"
@@ -840,7 +866,7 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                                 Commessa {sortConfig.column === 'commessa_codice' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}
                             </th>
                             <th onClick={() => handleSort('ordine_numero')} style={{cursor:'pointer'}}>
-                                Ordine Cl. {sortConfig.column === 'ordine_numero' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}
+                                Ordine Interno {sortConfig.column === 'ordine_numero' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}
                             </th>
                             <th>Motivo Intervento</th>
                             <th>Stato</th>

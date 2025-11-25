@@ -282,12 +282,50 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, at
         addLabelAndValue(doc, 'Tecnico Assegnato:', nomeTecnicoAss, marginLeft);
     }
     if (foglioData.commesse) addLabelAndValue(doc, 'Commessa:', `${foglioData.commesse.codice_commessa} (${foglioData.commesse.descrizione_commessa || 'N/D'})`, marginLeft);
-    if (foglioData.ordini_cliente) addLabelAndValue(doc, 'Ordine Cliente:', `${foglioData.ordini_cliente.numero_ordine_cliente} (${foglioData.ordini_cliente.descrizione_ordine || 'N/D'})`, marginLeft);
+
+    // Ordine Interno con data
+    if (foglioData.ordini_interni) {
+        let ordineInternoText = `${foglioData.ordini_interni.numero_ordine_cliente} (${foglioData.ordini_interni.descrizione_ordine || 'N/D'})`;
+        if (foglioData.ordini_interni.data_ordine) {
+            const dataOrdineInterno = new Date(foglioData.ordini_interni.data_ordine);
+            ordineInternoText += ` - Data: ${dataOrdineInterno.toLocaleDateString('it-IT')}`;
+        }
+        addLabelAndValue(doc, 'Ordine Interno:', ordineInternoText, marginLeft);
+
+        // Dati Ordine Cliente (se presenti) - raggruppati
+        const hasDatiCliente = foglioData.ordini_interni.codice_ordine_cliente ||
+                               foglioData.ordini_interni.data_ordine_cliente ||
+                               foglioData.ordini_interni.data_conferma_ordine;
+
+        if (hasDatiCliente) {
+            yPosition += 1; // Piccolo spazio prima della sezione
+            addLabelAndValue(doc, 'Dati Ordine Cliente:', '', marginLeft);
+
+            if (foglioData.ordini_interni.codice_ordine_cliente) {
+                addLabelAndValue(doc, '  Codice:', foglioData.ordini_interni.codice_ordine_cliente, marginLeft);
+            }
+            if (foglioData.ordini_interni.data_ordine_cliente) {
+                const dataOrdineCliente = new Date(foglioData.ordini_interni.data_ordine_cliente);
+                addLabelAndValue(doc, '  Data Ordine:', dataOrdineCliente.toLocaleDateString('it-IT'), marginLeft);
+            }
+            if (foglioData.ordini_interni.data_conferma_ordine) {
+                const dataConferma = new Date(foglioData.ordini_interni.data_conferma_ordine);
+                addLabelAndValue(doc, '  Data Conferma:', dataConferma.toLocaleDateString('it-IT'), marginLeft);
+            }
+        }
+    }
+
     addLabelAndValue(doc, 'Stato Foglio:', foglioData.stato_foglio, marginLeft);
     if (foglioData.nota_stato_foglio) {
         addLabelAndValue(doc, 'Nota Stato Foglio:', foglioData.nota_stato_foglio, marginLeft);
     }
-    if (foglioData.creato_da_user_id) addLabelAndValue(doc, 'Rif. Utente Oilsafe:', `${foglioData.creato_da_user_id.substring(0,8)}...`, marginLeft);
+
+    // Rif. Utente Oilsafe - mostra il nome completo se disponibile, altrimenti l'ID
+    if (foglioData.profilo_creatore?.full_name) {
+        addLabelAndValue(doc, 'Rif. Utente Oilsafe:', foglioData.profilo_creatore.full_name, marginLeft);
+    } else if (foglioData.creato_da_user_id) {
+        addLabelAndValue(doc, 'Rif. Utente Oilsafe:', `${foglioData.creato_da_user_id.substring(0,8)}...`, marginLeft);
+    }
     yPosition += 3;
 
     // Funzione per blocchi di testo con supporto formattazione markdown
