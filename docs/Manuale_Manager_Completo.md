@@ -145,14 +145,43 @@ Per ogni foglio nella lista:
 2. Compila i campi:
    - **Cliente**: cerca e seleziona
    - **Indirizzo**: seleziona tra quelli del cliente
-   - **Commessa**: collega a commessa esistente
-   - **Ordine cliente**: opzionale
+   - **Commessa**: collega a commessa esistente (**OBBLIGATORIO** ⚠️)
+   - **Ordine Interno**: seleziona dall'elenco filtrato per commessa (**OBBLIGATORIO** ⚠️)
    - **Note**: informazioni aggiuntive
 3. Clicca **Salva**
+
+> **IMPORTANTE**: Commessa e Ordine Interno sono campi obbligatori. Il sistema bloccherà il salvataggio se mancanti.
 
 #### Da Pianificazione
 
 Puoi creare un foglio anche partendo da una pianificazione esistente. I dati (cliente, commessa) vengono precompilati.
+
+#### Tracciabilità e Conformità ISO 9001
+
+L'obbligatorietà di **Commessa** e **Ordine Interno** garantisce la tracciabilità completa secondo le procedure di qualità:
+
+**Flusso completo**:
+```
+Cliente → Commessa → Ordine Interno (gestionale) → Foglio di Lavoro
+```
+
+**Vantaggi organizzativi**:
+- ✅ **Tracciabilità totale**: ogni intervento è collegato a un ordine specifico del gestionale
+- ✅ **Riduzione errori**: eliminazione errori di fatturazione per mancanza riferimenti
+- ✅ **Conformità ISO 9001**: rispetto delle procedure di qualità aziendali
+- ✅ **Storico completo**: consultazione rapida di tutti gli interventi per ordine/commessa
+- ✅ **Reportistica accurata**: statistiche e report più precisi
+
+**Gestione ordini interni**:
+Gli ordini interni contengono:
+- Numero ordine del gestionale Oilsafe
+- Data ordine interno
+- Descrizione
+- Opzionalmente: dati dell'ordine cliente effettivo (codice, data, data conferma)
+
+**Filtri automatici**: Quando selezioni una commessa, gli ordini interni disponibili vengono automaticamente filtrati per mostrare solo quelli collegati a quella specifica commessa.
+
+> **Nota per fogli esistenti**: L'obbligatorietà si applica solo ai nuovi fogli creati da ora in avanti e alle modifiche di fogli esistenti. I fogli già presenti senza questi dati rimangono validi e consultabili.
 
 ---
 

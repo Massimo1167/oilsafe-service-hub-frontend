@@ -308,7 +308,62 @@ Aperto → In Lavorazione → Attesa Firma → Completato
 
 ---
 
-### 11. Gestione Scadenze Mezzi
+### 11. Tracciabilità e Conformità ISO 9001
+
+**[DIAGRAMMA: Flusso tracciabilità completo]**
+
+#### Flusso di Tracciabilità Completo
+
+```
+Cliente → Commessa → Ordine Interno (gestionale) → Foglio di Lavoro → Interventi
+```
+
+#### Novità: Campi Obbligatori
+
+Dal rilascio più recente, **ogni nuovo foglio** richiede obbligatoriamente:
+- ✅ **Commessa**: collegamento al progetto/contratto
+- ✅ **Ordine Interno**: numero d'ordine del gestionale Oilsafe
+
+#### Perché Questa Scelta?
+
+**Conformità Procedura Qualità ISO 9001**:
+- Garantisce tracciabilità completa di ogni intervento
+- Ogni foglio è collegato a un ordine specifico del gestionale
+- Impossibile procedere senza riferimenti corretti
+
+**Vantaggi Concreti**:
+
+| Beneficio | Descrizione |
+|-----------|-------------|
+| ✅ **Tracciabilità Totale** | Ogni intervento è tracciato dalla richiesta cliente alla fattura |
+| ✅ **Riduzione Errori** | Eliminazione errori di fatturazione per mancanza riferimenti |
+| ✅ **Conformità Normativa** | Rispetto procedure di qualità ISO 9001 |
+| ✅ **Storico Completo** | Consultazione rapida di tutti gli interventi per ordine/commessa |
+| ✅ **Reportistica Accurata** | Statistiche e report più precisi per la direzione |
+
+#### Gestione Ordini Interni
+
+Gli ordini interni registrano:
+- Numero ordine gestionale Oilsafe
+- Data ordine interno
+- Descrizione e collegamento alla commessa
+- Opzionalmente: dati ordine cliente effettivo (codice, data, conferma)
+
+#### Workflow Automatico
+
+Quando un tecnico crea un nuovo foglio:
+1. Seleziona il **Cliente**
+2. Seleziona la **Commessa** (obbligatorio)
+3. Il sistema mostra solo gli **Ordini Interni** di quella commessa (obbligatorio)
+4. Procede con la compilazione
+
+> Se mancano commessa o ordine interno, il sistema **blocca il salvataggio** con messaggio di errore.
+
+**Retrocompatibilità**: I fogli già esistenti senza questi dati rimangono validi. L'obbligatorietà si applica solo a nuovi fogli e modifiche.
+
+---
+
+### 12. Gestione Scadenze Mezzi
 
 **[SCREENSHOT: Scadenze mezzi]**
 
@@ -325,7 +380,7 @@ Aperto → In Lavorazione → Attesa Firma → Completato
 
 ---
 
-### 12. Statistiche e Report
+### 13. Statistiche e Report
 
 **[SCREENSHOT: Pagina statistiche]**
 
@@ -510,8 +565,9 @@ Per completare la presentazione, inserire screenshot dalle seguenti sezioni:
 8. **Programmazione Settimanale** - `/programmazione-settimanale`
 9. **Calendario Pianificazioni** - `/calendario-pianificazioni`
 10. **Pagina Anagrafiche** - `/anagrafiche`
-11. **Scadenze Mezzi** - `/scadenze-mezzi`
-12. **Statistiche** - `/statistiche`
+11. **Diagramma Tracciabilità** (Cliente → Commessa → Ordine Interno → Foglio)
+12. **Scadenze Mezzi** - `/scadenze-mezzi`
+13. **Statistiche** - `/statistiche`
 
 ---
 

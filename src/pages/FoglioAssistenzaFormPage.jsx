@@ -472,6 +472,13 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
             }
         }
 
+        // Validazione obbligatorietà Commessa e Ordine Interno
+        if (!formSelectedCommessaId || !formSelectedOrdineId) {
+            setError('Commessa e Ordine Interno sono obbligatori per creare/modificare un foglio di lavoro.');
+            setLoadingSubmit(false);
+            return;
+        }
+
         try {
             const { data: profCheck, error: profError } = await supabase
                 .from('profiles')
