@@ -31,7 +31,7 @@ import PianificazioniPage from './pages/PianificazioniPage';
 import ClientiManager from './components/anagrafiche/ClientiManager';
 import TecniciManager from './components/anagrafiche/TecniciManager';
 import CommesseManager from './components/anagrafiche/CommesseManager';
-import OrdiniClienteManager from './components/anagrafiche/OrdiniClienteManager';
+import OrdiniInterniManager from './components/anagrafiche/OrdiniInterniManager';
 import MansioniManager from './components/anagrafiche/MansioniManager';
 import AttivitaStandardManager from './components/anagrafiche/AttivitaStandardManager';
 import UnitaMisuraManager from './components/anagrafiche/UnitaMisuraManager';
@@ -218,7 +218,7 @@ function App() {
                 supabase.from('clienti').select('*').order('nome_azienda'),
                 supabase.from('tecnici').select('*').order('cognome'),
                 supabase.from('commesse').select('*').order('codice_commessa'),
-                supabase.from('ordini_cliente').select('*').order('numero_ordine_cliente'),
+                supabase.from('ordini_interni').select('*').order('numero_ordine_cliente'),
                 supabase.from('mansioni').select('*').eq('attivo', true).order('categoria').order('livello'),
                 supabase.from('mezzi_trasporto').select('*').order('targa'),
                 supabase.from('reparti').select('*').eq('attivo', true).order('codice')
@@ -487,7 +487,7 @@ function App() {
                 <Route path="/clienti" element={<ClientiManager session={session} onDataChanged={reloadAnagrafiche} />} />
                 <Route path="/tecnici" element={<TecniciManager session={session} mansioni={mansioni} reparti={reparti} onDataChanged={reloadAnagrafiche} />} />
                 <Route path="/commesse" element={<CommesseManager session={session} clienti={clienti} onDataChanged={reloadAnagrafiche} />} />
-                <Route path="/ordini" element={<OrdiniClienteManager session={session} clienti={clienti} commesse={commesse} onDataChanged={reloadAnagrafiche} />} />
+                <Route path="/ordini" element={<OrdiniInterniManager session={session} clienti={clienti} commesse={commesse} onDataChanged={reloadAnagrafiche} />} />
                 <Route path="/mansioni" element={<MansioniManager session={session} onDataChanged={reloadAnagrafiche} />} />
                 <Route path="/reparti" element={<RepartiManager session={session} onDataChanged={reloadAnagrafiche} />} />
                 <Route path="/unita-misura" element={<UnitaMisuraManager session={session} onDataChanged={reloadAnagrafiche} />} />

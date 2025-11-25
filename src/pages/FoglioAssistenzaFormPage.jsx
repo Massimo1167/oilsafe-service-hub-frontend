@@ -40,7 +40,7 @@ const haModificheSignificative = (originale, nuovo) => {
         'referente_cliente_richiesta',
         'motivo_intervento_generale',
         'commessa_id',
-        'ordine_cliente_id',
+        'ordine_interno_id',
         'descrizione_lavoro_generale',
         'osservazioni_generali',
         'materiali_forniti_generale',
@@ -281,7 +281,7 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
                     setFormReferenteCliente(data.referente_cliente_richiesta || '');
                     setFormMotivoGenerale(data.motivo_intervento_generale || '');
                     setFormSelectedCommessaId(data.commessa_id || '');
-                    setFormSelectedOrdineId(data.ordine_cliente_id || '');
+                    setFormSelectedOrdineId(data.ordine_interno_id || '');
                     setFormAssignedTecnicoId(data.assegnato_a_user_id || currentUserId || '');
                     setFormDescrizioneGenerale(data.descrizione_lavoro_generale || '');
                     setFormOsservazioniGenerali(data.osservazioni_generali || '');
@@ -305,7 +305,7 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
                         referente_cliente_richiesta: data.referente_cliente_richiesta || '',
                         motivo_intervento_generale: data.motivo_intervento_generale || '',
                         commessa_id: data.commessa_id || '',
-                        ordine_cliente_id: data.ordine_cliente_id || '',
+                        ordine_interno_id: data.ordine_interno_id || '',
                         descrizione_lavoro_generale: data.descrizione_lavoro_generale || '',
                         osservazioni_generali: data.osservazioni_generali || '',
                         materiali_forniti_generale: data.materiali_forniti_generale || '',
@@ -537,7 +537,7 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
               referente_cliente_richiesta: formReferenteCliente.trim(),
               motivo_intervento_generale: formMotivoGenerale.trim(),
               commessa_id: formSelectedCommessaId || null,
-              ordine_cliente_id: formSelectedOrdineId || null,
+              ordine_interno_id: formSelectedOrdineId || null,
               descrizione_lavoro_generale: formDescrizioneGenerale.trim(),
               osservazioni_generali: formOsservazioniGenerali.trim(),
               materiali_forniti_generale: formMaterialiForniti.trim(),
@@ -560,7 +560,7 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
                     referente_cliente_richiesta: formReferenteCliente.trim(),
                     motivo_intervento_generale: formMotivoGenerale.trim(),
                     commessa_id: formSelectedCommessaId || '',
-                    ordine_cliente_id: formSelectedOrdineId || '',
+                    ordine_interno_id: formSelectedOrdineId || '',
                     descrizione_lavoro_generale: formDescrizioneGenerale.trim(),
                     osservazioni_generali: formOsservazioniGenerali.trim(),
                     materiali_forniti_generale: formMaterialiForniti.trim(),
@@ -747,7 +747,7 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
                     </select>
                 </div>
                 <div>
-                    <label htmlFor="ordine">Ordine Cliente:</label>
+                    <label htmlFor="ordine">Ordine Interno:</label>
                     <input type="text" placeholder="Filtra ordine..." value={filtroOrdine} onChange={e => setFiltroOrdine(e.target.value)} style={{marginBottom:'5px', width:'calc(100% - 22px)'}}/>
                     <select id="ordine" value={formSelectedOrdineId} onChange={(e) => { setFormSelectedOrdineId(e.target.value); setFiltroOrdine(''); }} >
                         <option value="">Nessun Ordine ({ordiniFiltrati.length})</option>
