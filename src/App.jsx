@@ -268,7 +268,7 @@ function App() {
           supabase.from('clienti').select('*').order('nome_azienda'),
           supabase.from('tecnici').select('*').order('cognome'),
           supabase.from('commesse').select('*').order('codice_commessa'),
-          supabase.from('ordini_cliente').select('*').order('numero_ordine_cliente'),
+          supabase.from('ordini_interni').select('*').order('numero_ordine_cliente'),
           supabase.from('mansioni').select('*').eq('attivo', true).order('categoria').order('livello'),
           supabase.from('mezzi_trasporto').select('*').order('targa'),
           supabase.from('reparti').select('*').eq('attivo', true).order('codice')
