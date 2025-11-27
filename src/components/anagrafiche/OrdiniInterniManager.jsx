@@ -111,16 +111,11 @@ function OrdiniInterniManager({ session, clienti, commesse, onDataChanged }) {
             .order('numero_ordine_cliente', { ascending: true }) // Poi per numero ordine ascendente
             .range(from, to); // Applica paginazione
 
-        // Applica filtri server-side
+        // Applica filtri server-side (solo per numero ordine e codice commessa)
         if (filtroServerNumeroOrdine) {
             query = query.ilike('numero_ordine_cliente', `%${filtroServerNumeroOrdine}%`);
         }
-        if (filtroServerClienteNomeOrdine) {
-            // Filtro su colonna joinata 'clienti.nome_azienda'
-            // La sintassi per filtri su tabelle relazionate può variare leggermente
-            // con le versioni del client Supabase. Questa è per v2+.
-            query = query.ilike('clienti.nome_azienda', `%${filtroServerClienteNomeOrdine}%`);
-        }
+        // NOTA: Il filtro cliente viene applicato lato client dopo il fetch (vedi sotto)
         if (filtroServerCommessaCodice) {
             // Filtro su colonna joinata 'commesse.codice_commessa'
             query = query.ilike('commesse.codice_commessa', `%${filtroServerCommessaCodice}%`);
@@ -134,8 +129,19 @@ function OrdiniInterniManager({ session, clienti, commesse, onDataChanged }) {
             setOrdini([]);
             setTotalOrdini(0);
         } else {
-            setOrdini(data || []);
-            setTotalOrdini(count || 0); // Imposta il conteggio totale restituito da Supabase
+            // Applica filtro cliente lato client per garantire che funzioni correttamente
+            let ordiniFiltrati = data || [];
+            let totaleFiltrato = count || 0;
+
+            if (filtroServerClienteNomeOrdine) {
+                ordiniFiltrati = ordiniFiltrati.filter(o =>
+                    o.clienti?.nome_azienda?.toLowerCase().includes(filtroServerClienteNomeOrdine.toLowerCase())
+                );
+                totaleFiltrato = ordiniFiltrati.length;
+            }
+
+            setOrdini(ordiniFiltrati);
+            setTotalOrdini(totaleFiltrato); // Imposta il conteggio totale (eventualmente filtrato)
         }
         setPageLoading(false);
     }, [session, canManage, currentPage, filtroServerNumeroOrdine, filtroServerClienteNomeOrdine, filtroServerCommessaCodice, ricercaSbloccata]); // Dipendenze del useCallback
