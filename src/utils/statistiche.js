@@ -107,7 +107,7 @@ export const getStatsForTechnician = async (technicianId) => {
     // Query per trovare fogli con interventi del tecnico
     // Usa una subquery per ottimizzare
     const foglioIdsQuery = supabase
-      .from('interventi')
+      .from('interventi_assistenza')
       .select('foglio_assistenza_id')
       .eq('tecnico_id', technicianId);
 
@@ -326,7 +326,7 @@ export const getTopTechnicians = async (limit = 5) => {
 
     // Trova interventi di questi fogli
     const { data: interventi, error: interventiError } = await supabase
-      .from('interventi')
+      .from('interventi_assistenza')
       .select('tecnico_id, tecnici(nome, cognome)')
       .in('foglio_assistenza_id', foglioIds);
 

@@ -1,3 +1,7 @@
+---
+marp: true
+---
+
 # OilSafe Service Hub
 ## Guida Rapida per Tecnici
 
