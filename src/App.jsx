@@ -38,6 +38,10 @@ import UnitaMisuraManager from './components/anagrafiche/UnitaMisuraManager';
 import MezziTrasportoManager from './components/anagrafiche/MezziTrasportoManager';
 import RepartiManager from './components/anagrafiche/RepartiManager';
 
+// Importa Performance Monitoring
+import AdminMonitoringPage from './pages/AdminMonitoringPage';
+import { initPerformanceTracking, trackPageLoad, flushPerformanceLogs } from './utils/performanceTracker';
+
 import './App.css';
 
 // Componente per Rotte Protette
@@ -208,6 +212,30 @@ function App() {
     return () => { if (subscription) subscription.unsubscribe(); };
   }, []);
 
+  // useEffect per inizializzare performance tracking
+  useEffect(() => {
+    if (session && session.user && session.user.role) {
+      const userRole = (session.user.role || '').trim().toLowerCase();
+
+      // Inizializza tracking
+      initPerformanceTracking(session.user.id, userRole);
+
+      // Track page load iniziale
+      trackPageLoad(window.location.pathname);
+
+      // Flush logs prima di chiudere pagina
+      const handleBeforeUnload = () => {
+        flushPerformanceLogs();
+      };
+
+      window.addEventListener('beforeunload', handleBeforeUnload);
+
+      return () => {
+        window.removeEventListener('beforeunload', handleBeforeUnload);
+      };
+    }
+  }, [session?.user?.id, session?.user?.role]);
+
   // useEffect per caricare dati comuni (anagrafiche)
   useEffect(() => {
     const fetchCommonData = async () => {
@@ -341,7 +369,7 @@ function App() {
     }
   };
 
-  if (loadingSession) { 
+  if (loadingSession) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', flexDirection: 'column', backgroundColor:'#f0f2f5' }}>
         <div className="spinner"></div>
@@ -351,7 +379,7 @@ function App() {
   }
 
   const userRole = (session?.user?.role || '').trim().toLowerCase();
-  const canCreateNewSheet = userRole === 'admin' || userRole === 'manager'  || userRole === 'user';
+  const canCreateNewSheet = userRole === 'admin' || userRole === 'manager' || userRole === 'user';
 
   return (
     <div className="app-container">
@@ -369,7 +397,10 @@ function App() {
               </>
             )}
             {userRole === 'admin' && (
-              <Link to="/configurazione">Configurazione</Link>
+              <>
+                <Link to="/configurazione">Configurazione</Link>
+                <Link to="/admin-monitoring">Monitoraggio</Link>
+              </>
             )}
             <button
               onClick={handleLogout}
@@ -501,7 +532,10 @@ function App() {
               <Route path="/statistiche" element={<StatistichePage session={session} />} />
             )}
             {userRole === 'admin' && (
-              <Route path="/configurazione" element={<ConfigurazioneAppPage session={session} />} />
+              <>
+                <Route path="/configurazione" element={<ConfigurazioneAppPage session={session} />} />
+                <Route path="/admin-monitoring" element={<AdminMonitoringPage session={session} />} />
+              </>
             )}
           </Route>
           <Route path="*" element={<Navigate to={session ? "/" : "/login"} replace />} />
