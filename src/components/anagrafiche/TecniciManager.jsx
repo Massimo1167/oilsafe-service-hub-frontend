@@ -26,6 +26,7 @@ function TecniciManager({ session, mansioni, reparti, onDataChanged }) {
     const [formUserId, setFormUserId] = useState('');
     const [formMansioneId, setFormMansioneId] = useState('');
     const [formRepartoId, setFormRepartoId] = useState('');
+    const [formAbilitatoPianificazione, setFormAbilitatoPianificazione] = useState(true);
     const [editingTecnico, setEditingTecnico] = useState(null);
     const [users, setUsers] = useState([]);
     const [filterUser, setFilterUser] = useState('');
@@ -121,6 +122,7 @@ function TecniciManager({ session, mansioni, reparti, onDataChanged }) {
         setFormUserId('');
         setFormMansioneId('');
         setFormRepartoId('');
+        setFormAbilitatoPianificazione(true);
         setFilterUser('');
         setFilterMansione('');
         setFilterReparto('');
@@ -136,6 +138,7 @@ function TecniciManager({ session, mansioni, reparti, onDataChanged }) {
         setFormUserId(tecnico.user_id || '');
         setFormMansioneId(tecnico.mansione_id || '');
         setFormRepartoId(tecnico.reparto_id || '');
+        setFormAbilitatoPianificazione(tecnico.abilitato_pianificazione !== false); // Default true se undefined
         setFilterUser('');
         setFilterMansione('');
         setFilterReparto('');
@@ -153,7 +156,8 @@ function TecniciManager({ session, mansioni, reparti, onDataChanged }) {
             email: formEmail.trim() || null,
             user_id: formUserId.trim() || null,
             mansione_id: formMansioneId.trim() || null,
-            reparto_id: formRepartoId.trim() || null
+            reparto_id: formRepartoId.trim() || null,
+            abilitato_pianificazione: formAbilitatoPianificazione
         };
         let opError;
         if (editingTecnico) { 
@@ -428,6 +432,21 @@ function TecniciManager({ session, mansioni, reparti, onDataChanged }) {
                             ))}
                         </select>
                     </div>
+                    <div style={{marginTop: '15px', marginBottom: '15px', padding: '10px', backgroundColor: '#f8f9fa', borderRadius: '4px'}}>
+                        <label style={{display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '8px'}}>
+                            <input
+                                type="checkbox"
+                                id="formAbilitatoPianificazione"
+                                checked={formAbilitatoPianificazione}
+                                onChange={e => setFormAbilitatoPianificazione(e.target.checked)}
+                                style={{cursor: 'pointer'}}
+                            />
+                            <span style={{fontWeight: 'bold'}}>Visibile in Pianificazione</span>
+                        </label>
+                        <small style={{display: 'block', marginTop: '5px', marginLeft: '28px', color: '#666'}}>
+                            Se disabilitato, il tecnico non apparirà nelle interfacce di pianificazione (griglia settimanale, calendario)
+                        </small>
+                    </div>
                     <button type="submit" disabled={loadingActions}>{loadingActions ? 'Salvataggio...' : (editingTecnico ? 'Salva Modifiche' : 'Aggiungi Tecnico')}</button>
                     {editingTecnico && ( <button type="button" className="secondary" onClick={resetForm} disabled={loadingActions} style={{marginLeft:'10px'}}> Annulla Modifica </button> )}
                 </form>
@@ -435,11 +454,21 @@ function TecniciManager({ session, mansioni, reparti, onDataChanged }) {
             <h3>Elenco Tecnici</h3>
             {tecnici.length === 0 && !pageLoading ? ( <p>Nessun tecnico trovato.</p> ) : (
                 <table>
-                    <thead><tr><th>Cognome</th><th>Nome</th><th>Email</th>{canManage && <th>Azioni</th>}</tr></thead>
+                    <thead><tr><th>Cognome</th><th>Nome</th><th>Email</th><th>Pianificazione</th>{canManage && <th>Azioni</th>}</tr></thead>
                     <tbody>
                         {tecnici.map(t => (
                             <tr key={t.id} style={editingTecnico && editingTecnico.id === t.id ? {backgroundColor: '#e6f7ff'} : {}}>
-                                <td>{t.cognome}</td><td>{t.nome}</td><td>{t.email || '-'}</td>
+                                <td>{t.cognome}</td>
+                                <td>{t.nome}</td>
+                                <td>{t.email || '-'}</td>
+                                <td style={{textAlign: 'center'}}>
+                                    <span
+                                        title={t.abilitato_pianificazione !== false ? 'Visibile in pianificazione' : 'Non visibile in pianificazione'}
+                                        style={{fontSize: '1.2em'}}
+                                    >
+                                        {t.abilitato_pianificazione !== false ? '📅' : '❌'}
+                                    </span>
+                                </td>
                                  {canManage && (<td className="actions">
                                         <button className="button secondary small" onClick={() => handleEditTecnico(t)} disabled={loadingActions}>Modifica</button>
                                         <button className="button danger small" onClick={() => handleDeleteTecnico(t.id)} disabled={loadingActions} style={{marginLeft:'5px'}}>Elimina</button>
