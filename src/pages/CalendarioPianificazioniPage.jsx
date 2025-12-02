@@ -406,17 +406,31 @@ function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mez
         start,
         end,
         allDay: p.tutto_il_giorno,
-        resource: p,
-        // Dati per EventoPianificazione
+        resource: {
+          // Campi per AgendaView (compatibili con CalendarioPianificazioniOperatoriPage)
+          id: p.id,
+          numero_foglio: foglio.numero_foglio,
+          stato_pianificazione: p.stato_pianificazione,
+          tecnico_id: p.tecnici_assegnati?.[0],
+          tecnico_nome: tecniciNomi.join(', '),
+          commessa_id: p.commessa_id,
+          commessa_codice: commessa?.codice_commessa,
+          commessa_descrizione: commessa?.descrizione,
+          cliente_id: p.cliente_id,
+          cliente_nome: cliente?.nome_azienda,
+          foglio_id: p.foglio_assistenza_id,
+          mezzo_principale_id: p.mezzo_principale_id,
+          // Dati completi pianificazione (per modal e altri componenti)
+          ...p,
+        },
+        // Mantieni campi legacy a livello radice per compatibilità con EventoPianificazione
         commessaCodice: commessa?.codice_commessa || 'N/A',
         tecniciNomi,
         statoPianificazione: p.stato_pianificazione,
         mezzoTarga,
-        // Dati completi per modal
         numeroFoglio: foglio.numero_foglio,
         clienteNome: cliente?.nome_azienda || 'N/A',
         commessaDescrizione: commessa?.descrizione || '',
-        ...p,
       };
     });
   }, [pianificazioni, foglioMap, clienti, tecnici, commesse, mezzi, filterTecnico, filterMezzo, filterStato, filterCommessa, filterFoglio, filterDataInizio, filterDataFine, view]);
@@ -864,6 +878,93 @@ function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mez
         </p>
       </div>
 
+      {/* Toolbar Calendario - Navigazione e Selezione Vista */}
+      <div className="calendario-custom-toolbar" style={{
+        background: 'white',
+        borderRadius: '8px',
+        padding: '15px',
+        marginBottom: '15px',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: '15px'
+      }}>
+        {/* Navigazione */}
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <button
+            className="button secondary"
+            onClick={() => {
+              const newDate = new Date(currentDate);
+              if (view === 'month') {
+                newDate.setMonth(newDate.getMonth() - 1);
+              } else if (view === 'week' || view === 'agenda') {
+                newDate.setDate(newDate.getDate() - 7);
+              } else if (view === 'day') {
+                newDate.setDate(newDate.getDate() - 1);
+              }
+              setCurrentDate(newDate);
+            }}
+          >
+            ‹ Precedente
+          </button>
+          <button
+            className="button secondary"
+            onClick={() => setCurrentDate(new Date())}
+          >
+            Oggi
+          </button>
+          <button
+            className="button secondary"
+            onClick={() => {
+              const newDate = new Date(currentDate);
+              if (view === 'month') {
+                newDate.setMonth(newDate.getMonth() + 1);
+              } else if (view === 'week' || view === 'agenda') {
+                newDate.setDate(newDate.getDate() + 7);
+              } else if (view === 'day') {
+                newDate.setDate(newDate.getDate() + 1);
+              }
+              setCurrentDate(newDate);
+            }}
+          >
+            Successivo ›
+          </button>
+          <span style={{ marginLeft: '15px', fontWeight: '600', fontSize: '1.1em' }}>
+            {format(currentDate, view === 'month' ? 'MMMM yyyy' : 'dd MMMM yyyy', { locale: it })}
+          </span>
+        </div>
+
+        {/* Selettore Vista */}
+        <div style={{ display: 'flex', gap: '5px' }}>
+          <button
+            className={`button ${view === 'month' ? 'primary' : 'secondary'}`}
+            onClick={() => setView('month')}
+          >
+            Mese
+          </button>
+          <button
+            className={`button ${view === 'week' ? 'primary' : 'secondary'}`}
+            onClick={() => setView('week')}
+          >
+            Settimana
+          </button>
+          <button
+            className={`button ${view === 'day' ? 'primary' : 'secondary'}`}
+            onClick={() => setView('day')}
+          >
+            Giorno
+          </button>
+          <button
+            className={`button ${view === 'agenda' ? 'primary' : 'secondary'}`}
+            onClick={() => setView('agenda')}
+          >
+            Agenda
+          </button>
+        </div>
+      </div>
+
       {/* Calendario o AgendaView personalizzata */}
       <div className="calendario-container">
         {view === 'agenda' ? (
@@ -890,6 +991,7 @@ function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mez
             onNavigate={setCurrentDate}
             onSelectEvent={handleSelectEvent}
             eventPropGetter={eventStyleGetter}
+            toolbar={false}
             components={components}
             messages={{
               allDay: 'Tutto il giorno',
