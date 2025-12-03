@@ -16,7 +16,7 @@ import './ProgrammazioneSettimanalePage.css';
  * - Navigazione settimana per settimana
  * - FUTURO: Drag & drop per spostare pianificazioni (PHASE 4)
  */
-function ProgrammazioneSettimanalePage({ user, userRole, tecnici, commesse, clienti, reparti }) {
+function ProgrammazioneSettimanalePage({ user, userRole, tecnici, commesse, clienti, reparti, configurazioni }) {
   const navigate = useNavigate();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [pianificazioni, setPianificazioni] = useState([]);
@@ -59,6 +59,8 @@ function ProgrammazioneSettimanalePage({ user, userRole, tecnici, commesse, clie
         const weekStartStr = format(weekStart, 'yyyy-MM-dd');
         const weekEndStr = format(weekEnd, 'yyyy-MM-dd');
 
+        // La RLS si occupa del filtro a livello database
+        // La configurazione user_visualizza_tutte_pianificazioni viene letta dalla RLS policy
         const { data, error: fetchError } = await supabase
           .from('pianificazioni')
           .select(`
@@ -95,7 +97,7 @@ function ProgrammazioneSettimanalePage({ user, userRole, tecnici, commesse, clie
     };
 
     fetchPianificazioni();
-  }, [weekStart, weekEnd]);
+  }, [weekStart, weekEnd, configurazioni, userRole, user, tecnici]);
 
   // Organizza pianificazioni per tecnico e giorno
   const pianificazioniPerTecnicoGiorno = useMemo(() => {

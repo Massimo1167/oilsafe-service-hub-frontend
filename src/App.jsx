@@ -75,6 +75,9 @@ function App() {
   const [mansioni, setMansioni] = useState([]);
   const [mezzi, setMezzi] = useState([]);
   const [reparti, setReparti] = useState([]);
+  const [configurazioni, setConfigurazioni] = useState({
+    userVedeTuttePianificazioni: true,
+  });
 
   const initialSessionCheckTriggered = useRef(false);
   const sessionRef = useRef(session); 
@@ -271,6 +274,23 @@ function App() {
 
             setReparti(repartiRes.data || []);
             if(repartiRes.error) console.error("APP.JSX: Errore fetch reparti:", repartiRes.error.message);
+
+            // Carica configurazioni app
+            const { data: configData, error: configError } = await supabase
+              .from('app_configurazioni')
+              .select('chiave, valore')
+              .in('chiave', ['user_visualizza_tutte_pianificazioni']);
+
+            if (configData) {
+              const configs = {};
+              configData.forEach(config => {
+                if (config.chiave === 'user_visualizza_tutte_pianificazioni') {
+                  configs.userVedeTuttePianificazioni = config.valore?.abilitato ?? true;
+                }
+              });
+              setConfigurazioni(configs);
+            }
+            if(configError) console.error("APP.JSX: Errore fetch configurazioni:", configError.message);
         } catch (e) {
             console.error("APP.JSX: Eccezione imprevista durante fetchCommonData:", e);
             setClienti([]); setTecnici([]); setCommesse([]); setOrdini([]); setMansioni([]); setMezzi([]); setReparti([]);
@@ -483,6 +503,7 @@ function App() {
                   commesse={commesse}
                   mezzi={mezzi}
                   userRole={userRole}
+                  configurazioni={configurazioni}
                 />
               }
             />
@@ -496,6 +517,7 @@ function App() {
                   commesse={commesse}
                   clienti={clienti}
                   reparti={reparti}
+                  configurazioni={configurazioni}
                 />
               }
             />

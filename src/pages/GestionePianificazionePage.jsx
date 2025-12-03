@@ -32,7 +32,7 @@ const DnDCalendar = withDragAndDrop(Calendar);
  * o visualizzazione read-only (user)
  * Filtraggio per tecnico, mezzo, stato, commessa
  */
-function GestionePianificazionePage({ session, clienti, tecnici, commesse, mezzi, userRole }) {
+function GestionePianificazionePage({ session, clienti, tecnici, commesse, mezzi, userRole, configurazioni }) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -105,7 +105,8 @@ function GestionePianificazionePage({ session, clienti, tecnici, commesse, mezzi
     setError('');
 
     try {
-      // Fetch pianificazioni
+      // La RLS si occupa del filtro a livello database
+      // La configurazione user_visualizza_tutte_pianificazioni viene letta dalla RLS policy
       const { data: pianiData, error: pianiError } = await supabase
         .from('pianificazioni')
         .select('*')
@@ -137,7 +138,7 @@ function GestionePianificazionePage({ session, clienti, tecnici, commesse, mezzi
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [configurazioni, userRole, session, tecnici]);
 
   useEffect(() => {
     fetchPianificazioni();
@@ -1166,6 +1167,7 @@ GestionePianificazionePage.propTypes = {
   commesse: PropTypes.array.isRequired,
   mezzi: PropTypes.array.isRequired,
   userRole: PropTypes.string.isRequired,
+  configurazioni: PropTypes.object,
 };
 
 export default GestionePianificazionePage;
