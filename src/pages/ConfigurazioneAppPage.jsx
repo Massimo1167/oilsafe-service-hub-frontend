@@ -16,6 +16,7 @@ function ConfigurazioneAppPage({ session }) {
     bollo_giorni: 30,
     manutenzione_giorni: 15,
   });
+  const [userVedeTutte, setUserVedeTutte] = useState(true);
 
   // Lista manager disponibili
   const [managers, setManagers] = useState([]);
@@ -60,6 +61,19 @@ function ConfigurazioneAppPage({ session }) {
         if (!soglieError && soglieData?.valore) {
           setSoglie(soglieData.valore);
         }
+
+        // Carica configurazione user_visualizza_tutte_pianificazioni
+        const { data: userViewData, error: userViewError } = await supabase
+          .from('app_configurazioni')
+          .select('valore')
+          .eq('chiave', 'user_visualizza_tutte_pianificazioni')
+          .single();
+
+        if (userViewError) {
+          console.error('Errore caricamento config user view:', userViewError);
+        } else {
+          setUserVedeTutte(userViewData?.valore?.abilitato ?? true);
+        }
       } catch (err) {
         console.error('Errore caricamento configurazioni:', err);
         setError(err.message);
@@ -98,6 +112,19 @@ function ConfigurazioneAppPage({ session }) {
         .eq('chiave', 'soglie_alert_mezzi');
 
       if (soglieError) throw soglieError;
+
+      // Salva configurazione user_visualizza_tutte_pianificazioni
+      const { error: userViewError } = await supabase
+        .from('app_configurazioni')
+        .update({
+          valore: { abilitato: userVedeTutte }
+        })
+        .eq('chiave', 'user_visualizza_tutte_pianificazioni');
+
+      if (userViewError) {
+        console.error('Errore salvataggio config user view:', userViewError);
+        throw userViewError;
+      }
 
       setSuccessMessage('Configurazioni salvate con successo');
       setTimeout(() => setSuccessMessage(''), 3000);
@@ -212,6 +239,31 @@ function ConfigurazioneAppPage({ session }) {
               disabled={saving}
             />
           </div>
+        </div>
+      </div>
+
+      {/* Sezione Visibilità Pianificazioni User */}
+      <div className="config-section">
+        <h2>👥 Visibilità Pianificazioni per Utenti</h2>
+        <div className="config-group">
+          <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={userVedeTutte}
+              onChange={(e) => setUserVedeTutte(e.target.checked)}
+              disabled={saving}
+              style={{ width: '20px', height: '20px', cursor: 'pointer' }}
+            />
+            <div>
+              <div style={{ fontWeight: '500', marginBottom: '5px' }}>
+                Gli utenti con ruolo "user" possono vedere tutte le pianificazioni
+              </div>
+              <div style={{ fontSize: '0.9em', color: '#666' }}>
+                Se disabilitato, gli user vedranno solo le pianificazioni dove sono assegnati come tecnici.
+                I filtri manuali rimangono sempre disponibili.
+              </div>
+            </div>
+          </label>
         </div>
       </div>
 

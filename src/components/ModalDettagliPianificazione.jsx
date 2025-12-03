@@ -292,7 +292,7 @@ function ModalDettagliPianificazione({
           </section>
 
           {/* Cambio Stato */}
-          {nextStates.length > 0 && (
+          {onChangeState && nextStates.length > 0 && (
             <section style={{ marginBottom: '20px' }}>
               <h3 style={{ fontSize: '1.1em', marginBottom: '10px', color: '#333' }}>
                 Cambia Stato
@@ -334,19 +334,25 @@ function ModalDettagliPianificazione({
               ➕ Crea Foglio
             </button>
           )}
-          <button className="button" onClick={() => onEdit(pianificazione)}>
-            ✏️ Modifica
-          </button>
-          <button className="button" onClick={handleDuplicate}>
-            📋 Duplica
-          </button>
-          <button
-            className="button danger"
-            onClick={handleDelete}
-            disabled={deleting}
-          >
-            {deleting ? 'Eliminazione...' : '🗑️ Elimina'}
-          </button>
+          {onEdit && (
+            <button className="button" onClick={() => onEdit(pianificazione)}>
+              ✏️ Modifica
+            </button>
+          )}
+          {onDuplicate && (
+            <button className="button" onClick={handleDuplicate}>
+              📋 Duplica
+            </button>
+          )}
+          {onDelete && (
+            <button
+              className="button danger"
+              onClick={handleDelete}
+              disabled={deleting}
+            >
+              {deleting ? 'Eliminazione...' : '🗑️ Elimina'}
+            </button>
+          )}
           <button className="button" onClick={onClose}>
             Chiudi
           </button>
@@ -380,11 +386,11 @@ ModalDettagliPianificazione.propTypes = {
     stato_pianificazione: PropTypes.string.isRequired,
   }),
   onClose: PropTypes.func.isRequired,
-  onEdit: PropTypes.func.isRequired,
-  onDelete: PropTypes.func.isRequired,
-  onChangeState: PropTypes.func.isRequired,
+  onEdit: PropTypes.func,
+  onDelete: PropTypes.func,
+  onChangeState: PropTypes.func,
   onNavigateToFoglio: PropTypes.func.isRequired,
-  onDuplicate: PropTypes.func.isRequired,
+  onDuplicate: PropTypes.func,
   clienti: PropTypes.array.isRequired,
   tecnici: PropTypes.array.isRequired,
   commesse: PropTypes.array.isRequired,

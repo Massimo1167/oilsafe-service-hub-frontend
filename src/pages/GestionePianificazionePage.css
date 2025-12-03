@@ -331,3 +331,88 @@
     margin-bottom: 15px;
     border: 1px solid #f5c6cb;
 }
+
+/* Stili per Agenda View con Raggruppamento Commessa */
+
+/* Gruppo Commessa */
+.agenda-commessa-group {
+    margin-bottom: 1.5rem;
+    border-left: 4px solid #0066cc;
+    background: #f8f9fa;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.agenda-commessa-header {
+    padding: 0.75rem 1rem;
+    background: linear-gradient(135deg, #0066cc 0%, #0088ff 100%);
+    color: white;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.agenda-commessa-icon {
+    font-size: 1.2em;
+}
+
+.agenda-commessa-codice {
+    font-weight: bold;
+    font-size: 1.1em;
+}
+
+.agenda-commessa-desc {
+    opacity: 0.9;
+    font-weight: normal;
+}
+
+.agenda-commessa-slots {
+    padding: 0.5rem;
+    background: white;
+}
+
+/* Override evento esistente per indentazione */
+.agenda-commessa-slots .agenda-event {
+    margin-left: 1rem;
+    margin-bottom: 0.5rem;
+    border-radius: 4px;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.agenda-commessa-slots .agenda-event:hover {
+    transform: translateX(4px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Dettagli evento */
+.agenda-event-foglio {
+    font-size: 0.9em;
+    color: #666;
+    margin: 0.25rem 0;
+}
+
+.agenda-event-tecnici {
+    font-size: 0.95em;
+    font-weight: 500;
+    color: #333;
+    margin: 0.25rem 0;
+}
+
+.agenda-event-meta {
+    font-size: 0.85em;
+    color: #777;
+    margin-top: 0.25rem;
+}
+
+.agenda-event-stato {
+    display: inline-block;
+    padding: 2px 8px;
+    background: #e9ecef;
+    border-radius: 12px;
+    font-weight: 500;
+}
+
+.agenda-event-cliente {
+    margin-left: 0.5rem;
+}

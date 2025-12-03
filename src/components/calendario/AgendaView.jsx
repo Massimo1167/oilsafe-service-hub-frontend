@@ -1,11 +1,11 @@
 import React, { useMemo } from 'react';
 import PropTypes from 'prop-types';
-import { format, startOfWeek, endOfWeek, eachDayOfInterval, isWithinInterval } from 'date-fns';
+import { format, startOfWeek, endOfWeek, eachDayOfInterval, startOfDay, endOfDay } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { formatNumeroFoglio } from '../../utils/formatters';
 
 /**
- * Vista Agenda: lista di eventi raggruppati per giorno
+ * Vista Agenda: lista di eventi raggruppati per giorno → commessa → orario → tecnici
  * Ottimizzata per dispositivi mobili e lettura rapida
  */
 const AgendaView = ({ events, date, onSelectEvent, getEventColor }) => {
@@ -14,35 +14,72 @@ const AgendaView = ({ events, date, onSelectEvent, getEventColor }) => {
     const weekEnd = useMemo(() => endOfWeek(date, { locale: it }), [date]);
     const days = useMemo(() => eachDayOfInterval({ start: weekStart, end: weekEnd }), [weekStart, weekEnd]);
 
-    // Raggruppa eventi per giorno
-    const eventiPerGiorno = useMemo(() => {
+    // Raggruppa eventi per giorno → commessa → orario
+    const eventiRaggruppati = useMemo(() => {
         const grouped = {};
 
+        // Inizializza struttura per ogni giorno della settimana
         days.forEach(day => {
             const dayKey = format(day, 'yyyy-MM-dd');
             grouped[dayKey] = {
                 day,
-                events: []
+                commesse: {} // { commessaId: { info, slots: {} } }
             };
         });
 
+        // Raggruppa eventi per giorno → commessa → orario
         events.forEach(event => {
-            const eventStart = event.start;
-            const eventEnd = event.end;
+            // Trova i giorni che intersecano questo evento
+            const eventDays = days.filter(day => {
+                const dayStart = startOfDay(day);
+                const dayEnd = endOfDay(day);
+                return (event.start <= dayEnd && event.end >= dayStart);
+            });
 
-            days.forEach(day => {
-                const dayStart = new Date(day);
-                dayStart.setHours(0, 0, 0, 0);
-                const dayEnd = new Date(day);
-                dayEnd.setHours(23, 59, 59, 999);
+            eventDays.forEach(day => {
+                const dayKey = format(day, 'yyyy-MM-dd');
+                const commessaId = event.resource?.commessa_id || 'no-commessa';
+                const commessaCodice = event.resource?.commessa_codice || 'N/A';
+                const commessaDescrizione = event.resource?.commessa_descrizione || '';
 
-                // Se l'evento interseca questo giorno
-                if (isWithinInterval(eventStart, { start: dayStart, end: dayEnd }) ||
-                    isWithinInterval(eventEnd, { start: dayStart, end: dayEnd }) ||
-                    (eventStart <= dayStart && eventEnd >= dayEnd)) {
+                // Crea slot temporale unico basato su orario
+                const slotKey = `${format(event.start, 'HH:mm')}-${format(event.end, 'HH:mm')}`;
 
-                    const dayKey = format(day, 'yyyy-MM-dd');
-                    grouped[dayKey].events.push(event);
+                // Inizializza commessa se non esiste
+                if (!grouped[dayKey].commesse[commessaId]) {
+                    grouped[dayKey].commesse[commessaId] = {
+                        id: commessaId,
+                        codice: commessaCodice,
+                        descrizione: commessaDescrizione,
+                        slots: {} // { slotKey: { orarioInizio, orarioFine, tecnici: [], foglio, ... } }
+                    };
+                }
+
+                // Inizializza slot se non esiste
+                if (!grouped[dayKey].commesse[commessaId].slots[slotKey]) {
+                    grouped[dayKey].commesse[commessaId].slots[slotKey] = {
+                        orarioInizio: format(event.start, 'HH:mm'),
+                        orarioFine: format(event.end, 'HH:mm'),
+                        tecnici: [],
+                        foglioId: event.resource?.foglio_id,
+                        numeroFoglio: event.resource?.numero_foglio,
+                        statoPianificazione: event.resource?.stato_pianificazione || 'Pianificata',
+                        clienteNome: event.resource?.cliente_nome
+                    };
+                }
+
+                // Aggiungi tecnico allo slot (evita duplicati)
+                const tecnicoNome = event.resource?.tecnico_nome || 'N/A';
+                const tecnicoId = event.resource?.tecnico_id;
+
+                const tecnicoEsistente = grouped[dayKey].commesse[commessaId].slots[slotKey].tecnici
+                    .find(t => t.id === tecnicoId);
+
+                if (!tecnicoEsistente) {
+                    grouped[dayKey].commesse[commessaId].slots[slotKey].tecnici.push({
+                        id: tecnicoId,
+                        nome: tecnicoNome
+                    });
                 }
             });
         });
@@ -54,69 +91,91 @@ const AgendaView = ({ events, date, onSelectEvent, getEventColor }) => {
         <div className="agenda-view">
             {days.map(day => {
                 const dayKey = format(day, 'yyyy-MM-dd');
-                const dayData = eventiPerGiorno[dayKey];
-                const dayEvents = dayData?.events || [];
+                const dayData = eventiRaggruppati[dayKey];
+                const commesseArray = Object.values(dayData.commesse);
+                const totalSlots = commesseArray.reduce((sum, c) => sum + Object.keys(c.slots).length, 0);
 
                 return (
                     <div key={dayKey} className="agenda-day">
+                        {/* Header giorno */}
                         <div className="agenda-day-header">
-                            <div className="agenda-day-name">
-                                {format(day, 'EEEE', { locale: it })}
-                            </div>
-                            <div className="agenda-day-date">
-                                {format(day, 'dd MMMM yyyy', { locale: it })}
+                            <div>
+                                <div className="agenda-day-name">{format(day, 'EEEE', { locale: it })}</div>
+                                <div className="agenda-day-date">{format(day, 'd MMMM yyyy', { locale: it })}</div>
                             </div>
                             <div className="agenda-day-count">
-                                {dayEvents.length} {dayEvents.length === 1 ? 'pianificazione' : 'pianificazioni'}
+                                {totalSlots > 0 ? `${totalSlots} pianificazioni` : 'Nessuna pianificazione'}
                             </div>
                         </div>
 
+                        {/* Contenuto giorno */}
                         <div className="agenda-day-events">
-                            {dayEvents.length === 0 ? (
-                                <div className="agenda-no-events">
-                                    Nessuna pianificazione
-                                </div>
+                            {commesseArray.length === 0 ? (
+                                <div className="agenda-no-events">Nessuna pianificazione per questo giorno</div>
                             ) : (
-                                dayEvents.map((event, idx) => {
-                                    const backgroundColor = getEventColor(event);
-                                    const tecnicoNome = event.resource?.tecnico_nome || 'N/D';
-                                    const numeroFoglioAbbreviato = formatNumeroFoglio(event.resource?.numero_foglio);
-                                    const commessa = event.resource?.commessa_descrizione || event.resource?.commessa_codice || 'Nessuna commessa';
-                                    const cliente = event.resource?.cliente_nome || 'N/D';
+                                commesseArray.map(commessa => {
+                                    const slotsArray = Object.values(commessa.slots);
 
                                     return (
-                                        <div
-                                            key={idx}
-                                            className="agenda-event"
-                                            onClick={() => onSelectEvent && onSelectEvent(event)}
-                                        >
-                                            <div
-                                                className="agenda-event-color-bar"
-                                                style={{ backgroundColor }}
-                                            />
-                                            <div className="agenda-event-content">
-                                                <div className="agenda-event-header">
-                                                    <div className="agenda-event-foglio">
-                                                        <strong>Foglio #{numeroFoglioAbbreviato}</strong>
-                                                    </div>
-                                                    <div className="agenda-event-time">
-                                                        {format(event.start, 'HH:mm', { locale: it })} - {format(event.end, 'HH:mm', { locale: it })}
-                                                    </div>
-                                                </div>
-                                                <div className="agenda-event-details">
-                                                    <div className="agenda-event-row">
-                                                        <span className="agenda-event-label">Tecnico:</span>
-                                                        <span className="agenda-event-value">{tecnicoNome}</span>
-                                                    </div>
-                                                    <div className="agenda-event-row">
-                                                        <span className="agenda-event-label">Commessa:</span>
-                                                        <span className="agenda-event-value">{commessa}</span>
-                                                    </div>
-                                                    <div className="agenda-event-row">
-                                                        <span className="agenda-event-label">Cliente:</span>
-                                                        <span className="agenda-event-value">{cliente}</span>
-                                                    </div>
-                                                </div>
+                                        <div key={commessa.id} className="agenda-commessa-group">
+                                            {/* Header Commessa */}
+                                            <div className="agenda-commessa-header">
+                                                <span className="agenda-commessa-icon">📁</span>
+                                                <span className="agenda-commessa-codice">{commessa.codice}</span>
+                                                {commessa.descrizione && (
+                                                    <span className="agenda-commessa-desc">- {commessa.descrizione}</span>
+                                                )}
+                                            </div>
+
+                                            {/* Slots orari per questa commessa */}
+                                            <div className="agenda-commessa-slots">
+                                                {slotsArray.map((slot, idx) => {
+                                                    const slotKey = `${commessa.id}-${slot.orarioInizio}-${slot.orarioFine}-${idx}`;
+                                                    const colorCommessa = getEventColor ?
+                                                        getEventColor({ resource: { commessa_id: commessa.id } }) :
+                                                        '#6c757d';
+
+                                                    return (
+                                                        <div
+                                                            key={slotKey}
+                                                            className="agenda-event"
+                                                            onClick={() => onSelectEvent && onSelectEvent({ resource: slot })}
+                                                        >
+                                                            {/* Barra colorata laterale */}
+                                                            <div
+                                                                className="agenda-event-color-bar"
+                                                                style={{ backgroundColor: colorCommessa }}
+                                                            />
+
+                                                            <div className="agenda-event-content">
+                                                                {/* Orario */}
+                                                                <div className="agenda-event-time">
+                                                                    ⏰ {slot.orarioInizio} - {slot.orarioFine}
+                                                                </div>
+
+                                                                {/* Foglio (informazione secondaria) */}
+                                                                {slot.numeroFoglio && (
+                                                                    <div className="agenda-event-foglio">
+                                                                        📄 Foglio #{formatNumeroFoglio(slot.numeroFoglio)}
+                                                                    </div>
+                                                                )}
+
+                                                                {/* Tecnici raggruppati */}
+                                                                <div className="agenda-event-tecnici">
+                                                                    👥 {slot.tecnici.map(t => t.nome).join(', ')}
+                                                                </div>
+
+                                                                {/* Stato e Cliente */}
+                                                                <div className="agenda-event-meta">
+                                                                    <span className="agenda-event-stato">{slot.statoPianificazione}</span>
+                                                                    {slot.clienteNome && (
+                                                                        <span className="agenda-event-cliente"> • {slot.clienteNome}</span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
                                             </div>
                                         </div>
                                     );
@@ -134,7 +193,7 @@ AgendaView.propTypes = {
     events: PropTypes.array.isRequired,
     date: PropTypes.instanceOf(Date).isRequired,
     onSelectEvent: PropTypes.func,
-    getEventColor: PropTypes.func.isRequired,
+    getEventColor: PropTypes.func,
 };
 
 export default AgendaView;

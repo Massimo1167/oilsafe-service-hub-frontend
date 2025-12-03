@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
 import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop';
-import { format, parse, startOfWeek, getDay } from 'date-fns';
+import { format, parse, startOfWeek, endOfWeek, startOfMonth, endOfMonth, getDay } from 'date-fns';
 import { it } from 'date-fns/locale';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
@@ -10,7 +10,9 @@ import { supabase } from '../supabaseClient';
 import EventoPianificazione from '../components/EventoPianificazione';
 import ModalDettagliPianificazione from '../components/ModalDettagliPianificazione';
 import PianificazioneForm from '../components/PianificazioneForm';
-import './CalendarioPianificazioniPage.css';
+import AgendaView from '../components/calendario/AgendaView';
+import './GestionePianificazionePage.css';
+import './CalendarioPianificazioniOperatoriPage.css';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getColorForCommessa } from '../utils/calendarioColors';
 import LegendaColoriCalendario from '../components/LegendaColoriCalendario';
@@ -25,13 +27,17 @@ const localizer = dateFnsLocalizer({
 const DnDCalendar = withDragAndDrop(Calendar);
 
 /**
- * Pagina principale calendario pianificazioni interventi
- * Mostra calendario con pianificazioni future, permette creazione/modifica/eliminazione
+ * Pagina principale gestione pianificazioni interventi
+ * Mostra calendario con pianificazioni future, permette creazione/modifica/eliminazione (manager/admin)
+ * o visualizzazione read-only (user)
  * Filtraggio per tecnico, mezzo, stato, commessa
  */
-function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mezzi }) {
+function GestionePianificazionePage({ session, clienti, tecnici, commesse, mezzi, userRole, configurazioni }) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+
+  // Modalità read-only per utenti 'user'
+  const isReadOnly = userRole === 'user';
 
   // Stati principali
   const [pianificazioni, setPianificazioni] = useState([]);
@@ -64,13 +70,43 @@ function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mez
   const [fogliDisponibili, setFogliDisponibili] = useState([]);
   const [alertMezzi, setAlertMezzi] = useState({ scadute: 0, inScadenza: 0 });
 
+  // Sincronizza filtri data con il range visibile del calendario (solo per viste Mese/Settimana/Giorno)
+  // In modalità Agenda, preserva i valori inseriti manualmente dall'utente
+  useEffect(() => {
+    if (view === 'agenda') {
+      // Non modificare i filtri in modalità Agenda - mantieni gli ultimi valori utilizzati
+      return;
+    }
+
+    // Per viste Mese/Settimana/Giorno: calcola il range temporale visibile e aggiorna i filtri
+    let rangeStart, rangeEnd;
+
+    if (view === 'month') {
+      rangeStart = startOfMonth(currentDate);
+      rangeEnd = endOfMonth(currentDate);
+    } else if (view === 'week') {
+      rangeStart = startOfWeek(currentDate, { locale: it });
+      rangeEnd = endOfWeek(currentDate, { locale: it });
+    } else if (view === 'day') {
+      rangeStart = currentDate;
+      rangeEnd = currentDate;
+    }
+
+    // Aggiorna i filtri data per riflettere il periodo visualizzato
+    if (rangeStart && rangeEnd) {
+      setFilterDataInizio(format(rangeStart, 'yyyy-MM-dd'));
+      setFilterDataFine(format(rangeEnd, 'yyyy-MM-dd'));
+    }
+  }, [view, currentDate]);
+
   // Fetch pianificazioni e fogli associati
   const fetchPianificazioni = useCallback(async () => {
     setLoading(true);
     setError('');
 
     try {
-      // Fetch pianificazioni
+      // La RLS si occupa del filtro a livello database
+      // La configurazione user_visualizza_tutte_pianificazioni viene letta dalla RLS policy
       const { data: pianiData, error: pianiError } = await supabase
         .from('pianificazioni')
         .select('*')
@@ -102,7 +138,7 @@ function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mez
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [configurazioni, userRole, session, tecnici]);
 
   useEffect(() => {
     fetchPianificazioni();
@@ -278,6 +314,30 @@ function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mez
     }
   }, [searchParams, showForm, pianificazioni, setSearchParams]);
 
+  // Gestisce query params 'tecnico' e 'data' dalla Programmazione Settimanale
+  useEffect(() => {
+    const tecnicoParam = searchParams.get('tecnico');
+    const dataParam = searchParams.get('data');
+
+    if (tecnicoParam && dataParam && !showForm) {
+      // Apri form con dati precompilati da Programmazione Settimanale
+      const tecnicoId = tecnicoParam;
+      const dataInizio = dataParam; // Formato yyyy-MM-dd
+
+      // Pre-seleziona tecnico e data per il form
+      setPianificazioneToEdit({
+        tecnici_assegnati: [tecnicoId],
+        data_inizio_pianificata: dataInizio,
+        data_fine_pianificata: dataInizio,
+        stato_pianificazione: 'Pianificata'
+      });
+      setShowForm(true);
+
+      // Rimuovi parametri dall'URL dopo averli processati
+      setSearchParams({});
+    }
+  }, [searchParams, showForm, setSearchParams]);
+
   // Trasforma pianificazioni in eventi calendario
   const eventiCalendario = useMemo(() => {
     let filtered = [...pianificazioni];
@@ -305,6 +365,8 @@ function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mez
     if (filterFoglio) {
       filtered = filtered.filter((p) => p.foglio_assistenza_id === filterFoglio);
     }
+
+    // Filtri data: applicare SEMPRE (sincronizzati automaticamente con il range visibile)
     if (filterDataInizio) {
       filtered = filtered.filter((p) => p.data_inizio_pianificata >= filterDataInizio);
     }
@@ -349,20 +411,34 @@ function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mez
         start,
         end,
         allDay: p.tutto_il_giorno,
-        resource: p,
-        // Dati per EventoPianificazione
+        resource: {
+          // Campi per AgendaView (compatibili con CalendarioPianificazioniOperatoriPage)
+          id: p.id,
+          numero_foglio: foglio.numero_foglio,
+          stato_pianificazione: p.stato_pianificazione,
+          tecnico_id: p.tecnici_assegnati?.[0],
+          tecnico_nome: tecniciNomi.join(', '),
+          commessa_id: p.commessa_id,
+          commessa_codice: commessa?.codice_commessa,
+          commessa_descrizione: commessa?.descrizione,
+          cliente_id: p.cliente_id,
+          cliente_nome: cliente?.nome_azienda,
+          foglio_id: p.foglio_assistenza_id,
+          mezzo_principale_id: p.mezzo_principale_id,
+          // Dati completi pianificazione (per modal e altri componenti)
+          ...p,
+        },
+        // Mantieni campi legacy a livello radice per compatibilità con EventoPianificazione
         commessaCodice: commessa?.codice_commessa || 'N/A',
         tecniciNomi,
         statoPianificazione: p.stato_pianificazione,
         mezzoTarga,
-        // Dati completi per modal
         numeroFoglio: foglio.numero_foglio,
         clienteNome: cliente?.nome_azienda || 'N/A',
         commessaDescrizione: commessa?.descrizione || '',
-        ...p,
       };
     });
-  }, [pianificazioni, foglioMap, clienti, tecnici, commesse, mezzi, filterTecnico, filterMezzo, filterStato, filterCommessa, filterFoglio, filterDataInizio, filterDataFine]);
+  }, [pianificazioni, foglioMap, clienti, tecnici, commesse, mezzi, filterTecnico, filterMezzo, filterStato, filterCommessa, filterFoglio, filterDataInizio, filterDataFine, view]);
 
   // Commesse filtrate - solo quelle con pianificazioni
   const commesseConPianificazioni = useMemo(() => {
@@ -654,9 +730,11 @@ function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mez
 
       {/* Toolbar */}
       <div className="calendario-toolbar">
-        <button className="button" onClick={handleNuovaPianificazione}>
-          + Nuova Pianificazione
-        </button>
+        {!isReadOnly && (
+          <button className="button" onClick={handleNuovaPianificazione}>
+            + Nuova Pianificazione
+          </button>
+        )}
         <button className="button" onClick={fetchPianificazioni}>
           🔄 Ricarica
         </button>
@@ -759,6 +837,7 @@ function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mez
             </select>
           </div>
 
+          {/* Filtri Data - Sempre visibili, sincronizzati automaticamente con la vista */}
           <div className="filter-group">
             <label>Data Inizio (da):</label>
             <input
@@ -806,60 +885,160 @@ function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mez
         </p>
       </div>
 
-      {/* Calendario */}
+      {/* Toolbar Calendario - Navigazione e Selezione Vista */}
+      <div className="calendario-custom-toolbar" style={{
+        background: 'white',
+        borderRadius: '8px',
+        padding: '15px',
+        marginBottom: '15px',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: '15px'
+      }}>
+        {/* Navigazione */}
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <button
+            className="button secondary"
+            onClick={() => {
+              const newDate = new Date(currentDate);
+              if (view === 'month') {
+                newDate.setMonth(newDate.getMonth() - 1);
+              } else if (view === 'week' || view === 'agenda') {
+                newDate.setDate(newDate.getDate() - 7);
+              } else if (view === 'day') {
+                newDate.setDate(newDate.getDate() - 1);
+              }
+              setCurrentDate(newDate);
+            }}
+          >
+            ‹ Precedente
+          </button>
+          <button
+            className="button secondary"
+            onClick={() => setCurrentDate(new Date())}
+          >
+            Oggi
+          </button>
+          <button
+            className="button secondary"
+            onClick={() => {
+              const newDate = new Date(currentDate);
+              if (view === 'month') {
+                newDate.setMonth(newDate.getMonth() + 1);
+              } else if (view === 'week' || view === 'agenda') {
+                newDate.setDate(newDate.getDate() + 7);
+              } else if (view === 'day') {
+                newDate.setDate(newDate.getDate() + 1);
+              }
+              setCurrentDate(newDate);
+            }}
+          >
+            Successivo ›
+          </button>
+          <span style={{ marginLeft: '15px', fontWeight: '600', fontSize: '1.1em' }}>
+            {format(currentDate, view === 'month' ? 'MMMM yyyy' : 'dd MMMM yyyy', { locale: it })}
+          </span>
+        </div>
+
+        {/* Selettore Vista */}
+        <div style={{ display: 'flex', gap: '5px' }}>
+          <button
+            className={`button ${view === 'month' ? 'primary' : 'secondary'}`}
+            onClick={() => setView('month')}
+          >
+            Mese
+          </button>
+          <button
+            className={`button ${view === 'week' ? 'primary' : 'secondary'}`}
+            onClick={() => setView('week')}
+          >
+            Settimana
+          </button>
+          <button
+            className={`button ${view === 'day' ? 'primary' : 'secondary'}`}
+            onClick={() => setView('day')}
+          >
+            Giorno
+          </button>
+          <button
+            className={`button ${view === 'agenda' ? 'primary' : 'secondary'}`}
+            onClick={() => setView('agenda')}
+          >
+            Agenda
+          </button>
+        </div>
+      </div>
+
+      {/* Calendario o AgendaView personalizzata */}
       <div className="calendario-container">
-        <DnDCalendar
-          localizer={localizer}
-          culture="it"
-          events={eventiCalendario}
-          startAccessor="start"
-          endAccessor="end"
-          style={{ height: 700 }}
-          view={view}
-          onView={setView}
-          date={currentDate}
-          onNavigate={setCurrentDate}
-          onSelectEvent={handleSelectEvent}
-          eventPropGetter={eventStyleGetter}
-          components={components}
-          messages={{
-            allDay: 'Tutto il giorno',
-            previous: '‹',
-            next: '›',
-            today: 'Oggi',
-            month: 'Mese',
-            week: 'Settimana',
-            day: 'Giorno',
-            agenda: 'Agenda',
-            date: 'Data',
-            time: 'Ora',
-            event: 'Evento',
-            noEventsInRange: 'Nessuna pianificazione in questo periodo.',
-            showMore: (total) => `+ Altri ${total}`,
-            tomorrow: 'Domani',
-            yesterday: 'Ieri',
-            work_week: 'Settimana lavorativa',
-          }}
-          formats={{
-            dateFormat: 'd',
-            dayFormat: 'EEE d/M',
-            weekdayFormat: 'EEE',
-            monthHeaderFormat: 'MMMM yyyy',
-            dayHeaderFormat: 'EEEE d MMMM yyyy',
-            dayRangeHeaderFormat: ({ start, end }, culture, localizer) =>
-              `${localizer.format(start, 'd MMMM', culture)} - ${localizer.format(end, 'd MMMM yyyy', culture)}`,
-            agendaHeaderFormat: ({ start, end }, culture, localizer) =>
-              `${localizer.format(start, 'd MMMM', culture)} - ${localizer.format(end, 'd MMMM yyyy', culture)}`,
-            agendaDateFormat: 'EEE d MMM',
-            agendaTimeFormat: 'HH:mm',
-            agendaTimeRangeFormat: ({ start, end }, culture, localizer) =>
-              `${localizer.format(start, 'HH:mm', culture)} - ${localizer.format(end, 'HH:mm', culture)}`,
-          }}
-          draggableAccessor={() => true}
-          resizable
-          onEventDrop={handleEventDrop}
-          onEventResize={handleEventResize}
-        />
+        {view === 'agenda' ? (
+          <AgendaView
+            events={eventiCalendario}
+            date={currentDate}
+            onSelectEvent={handleSelectEvent}
+            getEventColor={(event) => {
+              const commessaId = event.resource?.commessa_id;
+              return commessaId ? getColorForCommessa(commessaId) : '#6c757d';
+            }}
+          />
+        ) : (
+          <DnDCalendar
+            localizer={localizer}
+            culture="it"
+            events={eventiCalendario}
+            startAccessor="start"
+            endAccessor="end"
+            style={{ height: 700 }}
+            view={view}
+            onView={setView}
+            date={currentDate}
+            onNavigate={setCurrentDate}
+            onSelectEvent={handleSelectEvent}
+            eventPropGetter={eventStyleGetter}
+            toolbar={false}
+            components={components}
+            messages={{
+              allDay: 'Tutto il giorno',
+              previous: '‹',
+              next: '›',
+              today: 'Oggi',
+              month: 'Mese',
+              week: 'Settimana',
+              day: 'Giorno',
+              agenda: 'Agenda',
+              date: 'Data',
+              time: 'Ora',
+              event: 'Evento',
+              noEventsInRange: 'Nessuna pianificazione in questo periodo.',
+              showMore: (total) => `+ Altri ${total}`,
+              tomorrow: 'Domani',
+              yesterday: 'Ieri',
+              work_week: 'Settimana lavorativa',
+            }}
+            formats={{
+              dateFormat: 'd',
+              dayFormat: 'EEE d/M',
+              weekdayFormat: 'EEE',
+              monthHeaderFormat: 'MMMM yyyy',
+              dayHeaderFormat: 'EEEE d MMMM yyyy',
+              dayRangeHeaderFormat: ({ start, end }, culture, localizer) =>
+                `${localizer.format(start, 'd MMMM', culture)} - ${localizer.format(end, 'd MMMM yyyy', culture)}`,
+              agendaHeaderFormat: ({ start, end }, culture, localizer) =>
+                `${localizer.format(start, 'd MMMM', culture)} - ${localizer.format(end, 'd MMMM yyyy', culture)}`,
+              agendaDateFormat: 'EEE d MMM',
+              agendaTimeFormat: 'HH:mm',
+              agendaTimeRangeFormat: ({ start, end }, culture, localizer) =>
+                `${localizer.format(start, 'HH:mm', culture)} - ${localizer.format(end, 'HH:mm', culture)}`,
+            }}
+            draggableAccessor={() => !isReadOnly}
+            resizable={!isReadOnly}
+            onEventDrop={!isReadOnly ? handleEventDrop : undefined}
+            onEventResize={!isReadOnly ? handleEventResize : undefined}
+          />
+        )}
       </div>
 
       {/* Legenda Commesse */}
@@ -946,11 +1125,11 @@ function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mez
         <ModalDettagliPianificazione
           pianificazione={selectedPianificazione}
           onClose={() => setShowModal(false)}
-          onEdit={handleEditPianificazione}
-          onDelete={handleDeletePianificazione}
-          onChangeState={handleChangeState}
+          onEdit={!isReadOnly ? handleEditPianificazione : undefined}
+          onDelete={!isReadOnly ? handleDeletePianificazione : undefined}
+          onChangeState={!isReadOnly ? handleChangeState : undefined}
           onNavigateToFoglio={handleNavigateToFoglio}
-          onDuplicate={handleDuplicatePianificazione}
+          onDuplicate={!isReadOnly ? handleDuplicatePianificazione : undefined}
           clienti={clienti}
           tecnici={tecnici}
           commesse={commesse}
@@ -981,12 +1160,14 @@ function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mez
   );
 }
 
-CalendarioPianificazioniPage.propTypes = {
+GestionePianificazionePage.propTypes = {
   session: PropTypes.object.isRequired,
   clienti: PropTypes.array.isRequired,
   tecnici: PropTypes.array.isRequired,
   commesse: PropTypes.array.isRequired,
   mezzi: PropTypes.array.isRequired,
+  userRole: PropTypes.string.isRequired,
+  configurazioni: PropTypes.object,
 };
 
-export default CalendarioPianificazioniPage;
+export default GestionePianificazionePage;

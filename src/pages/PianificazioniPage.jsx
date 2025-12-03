@@ -7,25 +7,18 @@ function PianificazioniPage({ userRole }) {
 
     const pianificazioni = [
         {
-            title: 'Calendario Pianificazioni',
-            description: 'Consulta le pianificazioni future',
-            route: '/calendario-pianificazioni',
-            icon: '📆',
+            title: 'Programmazione Settimanale',
+            description: 'Vista tabellare per tecnici e giorni (formato Excel)',
+            route: '/programmazione-settimanale',
+            icon: '📋',
             roles: ['admin', 'manager', 'user']
         },
         {
-            title: 'Programmazione Settimanale',
-            description: 'Vista tabellare per tecnici e giorni (drag & drop)',
-            route: '/programmazione-settimanale',
-            icon: '📋',
-            roles: ['admin', 'manager']
-        },
-        {
-            title: 'Gestione Pianificazioni',
-            description: 'Crea e modifica pianificazioni',
-            route: '/pianificazioni-gestione',
-            icon: '⚙️',
-            roles: ['admin', 'manager']
+            title: 'Gestione Pianificazione',
+            description: 'Calendario con visualizzazione e gestione pianificazioni',
+            route: '/gestione-pianificazione',
+            icon: '📆',
+            roles: ['admin', 'manager', 'user']
         }
     ];
 
