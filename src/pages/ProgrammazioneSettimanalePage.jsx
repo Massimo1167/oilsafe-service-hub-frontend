@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, addDays } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { getColorForCommessa } from '../utils/calendarioColors';
 import { formatNumeroFoglio } from '../utils/formatters';
+import { generatePianificazionePDF } from '../utils/pdfGeneratorPianificazione';
 import './ProgrammazioneSettimanalePage.css';
 
 /**
@@ -14,23 +16,38 @@ import './ProgrammazioneSettimanalePage.css';
  * - Navigazione settimana per settimana
  * - FUTURO: Drag & drop per spostare pianificazioni (PHASE 4)
  */
-function ProgrammazioneSettimanalePage({ user, userRole, tecnici, commesse, clienti, reparti }) {
+function ProgrammazioneSettimanalePage({ user, userRole, tecnici, commesse, clienti, reparti, configurazioni }) {
+  const navigate = useNavigate();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [pianificazioni, setPianificazioni] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [filterReparto, setFilterReparto] = useState('');
+  const [filterReparti, setFilterReparti] = useState([]); // Array di ID reparti selezionati
+  const [filterTipoRisorsa, setFilterTipoRisorsa] = useState('tutte'); // 'tutte' | 'con_pianificazioni'
+  const [pdfOrientamento, setPdfOrientamento] = useState('landscape'); // 'landscape' | 'portrait'
+
+  // State per preview PDF
+  const [previewPdfUrl, setPreviewPdfUrl] = useState(null);
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   // Calcola inizio e fine settimana (Lunedì-Domenica)
   const weekStart = useMemo(() => startOfWeek(currentDate, { weekStartsOn: 1, locale: it }), [currentDate]);
   const weekEnd = useMemo(() => endOfWeek(currentDate, { weekStartsOn: 1, locale: it }), [currentDate]);
   const weekDays = useMemo(() => eachDayOfInterval({ start: weekStart, end: weekEnd }), [weekStart, weekEnd]);
 
-  // Filtra tecnici per reparto
+  // Filtra tecnici per: abilitazione pianificazione + reparti + tipo risorsa
   const tecniciVisibili = useMemo(() => {
-    if (!filterReparto) return tecnici;
-    return tecnici.filter(t => t.reparto_id === filterReparto);
-  }, [tecnici, filterReparto]);
+    // 1. Filtra solo tecnici abilitati alla pianificazione
+    let filtered = tecnici.filter(t => t.abilitato_pianificazione !== false);
+
+    // 2. Filtra per reparti (logica OR: mostra se appartiene ad ALMENO UNO dei reparti selezionati)
+    if (filterReparti.length > 0) {
+      filtered = filtered.filter(t => filterReparti.includes(t.reparto_id));
+    }
+
+    return filtered;
+  }, [tecnici, filterReparti]);
 
   // Fetch pianificazioni per la settimana corrente
   useEffect(() => {
@@ -42,6 +59,8 @@ function ProgrammazioneSettimanalePage({ user, userRole, tecnici, commesse, clie
         const weekStartStr = format(weekStart, 'yyyy-MM-dd');
         const weekEndStr = format(weekEnd, 'yyyy-MM-dd');
 
+        // La RLS si occupa del filtro a livello database
+        // La configurazione user_visualizza_tutte_pianificazioni viene letta dalla RLS policy
         const { data, error: fetchError } = await supabase
           .from('pianificazioni')
           .select(`
@@ -78,7 +97,7 @@ function ProgrammazioneSettimanalePage({ user, userRole, tecnici, commesse, clie
     };
 
     fetchPianificazioni();
-  }, [weekStart, weekEnd]);
+  }, [weekStart, weekEnd, configurazioni, userRole, user, tecnici]);
 
   // Organizza pianificazioni per tecnico e giorno
   const pianificazioniPerTecnicoGiorno = useMemo(() => {
@@ -141,6 +160,37 @@ function ProgrammazioneSettimanalePage({ user, userRole, tecnici, commesse, clie
     return organized;
   }, [pianificazioni, tecniciVisibili, weekDays, commesse, clienti]);
 
+  // Filtra tecnici finali in base al tipo risorsa (dopo aver organizzato le pianificazioni)
+  const tecniciFinali = useMemo(() => {
+    if (filterTipoRisorsa === 'con_pianificazioni') {
+      // Mostra solo tecnici che hanno almeno una pianificazione nella settimana corrente
+      return tecniciVisibili.filter(tecnico => {
+        const tecnicoData = pianificazioniPerTecnicoGiorno[tecnico.id];
+        if (!tecnicoData) return false;
+
+        // Verifica se ha almeno un evento in almeno un giorno
+        return weekDays.some(day => {
+          const dayKey = format(day, 'yyyy-MM-dd');
+          return tecnicoData.giorni[dayKey]?.length > 0;
+        });
+      });
+    }
+    return tecniciVisibili; // 'tutte' - mostra tutti i tecnici abilitati
+  }, [tecniciVisibili, filterTipoRisorsa, pianificazioniPerTecnicoGiorno, weekDays]);
+
+  // Handler per toggle checkbox reparti
+  const handleToggleReparto = (repartoId) => {
+    setFilterReparti(prev => {
+      if (prev.includes(repartoId)) {
+        // Rimuovi se già presente
+        return prev.filter(id => id !== repartoId);
+      } else {
+        // Aggiungi se non presente
+        return [...prev, repartoId];
+      }
+    });
+  };
+
   // Handlers navigazione settimana
   const handlePrevWeek = () => {
     setCurrentDate(prev => addDays(prev, -7));
@@ -154,11 +204,59 @@ function ProgrammazioneSettimanalePage({ user, userRole, tecnici, commesse, clie
     setCurrentDate(new Date());
   };
 
-  // Handler click su cella (futuro: creazione rapida pianificazione)
+  // Handler click su cella: reindirizza a calendario con dati precompilati
   const handleCellClick = (tecnicoId, dayKey) => {
-    // TODO PHASE 3: Aprire form creazione rapida pianificazione
-    console.log('Cell clicked:', tecnicoId, dayKey);
-    alert(`Funzionalità in sviluppo: Crea pianificazione per tecnico ${tecnicoId} il ${dayKey}`);
+    // Reindirizza a calendario pianificazioni con parametri precompilati
+    const params = new URLSearchParams({
+      tecnico: tecnicoId,
+      data: dayKey
+    });
+    navigate(`/gestione-pianificazione?${params.toString()}`);
+  };
+
+  // Handler preview PDF
+  const handlePreviewPDF = () => {
+    setPreviewLoading(true);
+
+    try {
+      const result = generatePianificazionePDF({
+        weekStart,
+        weekEnd,
+        weekDays,
+        tecniciFinali,
+        pianificazioniPerTecnicoGiorno,
+        orientamento: pdfOrientamento,
+        preview: true  // Modalità preview
+      });
+
+      if (result.success) {
+        setPreviewPdfUrl(result.dataUrl);
+        setShowPreview(true);
+      } else {
+        alert(`Errore nell'anteprima del PDF: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Errore preview PDF:', error);
+      alert('Impossibile generare l\'anteprima PDF');
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  // Handler stampa PDF
+  const handlePrintPDF = () => {
+    const result = generatePianificazionePDF({
+      weekStart,
+      weekEnd,
+      weekDays,
+      tecniciFinali,
+      pianificazioniPerTecnicoGiorno,
+      orientamento: pdfOrientamento
+    });
+
+    if (!result.success) {
+      alert(`Errore nella generazione del PDF: ${result.error}`);
+    }
   };
 
   // State per drag & drop
@@ -305,34 +403,98 @@ function ProgrammazioneSettimanalePage({ user, userRole, tecnici, commesse, clie
               {format(weekStart, 'dd MMM', { locale: it })} - {format(weekEnd, 'dd MMM yyyy', { locale: it })}
             </h2>
           </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+              <label style={{ fontSize: '0.85em', fontWeight: 'bold' }}>Orientamento PDF:</label>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer' }}>
+                  <input
+                    type="radio"
+                    name="pdfOrientamento"
+                    value="landscape"
+                    checked={pdfOrientamento === 'landscape'}
+                    onChange={(e) => setPdfOrientamento(e.target.value)}
+                  />
+                  <span style={{ fontSize: '0.9em' }}>Orizzontale</span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer' }}>
+                  <input
+                    type="radio"
+                    name="pdfOrientamento"
+                    value="portrait"
+                    checked={pdfOrientamento === 'portrait'}
+                    onChange={(e) => setPdfOrientamento(e.target.value)}
+                  />
+                  <span style={{ fontSize: '0.9em' }}>Verticale</span>
+                </label>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                className="button secondary"
+                onClick={handlePreviewPDF}
+                disabled={previewLoading || tecniciFinali.length === 0}
+                style={{ height: 'fit-content' }}
+              >
+                {previewLoading ? 'Caricamento...' : '👁️ Anteprima PDF'}
+              </button>
+              <button
+                className="button"
+                onClick={handlePrintPDF}
+                disabled={tecniciFinali.length === 0}
+                style={{ height: 'fit-content' }}
+              >
+                🖨️ Stampa PDF
+              </button>
+            </div>
+          </div>
         </div>
 
-        {/* Filtro Reparto */}
-        {reparti && reparti.length > 0 && (
-          <div style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#f5f5f5', borderRadius: '5px' }}>
-            <label htmlFor="filterRepartoProgSettimanale" style={{ marginRight: '10px', fontWeight: 'bold' }}>
-              Filtra per Reparto:
+        {/* Filtri: Tipo Risorsa e Reparti */}
+        <div style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#f5f5f5', borderRadius: '5px' }}>
+          {/* Filtro Tipo Risorsa */}
+          <div style={{ marginBottom: '15px' }}>
+            <label htmlFor="filterTipoRisorsa" style={{ marginRight: '10px', fontWeight: 'bold' }}>
+              Mostra Risorse:
             </label>
             <select
-              id="filterRepartoProgSettimanale"
-              value={filterReparto}
-              onChange={(e) => setFilterReparto(e.target.value)}
-              style={{ padding: '8px', minWidth: '250px', fontSize: '1em' }}
+              id="filterTipoRisorsa"
+              value={filterTipoRisorsa}
+              onChange={(e) => setFilterTipoRisorsa(e.target.value)}
+              style={{ padding: '8px', minWidth: '300px', fontSize: '1em' }}
             >
-              <option value="">Tutti i reparti ({tecnici.length} tecnici)</option>
-              {reparti.map(r => (
-                <option key={r.id} value={r.id}>
-                  {r.codice} - {r.descrizione}
-                </option>
-              ))}
+              <option value="tutte">Tutte le risorse abilitate alla pianificazione</option>
+              <option value="con_pianificazioni">Solo risorse con pianificazioni nella settimana corrente</option>
             </select>
-            {filterReparto && (
-              <span style={{ marginLeft: '15px', color: '#666' }}>
-                {tecniciVisibili.length} tecnici visualizzati
-              </span>
-            )}
           </div>
-        )}
+
+          {/* Filtro Reparti (Checkboxes multiple) */}
+          {reparti && reparti.length > 0 && (
+            <div>
+              <label style={{ fontWeight: 'bold', marginBottom: '8px', display: 'block' }}>
+                Filtra per Reparti: {filterReparti.length > 0 && `(${filterReparti.length} selezionati)`}
+              </label>
+              <div className="reparti-checkbox-group">
+                {reparti.map(r => (
+                  <label key={r.id} className="reparto-checkbox-item">
+                    <input
+                      type="checkbox"
+                      checked={filterReparti.includes(r.id)}
+                      onChange={() => handleToggleReparto(r.id)}
+                    />
+                    <span>{r.codice}</span>
+                  </label>
+                ))}
+              </div>
+              <small style={{ display: 'block', marginTop: '8px', color: '#666' }}>
+                {filterReparti.length === 0
+                  ? `Nessun filtro reparto attivo - Mostrati ${tecniciFinali.length} tecnici`
+                  : `Tecnici di ${filterReparti.length} reparto/i - Mostrati ${tecniciFinali.length} tecnici`
+                }
+              </small>
+            </div>
+          )}
+        </div>
 
         {/* Loading/Error States */}
         {loading && (
@@ -364,7 +526,7 @@ function ProgrammazioneSettimanalePage({ user, userRole, tecnici, commesse, clie
                 </tr>
               </thead>
               <tbody>
-                {tecniciVisibili.map(tecnico => {
+                {tecniciFinali.map(tecnico => {
                   const tecnicoData = pianificazioniPerTecnicoGiorno[tecnico.id];
                   if (!tecnicoData) return null;
 
@@ -434,6 +596,77 @@ function ProgrammazioneSettimanalePage({ user, userRole, tecnici, commesse, clie
             </div>
           </div>
         </div>
+
+        {/* Modal Preview PDF */}
+        {showPreview && previewPdfUrl && (
+          <div
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(0, 0, 0, 0.85)',
+              display: 'flex',
+              flexDirection: 'column',
+              zIndex: 9999,
+              padding: '20px'
+            }}
+          >
+            {/* Header Modal con pulsanti */}
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '15px',
+                color: 'white'
+              }}
+            >
+              <h2 style={{ margin: 0, fontSize: '1.5rem' }}>
+                Anteprima Programmazione Settimanale
+              </h2>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  className="button"
+                  onClick={() => {
+                    const iframe = document.querySelector('#preview-iframe');
+                    if (iframe) {
+                      iframe.contentWindow.print();
+                    }
+                  }}
+                  style={{ backgroundColor: '#007bff' }}
+                >
+                  🖨️ Stampa
+                </button>
+                <button
+                  className="button secondary"
+                  onClick={() => {
+                    setShowPreview(false);
+                    setPreviewPdfUrl(null);
+                  }}
+                  style={{ backgroundColor: '#6c757d' }}
+                >
+                  ✕ Chiudi
+                </button>
+              </div>
+            </div>
+
+            {/* Iframe PDF */}
+            <iframe
+              id="preview-iframe"
+              src={previewPdfUrl}
+              title="Anteprima PDF Programmazione"
+              style={{
+                width: '100%',
+                height: '100%',
+                border: 'none',
+                borderRadius: '8px',
+                backgroundColor: 'white'
+              }}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

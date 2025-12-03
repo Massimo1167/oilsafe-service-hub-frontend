@@ -269,6 +269,48 @@
     border: 2px solid #0066cc;
 }
 
+/* Filtri Reparti (Checkboxes) */
+.reparti-checkbox-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 8px;
+}
+
+.reparto-checkbox-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+    user-select: none;
+}
+
+.reparto-checkbox-item:hover {
+    background: #f0f0f0;
+    border-color: #003366;
+}
+
+.reparto-checkbox-item input[type="checkbox"] {
+    cursor: pointer;
+    width: 18px;
+    height: 18px;
+}
+
+.reparto-checkbox-item input[type="checkbox"]:checked + span {
+    font-weight: 600;
+    color: #003366;
+}
+
+.reparto-checkbox-item span {
+    font-size: 0.95em;
+    color: #333;
+}
+
 /* Loading & Error States */
 .loading-message,
 .error-message,

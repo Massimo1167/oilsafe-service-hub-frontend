@@ -10,7 +10,9 @@
       "Bash(npm run lint:*)",
       "Bash(git checkout:*)",
       "Bash(node -e:*)",
-      "Bash(npm run dev:*)"
+      "Bash(npm run dev:*)",
+      "Bash(move CalendarioPianificazioniPage.jsx GestionePianificazionePage.jsx)",
+      "Bash(move \"src\\pages\\CalendarioPianificazioniPage.jsx\" \"src\\pages\\GestionePianificazionePage.jsx\")"
     ],
     "deny": [],
     "ask": []
