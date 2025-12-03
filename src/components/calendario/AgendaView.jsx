@@ -42,8 +42,9 @@ const AgendaView = ({ events, date, onSelectEvent, getEventColor }) => {
                 const commessaCodice = event.resource?.commessa_codice || 'N/A';
                 const commessaDescrizione = event.resource?.commessa_descrizione || '';
 
-                // Crea slot temporale unico basato su orario
-                const slotKey = `${format(event.start, 'HH:mm')}-${format(event.end, 'HH:mm')}`;
+                // Usa ID pianificazione come chiave per evitare aggregazione errata
+                const pianificazioneId = event.resource?.id || event.id || `unknown-${Math.random()}`;
+                const slotKey = pianificazioneId;
 
                 // Inizializza commessa se non esiste
                 if (!grouped[dayKey].commesse[commessaId]) {
@@ -55,32 +56,22 @@ const AgendaView = ({ events, date, onSelectEvent, getEventColor }) => {
                     };
                 }
 
-                // Inizializza slot se non esiste
+                // Inizializza slot se non esiste (ogni pianificazione ha il suo slot)
                 if (!grouped[dayKey].commesse[commessaId].slots[slotKey]) {
                     grouped[dayKey].commesse[commessaId].slots[slotKey] = {
                         orarioInizio: format(event.start, 'HH:mm'),
                         orarioFine: format(event.end, 'HH:mm'),
-                        tecnici: [],
+                        tecnici: event.resource?.tecnico_nome || 'N/A',  // Stringa diretta, non array
                         foglioId: event.resource?.foglio_id,
                         numeroFoglio: event.resource?.numero_foglio,
                         statoPianificazione: event.resource?.stato_pianificazione || 'Pianificata',
-                        clienteNome: event.resource?.cliente_nome
+                        clienteNome: event.resource?.cliente_nome,
+                        pianificazioneId: pianificazioneId,
+                        originalEvent: event  // CRITICO: Riferimento all'evento completo
                     };
                 }
 
-                // Aggiungi tecnico allo slot (evita duplicati)
-                const tecnicoNome = event.resource?.tecnico_nome || 'N/A';
-                const tecnicoId = event.resource?.tecnico_id;
-
-                const tecnicoEsistente = grouped[dayKey].commesse[commessaId].slots[slotKey].tecnici
-                    .find(t => t.id === tecnicoId);
-
-                if (!tecnicoEsistente) {
-                    grouped[dayKey].commesse[commessaId].slots[slotKey].tecnici.push({
-                        id: tecnicoId,
-                        nome: tecnicoNome
-                    });
-                }
+                // Non serve più aggregare tecnici: ogni pianificazione ha il suo slot univoco
             });
         });
 
@@ -139,7 +130,7 @@ const AgendaView = ({ events, date, onSelectEvent, getEventColor }) => {
                                                         <div
                                                             key={slotKey}
                                                             className="agenda-event"
-                                                            onClick={() => onSelectEvent && onSelectEvent({ resource: slot })}
+                                                            onClick={() => onSelectEvent && slot.originalEvent && onSelectEvent(slot.originalEvent)}
                                                         >
                                                             {/* Barra colorata laterale */}
                                                             <div
@@ -160,9 +151,9 @@ const AgendaView = ({ events, date, onSelectEvent, getEventColor }) => {
                                                                     </div>
                                                                 )}
 
-                                                                {/* Tecnici raggruppati */}
+                                                                {/* Tecnici */}
                                                                 <div className="agenda-event-tecnici">
-                                                                    👥 {slot.tecnici.map(t => t.nome).join(', ')}
+                                                                    👥 {slot.tecnici}
                                                                 </div>
 
                                                                 {/* Stato e Cliente */}
