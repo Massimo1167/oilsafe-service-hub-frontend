@@ -78,16 +78,32 @@ const AgendaView = ({ events, date, onSelectEvent, getEventColor }) => {
         return grouped;
     }, [events, days]);
 
+    // Filtra solo i giorni con pianificazioni
+    const daysWithEvents = useMemo(() => {
+        return days.filter(day => {
+            const dayKey = format(day, 'yyyy-MM-dd');
+            const dayData = eventiRaggruppati[dayKey];
+            const commesseArray = Object.values(dayData.commesse);
+            const totalSlots = commesseArray.reduce((sum, c) => sum + Object.keys(c.slots).length, 0);
+            return totalSlots > 0;
+        });
+    }, [days, eventiRaggruppati]);
+
     return (
         <div className="agenda-view">
-            {days.map(day => {
-                const dayKey = format(day, 'yyyy-MM-dd');
-                const dayData = eventiRaggruppati[dayKey];
-                const commesseArray = Object.values(dayData.commesse);
-                const totalSlots = commesseArray.reduce((sum, c) => sum + Object.keys(c.slots).length, 0);
+            {daysWithEvents.length === 0 ? (
+                <div className="agenda-no-events" style={{ padding: '3rem 1.5rem', textAlign: 'center' }}>
+                    Nessuna pianificazione programmata per questa settimana
+                </div>
+            ) : (
+                daysWithEvents.map(day => {
+                    const dayKey = format(day, 'yyyy-MM-dd');
+                    const dayData = eventiRaggruppati[dayKey];
+                    const commesseArray = Object.values(dayData.commesse);
+                    const totalSlots = commesseArray.reduce((sum, c) => sum + Object.keys(c.slots).length, 0);
 
-                return (
-                    <div key={dayKey} className="agenda-day">
+                    return (
+                        <div key={dayKey} className="agenda-day">
                         {/* Header giorno */}
                         <div className="agenda-day-header">
                             <div>
@@ -175,7 +191,8 @@ const AgendaView = ({ events, date, onSelectEvent, getEventColor }) => {
                         </div>
                     </div>
                 );
-            })}
+            })
+            )}
         </div>
     );
 };
