@@ -11,7 +11,7 @@ import EventoPianificazione from '../components/EventoPianificazione';
 import ModalDettagliPianificazione from '../components/ModalDettagliPianificazione';
 import PianificazioneForm from '../components/PianificazioneForm';
 import AgendaView from '../components/calendario/AgendaView';
-import './CalendarioPianificazioniPage.css';
+import './GestionePianificazionePage.css';
 import './CalendarioPianificazioniOperatoriPage.css';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getColorForCommessa } from '../utils/calendarioColors';
@@ -27,13 +27,17 @@ const localizer = dateFnsLocalizer({
 const DnDCalendar = withDragAndDrop(Calendar);
 
 /**
- * Pagina principale calendario pianificazioni interventi
- * Mostra calendario con pianificazioni future, permette creazione/modifica/eliminazione
+ * Pagina principale gestione pianificazioni interventi
+ * Mostra calendario con pianificazioni future, permette creazione/modifica/eliminazione (manager/admin)
+ * o visualizzazione read-only (user)
  * Filtraggio per tecnico, mezzo, stato, commessa
  */
-function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mezzi }) {
+function GestionePianificazionePage({ session, clienti, tecnici, commesse, mezzi, userRole }) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+
+  // Modalità read-only per utenti 'user'
+  const isReadOnly = userRole === 'user';
 
   // Stati principali
   const [pianificazioni, setPianificazioni] = useState([]);
@@ -725,9 +729,11 @@ function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mez
 
       {/* Toolbar */}
       <div className="calendario-toolbar">
-        <button className="button" onClick={handleNuovaPianificazione}>
-          + Nuova Pianificazione
-        </button>
+        {!isReadOnly && (
+          <button className="button" onClick={handleNuovaPianificazione}>
+            + Nuova Pianificazione
+          </button>
+        )}
         <button className="button" onClick={fetchPianificazioni}>
           🔄 Ricarica
         </button>
@@ -1026,10 +1032,10 @@ function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mez
               agendaTimeRangeFormat: ({ start, end }, culture, localizer) =>
                 `${localizer.format(start, 'HH:mm', culture)} - ${localizer.format(end, 'HH:mm', culture)}`,
             }}
-            draggableAccessor={() => true}
-            resizable
-            onEventDrop={handleEventDrop}
-            onEventResize={handleEventResize}
+            draggableAccessor={() => !isReadOnly}
+            resizable={!isReadOnly}
+            onEventDrop={!isReadOnly ? handleEventDrop : undefined}
+            onEventResize={!isReadOnly ? handleEventResize : undefined}
           />
         )}
       </div>
@@ -1118,11 +1124,11 @@ function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mez
         <ModalDettagliPianificazione
           pianificazione={selectedPianificazione}
           onClose={() => setShowModal(false)}
-          onEdit={handleEditPianificazione}
-          onDelete={handleDeletePianificazione}
-          onChangeState={handleChangeState}
+          onEdit={!isReadOnly ? handleEditPianificazione : undefined}
+          onDelete={!isReadOnly ? handleDeletePianificazione : undefined}
+          onChangeState={!isReadOnly ? handleChangeState : undefined}
           onNavigateToFoglio={handleNavigateToFoglio}
-          onDuplicate={handleDuplicatePianificazione}
+          onDuplicate={!isReadOnly ? handleDuplicatePianificazione : undefined}
           clienti={clienti}
           tecnici={tecnici}
           commesse={commesse}
@@ -1153,12 +1159,13 @@ function CalendarioPianificazioniPage({ session, clienti, tecnici, commesse, mez
   );
 }
 
-CalendarioPianificazioniPage.propTypes = {
+GestionePianificazionePage.propTypes = {
   session: PropTypes.object.isRequired,
   clienti: PropTypes.array.isRequired,
   tecnici: PropTypes.array.isRequired,
   commesse: PropTypes.array.isRequired,
   mezzi: PropTypes.array.isRequired,
+  userRole: PropTypes.string.isRequired,
 };
 
-export default CalendarioPianificazioniPage;
+export default GestionePianificazionePage;

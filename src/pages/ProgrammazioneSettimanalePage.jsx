@@ -209,7 +209,7 @@ function ProgrammazioneSettimanalePage({ user, userRole, tecnici, commesse, clie
       tecnico: tecnicoId,
       data: dayKey
     });
-    navigate(`/calendario-pianificazioni?${params.toString()}`);
+    navigate(`/gestione-pianificazione?${params.toString()}`);
   };
 
   // Handler preview PDF

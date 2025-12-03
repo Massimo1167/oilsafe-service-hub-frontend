@@ -17,8 +17,7 @@ import FoglioAssistenzaFormPage from './pages/FoglioAssistenzaFormPage';
 import FoglioAssistenzaDetailPage from './pages/FoglioAssistenzaDetailPage';
 import FoglioAttivitaStandardPage from './pages/FoglioAttivitaStandardPage';
 import CalendarioFogliPage from './pages/CalendarioFogliPage';
-import CalendarioPianificazioniPage from './pages/CalendarioPianificazioniPage';
-import CalendarioPianificazioniOperatoriPage from './pages/CalendarioPianificazioniOperatoriPage';
+import GestionePianificazionePage from './pages/GestionePianificazionePage';
 import ProgrammazioneSettimanalePage from './pages/ProgrammazioneSettimanalePage';
 import StatistichePage from './pages/StatistichePage';
 import ScadenzeMezziPage from './pages/ScadenzeMezziPage';
@@ -475,45 +474,33 @@ function App() {
               element={<PianificazioniPage userRole={userRole} />}
             />
             <Route
-              path="/calendario-pianificazioni"
+              path="/gestione-pianificazione"
               element={
-                <CalendarioPianificazioniOperatoriPage
-                  user={session?.user}
-                  userRole={userRole}
+                <GestionePianificazionePage
+                  session={session}
                   clienti={clienti}
                   tecnici={tecnici}
                   commesse={commesse}
                   mezzi={mezzi}
+                  userRole={userRole}
+                />
+              }
+            />
+            <Route
+              path="/programmazione-settimanale"
+              element={
+                <ProgrammazioneSettimanalePage
+                  user={session?.user}
+                  userRole={userRole}
+                  tecnici={tecnici}
+                  commesse={commesse}
+                  clienti={clienti}
+                  reparti={reparti}
                 />
               }
             />
             {(userRole === 'admin' || userRole === 'manager') && (
               <>
-                <Route
-                  path="/pianificazioni-gestione"
-                  element={
-                    <CalendarioPianificazioniPage
-                      session={session}
-                      clienti={clienti}
-                      tecnici={tecnici}
-                      commesse={commesse}
-                      mezzi={mezzi}
-                    />
-                  }
-                />
-                <Route
-                  path="/programmazione-settimanale"
-                  element={
-                    <ProgrammazioneSettimanalePage
-                      user={session?.user}
-                      userRole={userRole}
-                      tecnici={tecnici}
-                      commesse={commesse}
-                      clienti={clienti}
-                      reparti={reparti}
-                    />
-                  }
-                />
                 <Route path="/anagrafiche" element={<AnagrafichePage />} />
                 <Route path="/clienti" element={<ClientiManager session={session} onDataChanged={reloadAnagrafiche} />} />
                 <Route path="/tecnici" element={<TecniciManager session={session} mansioni={mansioni} reparti={reparti} onDataChanged={reloadAnagrafiche} />} />
