@@ -1,8 +1,8 @@
 {
   "name": "oilsafe-service-frontend",
   "private": true,
-  "version": "1.1.7f",
-  "description": "Oilsafe Service Hub - Sistema gestionale per fogli di lavoro e assistenza tecnica pagina Info",
+  "version": "1.1.8",
+  "description": "Ottimizzazione webapp su tablet e cellulare",
   "author": "Massimo Centrella",
   "company": "Oilsafe S.r.l.",
   "type": "module",
