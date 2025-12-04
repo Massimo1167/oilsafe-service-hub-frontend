@@ -56,15 +56,17 @@ COMMENT ON COLUMN public.interventi_assistenza.mansione_id IS
 --   m.ruolo AS mansione,
 --   -- Determina costo orario in base a tipo_intervento
 --   CASE
---     WHEN ia.tipo_intervento = ''In loco'' THEN m.costo_orario_sede
---     WHEN ia.tipo_intervento = ''Remoto'' THEN m.costo_orario_trasferta
+--     WHEN ia.tipo_intervento IN (''Sede Cliente'', ''In Loco'', ''In loco'') THEN m.costo_orario_cliente
+--     WHEN ia.tipo_intervento IN (''Sede Oilsafe'', ''Remoto'') THEN m.costo_orario_oilsafe
+--     WHEN ia.tipo_intervento = ''Teleassistenza'' THEN m.costo_orario_teleassistenza
 --     ELSE 0
 --   END AS costo_orario_applicato,
 --   -- Calcola costo totale
 --   COALESCE(ia.ore_lavoro_effettive, 0) *
 --   CASE
---     WHEN ia.tipo_intervento = ''In loco'' THEN m.costo_orario_sede
---     WHEN ia.tipo_intervento = ''Remoto'' THEN m.costo_orario_trasferta
+--     WHEN ia.tipo_intervento IN (''Sede Cliente'', ''In Loco'', ''In loco'') THEN m.costo_orario_cliente
+--     WHEN ia.tipo_intervento IN (''Sede Oilsafe'', ''Remoto'') THEN m.costo_orario_oilsafe
+--     WHEN ia.tipo_intervento = ''Teleassistenza'' THEN m.costo_orario_teleassistenza
 --     ELSE 0
 --   END AS costo_totale
 -- FROM interventi_assistenza ia

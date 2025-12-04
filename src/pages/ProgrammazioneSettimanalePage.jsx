@@ -11,13 +11,16 @@ import './ProgrammazioneSettimanalePage.css';
 /**
  * Pagina Programmazione Settimanale
  * - Vista tabellare stile Excel (righe=tecnici, colonne=giorni)
- * - Click su cella vuota → crea pianificazione rapida
+ * - Click su cella vuota → crea pianificazione rapida (solo manager/admin)
  * - Click su evento → mostra dettagli/modifica
  * - Navigazione settimana per settimana
- * - FUTURO: Drag & drop per spostare pianificazioni (PHASE 4)
+ * - Vista read-only per utenti con ruolo 'user'
  */
 function ProgrammazioneSettimanalePage({ user, userRole, tecnici, commesse, clienti, reparti, configurazioni }) {
   const navigate = useNavigate();
+
+  // Determina se l'utente è in modalità read-only (solo visualizzazione)
+  const isReadOnly = userRole === 'user';
   const [currentDate, setCurrentDate] = useState(new Date());
   const [pianificazioni, setPianificazioni] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -259,100 +262,14 @@ function ProgrammazioneSettimanalePage({ user, userRole, tecnici, commesse, clie
     }
   };
 
-  // State per drag & drop
-  const [draggedEvento, setDraggedEvento] = useState(null);
-
-  // Handler click su evento
+  // Handler click su evento: naviga a Gestione Pianificazione
   const handleEventClick = (evento) => {
-    // TODO PHASE 3: Aprire modal dettagli/modifica
-    console.log('Event clicked:', evento);
-    alert(`Dettagli pianificazione: ${evento.commessa_codice || 'N/A'} - Foglio #${evento.numero_foglio || 'N/A'}`);
-  };
-
-  // Drag & Drop handlers
-  const handleDragStart = (e, evento) => {
-    e.stopPropagation();
-    setDraggedEvento(evento);
-    e.dataTransfer.effectAllowed = 'move';
-  };
-
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-  };
-
-  const handleDrop = async (e, tecnicoId, dayKey) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    if (!draggedEvento) return;
-
-    try {
-      // Calcola nuove date basate sul drop
-      const dataInizioOriginale = new Date(draggedEvento.data_inizio);
-      const dataFineOriginale = new Date(draggedEvento.data_fine);
-      const durataGiorni = Math.ceil((dataFineOriginale - dataInizioOriginale) / (1000 * 60 * 60 * 24));
-
-      const nuovaDataInizio = new Date(dayKey);
-      const nuovaDataFine = new Date(dayKey);
-      nuovaDataFine.setDate(nuovaDataFine.getDate() + durataGiorni);
-
-      // Prepara update: aggiorna tecnici_assegnati e date
-      const updates = {
-        tecnici_assegnati: [tecnicoId],
-        data_inizio_pianificata: format(nuovaDataInizio, 'yyyy-MM-dd'),
-        data_fine_pianificata: format(nuovaDataFine, 'yyyy-MM-dd'),
-      };
-
-      // Esegui update su database
-      const { error: updateError } = await supabase
-        .from('pianificazioni')
-        .update(updates)
-        .eq('id', draggedEvento.id);
-
-      if (updateError) throw updateError;
-
-      // Ricarica pianificazioni
-      const weekStartStr = format(weekStart, 'yyyy-MM-dd');
-      const weekEndStr = format(weekEnd, 'yyyy-MM-dd');
-
-      const { data, error: fetchError } = await supabase
-        .from('pianificazioni')
-        .select(`
-          id,
-          data_inizio_pianificata,
-          data_fine_pianificata,
-          stato_pianificazione,
-          foglio_assistenza_id,
-          commessa_id,
-          cliente_id,
-          tecnici_assegnati,
-          descrizione,
-          fogli_assistenza (
-            id,
-            numero_foglio,
-            cliente_id,
-            commessa_id
-          )
-        `)
-        .lte('data_inizio_pianificata', weekEndStr)
-        .gte('data_fine_pianificata', weekStartStr)
-        .in('stato_pianificazione', ['Pianificata', 'Confermata', 'In Corso'])
-        .order('data_inizio_pianificata', { ascending: true });
-
-      if (fetchError) throw fetchError;
-
-      setPianificazioni(data || []);
-      setDraggedEvento(null);
-    } catch (err) {
-      console.error('Errore nello spostamento pianificazione:', err);
-      alert('Impossibile spostare la pianificazione. Riprova.');
-      setDraggedEvento(null);
-    }
-  };
-
-  const handleDragEnd = () => {
-    setDraggedEvento(null);
+    // Naviga a Gestione Pianificazione con la pianificazione selezionata
+    // Usa data_inizio come parametro per posizionare il calendario
+    const params = new URLSearchParams({
+      data: evento.data_inizio,   // Data per posizionare il calendario
+    });
+    navigate(`/gestione-pianificazione?${params.toString()}`);
   };
 
   // Render evento nella cella
@@ -364,15 +281,12 @@ function ProgrammazioneSettimanalePage({ user, userRole, tecnici, commesse, clie
       <div
         key={evento.id}
         className="programmazione-evento"
-        draggable={true}
-        onDragStart={(e) => handleDragStart(e, evento)}
-        onDragEnd={handleDragEnd}
-        style={{ backgroundColor, cursor: 'move' }}
+        style={{ backgroundColor }}
         onClick={(e) => {
           e.stopPropagation();
           handleEventClick(evento);
         }}
-        title={`${evento.commessa_codice || 'N/A'} - ${evento.cliente_nome || 'N/A'} (trascina per spostare)`}
+        title={`${evento.commessa_codice || 'N/A'} - ${evento.cliente_nome || 'N/A'}`}
       >
         <div className="evento-codice">{evento.commessa_codice || 'N/A'}</div>
         {evento.numero_foglio && <div className="evento-foglio">#{numeroFoglioAbbreviato}</div>}
@@ -545,17 +459,15 @@ function ProgrammazioneSettimanalePage({ user, userRole, tecnici, commesse, clie
                         return (
                           <td
                             key={dayKey}
-                            className={`day-cell ${isToday ? 'today-cell' : ''} ${eventi.length === 0 ? 'empty-cell' : ''} ${draggedEvento ? 'drop-target' : ''}`}
-                            onClick={() => eventi.length === 0 && handleCellClick(tecnico.id, dayKey)}
-                            onDragOver={handleDragOver}
-                            onDrop={(e) => handleDrop(e, tecnico.id, dayKey)}
+                            className={`day-cell ${isToday ? 'today-cell' : ''} ${eventi.length === 0 ? 'empty-cell' : ''} ${isReadOnly ? 'read-only' : ''}`}
+                            onClick={() => !isReadOnly && eventi.length === 0 && handleCellClick(tecnico.id, dayKey)}
                           >
                             {eventi.length > 0 ? (
                               <div className="eventi-container">
                                 {eventi.map(evento => renderEvento(evento))}
                               </div>
                             ) : (
-                              <div className="empty-placeholder">+</div>
+                              !isReadOnly && <div className="empty-placeholder">+</div>
                             )}
                           </td>
                         );
@@ -578,17 +490,15 @@ function ProgrammazioneSettimanalePage({ user, userRole, tecnici, commesse, clie
         <div className="programmazione-legenda">
           <h3>Legenda</h3>
           <div className="legenda-items">
-            <div className="legenda-item">
-              <span className="legenda-icon empty-icon">+</span>
-              <span>Click per creare pianificazione</span>
-            </div>
-            <div className="legenda-item">
-              <span className="legenda-icon event-icon" style={{ backgroundColor: '#4CAF50' }}>COD</span>
-              <span>Trascina evento per spostarlo (tecnico/data)</span>
-            </div>
+            {!isReadOnly && (
+              <div className="legenda-item">
+                <span className="legenda-icon empty-icon">+</span>
+                <span>Click su cella vuota per creare pianificazione</span>
+              </div>
+            )}
             <div className="legenda-item">
               <span className="legenda-icon event-icon" style={{ backgroundColor: '#2196F3' }}>COD</span>
-              <span>Click su evento per dettagli/modifica</span>
+              <span>Click su pianificazione per visualizzare dettagli</span>
             </div>
             <div className="legenda-item">
               <span className="legenda-icon today-icon"></span>
