@@ -70,6 +70,33 @@ function GestionePianificazionePage({ session, clienti, tecnici, commesse, mezzi
   const [fogliDisponibili, setFogliDisponibili] = useState([]);
   const [alertMezzi, setAlertMezzi] = useState({ scadute: 0, inScadenza: 0 });
 
+  // Leggi parametri URL per posizionamento iniziale (da Programmazione Settimanale)
+  useEffect(() => {
+    // Parametro "data" - posiziona calendario sulla data specificata
+    const dataParam = searchParams.get('data');
+    if (dataParam) {
+      try {
+        const date = new Date(dataParam);
+        if (!isNaN(date)) {
+          setCurrentDate(date);
+        }
+      } catch (e) {
+        console.error('Invalid date parameter:', e);
+      }
+    }
+
+    // Parametro "tecnico" - imposta filtro tecnico
+    const tecnicoParam = searchParams.get('tecnico');
+    if (tecnicoParam) {
+      setFilterTecnico(tecnicoParam);
+    }
+
+    // Rimuovi parametri dall'URL dopo averli letti (cleanup)
+    if (dataParam || tecnicoParam) {
+      setSearchParams({});
+    }
+  }, []); // Esegui solo al mount iniziale
+
   // Sincronizza filtri data con il range visibile del calendario (solo per viste Mese/Settimana/Giorno)
   // In modalità Agenda, preserva i valori inseriti manualmente dall'utente
   useEffect(() => {
@@ -366,12 +393,20 @@ function GestionePianificazionePage({ session, clienti, tecnici, commesse, mezzi
       filtered = filtered.filter((p) => p.foglio_assistenza_id === filterFoglio);
     }
 
-    // Filtri data: applicare SEMPRE (sincronizzati automaticamente con il range visibile)
-    if (filterDataInizio) {
-      filtered = filtered.filter((p) => p.data_inizio_pianificata >= filterDataInizio);
-    }
-    if (filterDataFine) {
-      filtered = filtered.filter((p) => p.data_fine_pianificata <= filterDataFine);
+    // Filtri data: applicare logica di INTERSEZIONE (non contenimento)
+    // Un evento è visibile se interseca il range filtrato
+    if (filterDataInizio && filterDataFine) {
+      filtered = filtered.filter((p) => {
+        // Intersezione: start_evento <= fine_filtro AND fine_evento >= inizio_filtro
+        return p.data_inizio_pianificata <= filterDataFine &&
+               p.data_fine_pianificata >= filterDataInizio;
+      });
+    } else if (filterDataInizio) {
+      // Solo filtro inizio: mostra eventi che finiscono dopo questa data
+      filtered = filtered.filter((p) => p.data_fine_pianificata >= filterDataInizio);
+    } else if (filterDataFine) {
+      // Solo filtro fine: mostra eventi che iniziano prima di questa data
+      filtered = filtered.filter((p) => p.data_inizio_pianificata <= filterDataFine);
     }
 
     // Trasforma in eventi
@@ -411,6 +446,8 @@ function GestionePianificazionePage({ session, clienti, tecnici, commesse, mezzi
         start,
         end,
         allDay: p.tutto_il_giorno,
+        // Dati DB pianificazione alla radice (per ModalDettagliPianificazione)
+        ...p,
         resource: {
           // Campi per AgendaView (compatibili con CalendarioPianificazioniOperatoriPage)
           id: p.id,
@@ -428,7 +465,7 @@ function GestionePianificazionePage({ session, clienti, tecnici, commesse, mezzi
           // Dati completi pianificazione (per modal e altri componenti)
           ...p,
         },
-        // Mantieni campi legacy a livello radice per compatibilità con EventoPianificazione
+        // Campi calcolati/legacy sovrascrivono quelli da ...p se necessario
         commessaCodice: commessa?.codice_commessa || 'N/A',
         tecniciNomi,
         statoPianificazione: p.stato_pianificazione,
@@ -657,7 +694,9 @@ function GestionePianificazionePage({ session, clienti, tecnici, commesse, mezzi
     const commesseIds = new Set();
     eventiCalendario.forEach((e) => {
       const foglio = foglioMap[e.resource.foglio_assistenza_id];
-      if (foglio?.commessa_id) commesseIds.add(foglio.commessa_id);
+      // Fallback: aggiungi commessa sia da foglio che da pianificazione diretta
+      const commessaId = foglio?.commessa_id || e.resource.commessa_id;
+      if (commessaId) commesseIds.add(commessaId);
     });
     return commesse.filter((c) => commesseIds.has(c.id));
   }, [eventiCalendario, foglioMap, commesse]);
@@ -684,7 +723,8 @@ function GestionePianificazionePage({ session, clienti, tecnici, commesse, mezzi
     (event) => {
       const foglioId = event.resource.foglio_assistenza_id;
       const foglio = foglioMap[foglioId];
-      const commessaId = foglio?.commessa_id;
+      // Fallback: cerca commessa_id prima nel foglio, poi nella pianificazione diretta
+      const commessaId = foglio?.commessa_id || event.resource.commessa_id;
 
       let backgroundColor = '#6c757d'; // default grigio
 

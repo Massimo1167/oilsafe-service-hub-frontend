@@ -12,7 +12,8 @@
       "Bash(node -e:*)",
       "Bash(npm run dev:*)",
       "Bash(move CalendarioPianificazioniPage.jsx GestionePianificazionePage.jsx)",
-      "Bash(move \"src\\pages\\CalendarioPianificazioniPage.jsx\" \"src\\pages\\GestionePianificazionePage.jsx\")"
+      "Bash(move \"src\\pages\\CalendarioPianificazioniPage.jsx\" \"src\\pages\\GestionePianificazionePage.jsx\")",
+      "Bash(find:*)"
     ],
     "deny": [],
     "ask": []

@@ -25,7 +25,7 @@ function InterventoAssistenzaForm({
     const [formDataIntervento, setFormDataIntervento] = useState(new Date().toISOString().split('T')[0]);
     const [formSelectedTecnicoId, setFormSelectedTecnicoId] = useState('');
     const [formMansioneId, setFormMansioneId] = useState(''); // Mansione storicizzata per calcolo costi
-    const [formTipoIntervento, setFormTipoIntervento] = useState('In Loco');
+    const [formTipoIntervento, setFormTipoIntervento] = useState('Sede Cliente');
     const [formNumeroTecnici, setFormNumeroTecnici] = useState('1');
     const [formOreLavoro, setFormOreLavoro] = useState('');
     const [formDescrizioneAttivita, setFormDescrizioneAttivita] = useState('');
@@ -56,7 +56,7 @@ function InterventoAssistenzaForm({
                 setFormDataIntervento(interventoToEdit.data_intervento_effettivo ? new Date(interventoToEdit.data_intervento_effettivo).toISOString().split('T')[0] : '');
                 setFormSelectedTecnicoId(interventoToEdit.tecnico_id || '');
                 setFormMansioneId(interventoToEdit.mansione_id || ''); // Carica mansione storicizzata
-                setFormTipoIntervento(interventoToEdit.tipo_intervento || 'In Loco');
+                setFormTipoIntervento(interventoToEdit.tipo_intervento || 'Sede Cliente');
                 setFormNumeroTecnici(interventoToEdit.numero_tecnici?.toString() || '1');
                 setFormOreLavoro(interventoToEdit.ore_lavoro_effettive?.toString() || '');
                 setFormDescrizioneAttivita(interventoToEdit.descrizione_attivita_svolta_intervento || '');
@@ -82,7 +82,7 @@ function InterventoAssistenzaForm({
                 // Reset per la modalità aggiunta
                 setFormDataIntervento(new Date().toISOString().split('T')[0]);
                 setFormSelectedTecnicoId(tecniciList?.[0]?.id || ''); // Preseleziona il primo se disponibile
-                setFormTipoIntervento('In Loco');
+                setFormTipoIntervento('Sede Cliente');
                 setFormNumeroTecnici('1');
                 setFormOreLavoro('');
                 setFormDescrizioneAttivita('');
@@ -212,11 +212,11 @@ function InterventoAssistenzaForm({
           numero_tecnici: parseInt(formNumeroTecnici, 10) || 1,
           ore_lavoro_effettive: parseFloat(formOreLavoro) || null,
           descrizione_attivita_svolta_intervento: formDescrizioneAttivita.trim(),
-          km_percorsi: formTipoIntervento === 'In Loco' ? (parseInt(formKmPercorsi) || null) : null,
-          ore_viaggio: formTipoIntervento === 'In Loco' ? (parseFloat(formOreViaggio) || null) : null,
-          vitto: formTipoIntervento === 'In Loco' ? formVitto : false,
-          autostrada: formTipoIntervento === 'In Loco' ? formAutostrada : false,
-          alloggio: formTipoIntervento === 'In Loco' ? formAlloggio : false,
+          km_percorsi: formTipoIntervento === 'Sede Cliente' ? (parseInt(formKmPercorsi) || null) : null,
+          ore_viaggio: formTipoIntervento === 'Sede Cliente' ? (parseFloat(formOreViaggio) || null) : null,
+          vitto: formTipoIntervento === 'Sede Cliente' ? formVitto : false,
+          autostrada: formTipoIntervento === 'Sede Cliente' ? formAutostrada : false,
+          alloggio: formTipoIntervento === 'Sede Cliente' ? formAlloggio : false,
           osservazioni_intervento: formOsservazioni.trim(),
         };
 
@@ -361,8 +361,9 @@ function InterventoAssistenzaForm({
             <div>
               <label htmlFor="formTipoIntervento">Tipo Intervento:</label>
               <select id="formTipoIntervento" value={formTipoIntervento} onChange={(e) => setFormTipoIntervento(e.target.value)}>
-                <option value="In Loco">In Loco</option>
-                <option value="Remoto">Remoto</option>
+                <option value="Sede Cliente">Sede Cliente</option>
+                <option value="Sede Oilsafe">Sede Oilsafe</option>
+                <option value="Teleassistenza">Teleassistenza</option>
               </select>
             </div>
             <div>
@@ -398,10 +399,10 @@ function InterventoAssistenzaForm({
               </small>
             </div>
 
-            {formTipoIntervento === 'In Loco' && (
+            {formTipoIntervento === 'Sede Cliente' && (
               <>
                 <hr style={{margin:'15px 0'}}/>
-                <h5>Dettagli Trasferta (Solo per "In Loco")</h5>
+                <h5>Dettagli Trasferta (Solo per "Sede Cliente")</h5>
                 <div>
                   <label htmlFor="formKmPercorsi">Km Percorsi A/R:</label>
                   <input type="number" min="0" id="formKmPercorsi" value={formKmPercorsi} onChange={(e) => setFormKmPercorsi(e.target.value)} />
