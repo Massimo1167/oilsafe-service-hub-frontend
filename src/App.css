@@ -1,11 +1,13 @@
+html {
+    touch-action: pan-x pan-y pinch-zoom;
+}
+
 html, body {
     margin: 0;
     font-family: sans-serif;
     background-color: #f0f2f5;
     color: #333;
-    /* Prevent horizontal scrolling - individual containers handle overflow */
     overflow-x: hidden;
-    width: 100%;
 }
 .app-container { display: flex; flex-direction: column; min-height: 100vh; }
 header { color: white; padding: 1rem; }
@@ -422,33 +424,6 @@ label:has(> input[type="radio"]) {
 @media (max-width: 576px) {
     .filtri-grid {
         grid-template-columns: 1fr !important;
-    }
-}
-
-/* ========================================
-   RESPONSIVE TABLE WRAPPER FOR MOBILE/TABLET
-   ======================================== */
-.table-responsive-wrapper {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    margin-bottom: 1rem;
-    border-radius: 4px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.table-responsive-wrapper table {
-    min-width: 1200px;
-    margin-bottom: 0;
-}
-
-@media (max-width: 768px) {
-    .table-responsive-wrapper {
-        border: 1px solid #ddd;
-        border-radius: 8px;
-    }
-
-    .table-responsive-wrapper table {
-        font-size: 0.85em;
     }
 }
 

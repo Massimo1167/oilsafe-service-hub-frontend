@@ -315,8 +315,7 @@ function RepartiManager({ session, onDataChanged }) {
           {showInactive ? 'Nessun reparto trovato.' : 'Nessun reparto attivo trovato. Attiva "Mostra anche reparti disattivati" per vedere tutti.'}
         </p>
       ) : (
-        <div className="table-responsive-wrapper">
-          <table className="data-table">
+        <table className="data-table">
           <thead>
             <tr>
               <th style={{ width: '15%' }}>Codice</th>
@@ -394,7 +393,6 @@ function RepartiManager({ session, onDataChanged }) {
             ))}
           </tbody>
         </table>
-        </div>
       )}
     </div>
   );

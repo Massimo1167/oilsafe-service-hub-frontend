@@ -485,8 +485,7 @@ function OrdiniClienteManager({ session, clienti, commesse, onDataChanged }) {
             {pageLoading && ordini.length === 0 ? <p>Caricamento ordini...</p> : null}
             {!pageLoading && ordini.length === 0 ? (<p>Nessun ordine cliente trovato con i filtri applicati.</p>) : (
                 <>
-                <div className="table-responsive-wrapper">
-                    <table className="data-table">
+                <table className="data-table">
                     <thead><tr><th>Numero Ordine</th><th>Data</th><th>Cliente</th><th>Commessa</th><th>Descrizione</th>{canManage && <th>Azioni</th>}</tr></thead>
                     <tbody>
                         {ordini.map(o => (
@@ -500,7 +499,6 @@ function OrdiniClienteManager({ session, clienti, commesse, onDataChanged }) {
                         ))}
                     </tbody>
                 </table>
-                </div>
                 {totalPages > 1 && (
                     <div className="pagination-controls" style={{ marginTop: '20px', textAlign: 'center' }}>
                         <button

@@ -588,87 +588,85 @@ function MansioniManager({ session }) {
       {mansioni.length === 0 && !pageLoading ? (
         <p>Nessuna mansione trovata.</p>
       ) : (
-        <div className="table-responsive-wrapper">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Ruolo</th>
-                <th>Categoria</th>
-                <th>Livello</th>
-                <th>Costo Orario Oilsafe</th>
-                <th>Costo Orario Cliente</th>
-                <th>Costo Orario Teleass.</th>
-                <th>Stato</th>
-                {canManage && <th>Azioni</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {mansioni.map((m) => (
-                <tr
-                  key={m.id}
-                  style={{
-                    backgroundColor: editingMansione && editingMansione.id === m.id ? '#e6f7ff' : m.attivo ? 'transparent' : '#f9f9f9',
-                    opacity: m.attivo ? 1 : 0.6
-                  }}
-                >
-                  <td>
-                    <strong>{m.ruolo}</strong>
-                    {m.descrizione && (
-                      <div style={{ fontSize: '0.85em', color: '#666', marginTop: '3px' }}>
-                        {m.descrizione}
-                      </div>
-                    )}
-                  </td>
-                  <td style={{ textTransform: 'capitalize' }}>{m.categoria}</td>
-                  <td style={{ textTransform: 'capitalize' }}>{m.livello}</td>
-                  <td>{formatCosto(m.costo_orario_oilsafe)}</td>
-                  <td>{formatCosto(m.costo_orario_cliente)}</td>
-                  <td>{formatCosto(m.costo_orario_teleassistenza)}</td>
-                  <td>
-                    <span
-                      style={{
-                        padding: '3px 8px',
-                        borderRadius: '3px',
-                        fontSize: '0.85em',
-                        backgroundColor: m.attivo ? '#d4edda' : '#f8d7da',
-                        color: m.attivo ? '#155724' : '#721c24'
-                      }}
-                    >
-                      {m.attivo ? 'Attivo' : 'Disattivato'}
-                    </span>
-                  </td>
-                  {canManage && (
-                    <td className="actions">
-                      <button
-                        className="button secondary small"
-                        onClick={() => handleEditMansione(m)}
-                        disabled={loadingActions}
-                      >
-                        Modifica
-                      </button>
-                      <button
-                        className="button warning small"
-                        onClick={() => handleToggleActive(m)}
-                        disabled={loadingActions}
-                        style={{ marginLeft: '5px' }}
-                      >
-                        {m.attivo ? 'Disattiva' : 'Attiva'}
-                      </button>
-                      <button
-                        className="button danger small"
-                        onClick={() => handleDeleteMansione(m.id)}
-                        disabled={loadingActions}
-                        style={{ marginLeft: '5px' }}
-                      >
-                        Elimina
-                      </button>
-                    </td>
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Ruolo</th>
+              <th>Categoria</th>
+              <th>Livello</th>
+              <th>Costo Orario Oilsafe</th>
+              <th>Costo Orario Cliente</th>
+              <th>Costo Orario Teleass.</th>
+              <th>Stato</th>
+              {canManage && <th>Azioni</th>}
+            </tr>
+          </thead>
+          <tbody>
+            {mansioni.map((m) => (
+              <tr
+                key={m.id}
+                style={{
+                  backgroundColor: editingMansione && editingMansione.id === m.id ? '#e6f7ff' : m.attivo ? 'transparent' : '#f9f9f9',
+                  opacity: m.attivo ? 1 : 0.6
+                }}
+              >
+                <td>
+                  <strong>{m.ruolo}</strong>
+                  {m.descrizione && (
+                    <div style={{ fontSize: '0.85em', color: '#666', marginTop: '3px' }}>
+                      {m.descrizione}
+                    </div>
                   )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                </td>
+                <td style={{ textTransform: 'capitalize' }}>{m.categoria}</td>
+                <td style={{ textTransform: 'capitalize' }}>{m.livello}</td>
+                <td>{formatCosto(m.costo_orario_oilsafe)}</td>
+                <td>{formatCosto(m.costo_orario_cliente)}</td>
+                <td>{formatCosto(m.costo_orario_teleassistenza)}</td>
+                <td>
+                  <span
+                    style={{
+                      padding: '3px 8px',
+                      borderRadius: '3px',
+                      fontSize: '0.85em',
+                      backgroundColor: m.attivo ? '#d4edda' : '#f8d7da',
+                      color: m.attivo ? '#155724' : '#721c24'
+                    }}
+                  >
+                    {m.attivo ? 'Attivo' : 'Disattivato'}
+                  </span>
+                </td>
+                {canManage && (
+                  <td className="actions">
+                    <button
+                      className="button secondary small"
+                      onClick={() => handleEditMansione(m)}
+                      disabled={loadingActions}
+                    >
+                      Modifica
+                    </button>
+                    <button
+                      className="button warning small"
+                      onClick={() => handleToggleActive(m)}
+                      disabled={loadingActions}
+                      style={{ marginLeft: '5px' }}
+                    >
+                      {m.attivo ? 'Disattiva' : 'Attiva'}
+                    </button>
+                    <button
+                      className="button danger small"
+                      onClick={() => handleDeleteMansione(m.id)}
+                      disabled={loadingActions}
+                      style={{ marginLeft: '5px' }}
+                    >
+                      Elimina
+                    </button>
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       )}
     </div>
   );
