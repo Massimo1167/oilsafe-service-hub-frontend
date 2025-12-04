@@ -453,7 +453,8 @@ function TecniciManager({ session, mansioni, reparti, onDataChanged }) {
             )}
             <h3>Elenco Tecnici</h3>
             {tecnici.length === 0 && !pageLoading ? ( <p>Nessun tecnico trovato.</p> ) : (
-                <table>
+                <div className="table-responsive-wrapper">
+                    <table className="data-table">
                     <thead><tr><th>Cognome</th><th>Nome</th><th>Email</th><th>Pianificazione</th>{canManage && <th>Azioni</th>}</tr></thead>
                     <tbody>
                         {tecnici.map(t => (
@@ -477,6 +478,7 @@ function TecniciManager({ session, mansioni, reparti, onDataChanged }) {
                         ))}
                     </tbody>
                 </table>
+                </div>
             )}
         </div>
     );

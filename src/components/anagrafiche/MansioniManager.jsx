@@ -588,8 +588,8 @@ function MansioniManager({ session }) {
       {mansioni.length === 0 && !pageLoading ? (
         <p>Nessuna mansione trovata.</p>
       ) : (
-        <div style={{ overflowX: 'auto' }}>
-          <table>
+        <div className="table-responsive-wrapper">
+          <table className="data-table">
             <thead>
               <tr>
                 <th>Ruolo</th>
