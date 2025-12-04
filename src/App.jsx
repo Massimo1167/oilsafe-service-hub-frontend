@@ -10,6 +10,7 @@ import { supabase } from './supabaseClient';
 
 // Importa Pagine
 import DashboardPage from './pages/DashboardPage';
+import InfoPage from './pages/InfoPage';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import FogliAssistenzaListPage from './pages/FogliAssistenzaListPage';
@@ -421,6 +422,9 @@ function App() {
                 <Link to="/admin-monitoring">Monitoraggio</Link>
               </>
             )}
+            <Link to="/info" className="nav-info-icon" title="Informazioni applicazione">
+              ℹ️
+            </Link>
             <button
               onClick={handleLogout}
               className="button-logout"
@@ -438,7 +442,8 @@ function App() {
           <Route path="/signup" element={!session ? <SignupPage /> : <Navigate to="/" replace />} />
           <Route element={<ProtectedRoute session={session} />}>
             <Route path="/" element={<DashboardPage session={session} userRole={userRole} />} />
-            <Route 
+            <Route path="/info" element={<InfoPage />} />
+            <Route
               path="/fogli-assistenza" 
               element={
                 <FogliAssistenzaListPage 
