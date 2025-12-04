@@ -614,7 +614,7 @@ function MezziTrasportoManager({ session, onDataChanged }) {
             )}
 
             {/* Table */}
-            <div className="table-container">
+            <div className="table-responsive-wrapper">
                 <p className="results-count">
                     {mezziFiltrati.length} {mezziFiltrati.length === 1 ? 'mezzo trovato' : 'mezzi trovati'}
                 </p>

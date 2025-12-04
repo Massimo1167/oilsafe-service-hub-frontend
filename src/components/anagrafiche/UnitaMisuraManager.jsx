@@ -231,7 +231,8 @@ function UnitaMisuraManager({ session, onDataChanged }) {
             ) : unitaMisura.length === 0 ? (
                 <p>Nessuna unità di misura configurata.</p>
             ) : (
-                <table>
+                <div className="table-responsive-wrapper">
+                    <table className="data-table">
                     <thead>
                         <tr>
                             <th>Codice</th>
@@ -290,6 +291,7 @@ function UnitaMisuraManager({ session, onDataChanged }) {
                         ))}
                     </tbody>
                 </table>
+                </div>
             )}
 
             {/* Modal Form */}

@@ -838,7 +838,8 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
             {fogliFiltrati.length === 0 && !loadingFogli ? (
                 <p>Nessun foglio di assistenza trovato con i filtri applicati.</p>
             ) : (
-                <table>
+                <div className="table-responsive-wrapper">
+                    <table>
                     <thead>
                         <tr>
                             <th> 
@@ -950,6 +951,7 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                         ))}
                     </tbody>
                 </table>
+                </div>
             )}
 
             {/* Modal Preview PDF */}
