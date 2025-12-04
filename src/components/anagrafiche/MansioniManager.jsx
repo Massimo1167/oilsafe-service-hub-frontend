@@ -21,21 +21,25 @@ function MansioniManager({ session }) {
   const [formLivello, setFormLivello] = useState('generico');
   const [formCategoria, setFormCategoria] = useState('operaio');
 
-  // Cost fields - normale
-  const [formCostoOrarioSede, setFormCostoOrarioSede] = useState('0.00');
-  const [formCostoOrarioTrasferta, setFormCostoOrarioTrasferta] = useState('0.00');
+  // Cost fields - normale (3 locations: oilsafe, cliente, teleassistenza)
+  const [formCostoOrarioOilsafe, setFormCostoOrarioOilsafe] = useState('0.00');
+  const [formCostoOrarioCliente, setFormCostoOrarioCliente] = useState('0.00');
+  const [formCostoOrarioTeleassistenza, setFormCostoOrarioTeleassistenza] = useState('0.00');
 
   // Cost fields - straordinario
-  const [formCostoStraordinarioSede, setFormCostoStraordinarioSede] = useState('0.00');
-  const [formCostoStraordinarioTrasferta, setFormCostoStraordinarioTrasferta] = useState('0.00');
+  const [formCostoStraordinarioOilsafe, setFormCostoStraordinarioOilsafe] = useState('0.00');
+  const [formCostoStraordinarioCliente, setFormCostoStraordinarioCliente] = useState('0.00');
+  const [formCostoStraordinarioTeleassistenza, setFormCostoStraordinarioTeleassistenza] = useState('0.00');
 
   // Cost fields - festivo
-  const [formCostoFestivoSede, setFormCostoFestivoSede] = useState('0.00');
-  const [formCostoFestivoTrasferta, setFormCostoFestivoTrasferta] = useState('0.00');
+  const [formCostoFestivoOilsafe, setFormCostoFestivoOilsafe] = useState('0.00');
+  const [formCostoFestivoCliente, setFormCostoFestivoCliente] = useState('0.00');
+  const [formCostoFestivoTeleassistenza, setFormCostoFestivoTeleassistenza] = useState('0.00');
 
   // Cost fields - straordinario festivo
-  const [formCostoStraordinarioFestivoSede, setFormCostoStraordinarioFestivoSede] = useState('0.00');
-  const [formCostoStraordinarioFestivoTrasferta, setFormCostoStraordinarioFestivoTrasferta] = useState('0.00');
+  const [formCostoStraordinarioFestivoOilsafe, setFormCostoStraordinarioFestivoOilsafe] = useState('0.00');
+  const [formCostoStraordinarioFestivoCliente, setFormCostoStraordinarioFestivoCliente] = useState('0.00');
+  const [formCostoStraordinarioFestivoTeleassistenza, setFormCostoStraordinarioFestivoTeleassistenza] = useState('0.00');
 
   const [formAttivo, setFormAttivo] = useState(true);
   const [formNote, setFormNote] = useState('');
@@ -103,14 +107,19 @@ function MansioniManager({ session }) {
     setFormDescrizione('');
     setFormLivello('generico');
     setFormCategoria('operaio');
-    setFormCostoOrarioSede('0.00');
-    setFormCostoOrarioTrasferta('0.00');
-    setFormCostoStraordinarioSede('0.00');
-    setFormCostoStraordinarioTrasferta('0.00');
-    setFormCostoFestivoSede('0.00');
-    setFormCostoFestivoTrasferta('0.00');
-    setFormCostoStraordinarioFestivoSede('0.00');
-    setFormCostoStraordinarioFestivoTrasferta('0.00');
+    // Reset tutti i 12 campi costo (3 ubicazioni × 4 categorie orarie)
+    setFormCostoOrarioOilsafe('0.00');
+    setFormCostoOrarioCliente('0.00');
+    setFormCostoOrarioTeleassistenza('0.00');
+    setFormCostoStraordinarioOilsafe('0.00');
+    setFormCostoStraordinarioCliente('0.00');
+    setFormCostoStraordinarioTeleassistenza('0.00');
+    setFormCostoFestivoOilsafe('0.00');
+    setFormCostoFestivoCliente('0.00');
+    setFormCostoFestivoTeleassistenza('0.00');
+    setFormCostoStraordinarioFestivoOilsafe('0.00');
+    setFormCostoStraordinarioFestivoCliente('0.00');
+    setFormCostoStraordinarioFestivoTeleassistenza('0.00');
     setFormAttivo(true);
     setFormNote('');
     setEditingMansione(null);
@@ -126,14 +135,19 @@ function MansioniManager({ session }) {
     setFormDescrizione(mansione.descrizione || '');
     setFormLivello(mansione.livello || 'generico');
     setFormCategoria(mansione.categoria || 'operaio');
-    setFormCostoOrarioSede(mansione.costo_orario_sede || '0.00');
-    setFormCostoOrarioTrasferta(mansione.costo_orario_trasferta || '0.00');
-    setFormCostoStraordinarioSede(mansione.costo_straordinario_sede || '0.00');
-    setFormCostoStraordinarioTrasferta(mansione.costo_straordinario_trasferta || '0.00');
-    setFormCostoFestivoSede(mansione.costo_festivo_sede || '0.00');
-    setFormCostoFestivoTrasferta(mansione.costo_festivo_trasferta || '0.00');
-    setFormCostoStraordinarioFestivoSede(mansione.costo_straordinario_festivo_sede || '0.00');
-    setFormCostoStraordinarioFestivoTrasferta(mansione.costo_straordinario_festivo_trasferta || '0.00');
+    // Carica tutti i 12 campi costo dalla mansione
+    setFormCostoOrarioOilsafe(mansione.costo_orario_oilsafe || '0.00');
+    setFormCostoOrarioCliente(mansione.costo_orario_cliente || '0.00');
+    setFormCostoOrarioTeleassistenza(mansione.costo_orario_teleassistenza || '0.00');
+    setFormCostoStraordinarioOilsafe(mansione.costo_straordinario_oilsafe || '0.00');
+    setFormCostoStraordinarioCliente(mansione.costo_straordinario_cliente || '0.00');
+    setFormCostoStraordinarioTeleassistenza(mansione.costo_straordinario_teleassistenza || '0.00');
+    setFormCostoFestivoOilsafe(mansione.costo_festivo_oilsafe || '0.00');
+    setFormCostoFestivoCliente(mansione.costo_festivo_cliente || '0.00');
+    setFormCostoFestivoTeleassistenza(mansione.costo_festivo_teleassistenza || '0.00');
+    setFormCostoStraordinarioFestivoOilsafe(mansione.costo_straordinario_festivo_oilsafe || '0.00');
+    setFormCostoStraordinarioFestivoCliente(mansione.costo_straordinario_festivo_cliente || '0.00');
+    setFormCostoStraordinarioFestivoTeleassistenza(mansione.costo_straordinario_festivo_teleassistenza || '0.00');
     setFormAttivo(mansione.attivo !== false);
     setFormNote(mansione.note || '');
     window.scrollTo(0, 0);
@@ -159,14 +173,21 @@ function MansioniManager({ session }) {
       descrizione: formDescrizione.trim() || null,
       livello: formLivello,
       categoria: formCategoria,
-      costo_orario_sede: parseFloat(formCostoOrarioSede) || 0,
-      costo_orario_trasferta: parseFloat(formCostoOrarioTrasferta) || 0,
-      costo_straordinario_sede: parseFloat(formCostoStraordinarioSede) || 0,
-      costo_straordinario_trasferta: parseFloat(formCostoStraordinarioTrasferta) || 0,
-      costo_festivo_sede: parseFloat(formCostoFestivoSede) || 0,
-      costo_festivo_trasferta: parseFloat(formCostoFestivoTrasferta) || 0,
-      costo_straordinario_festivo_sede: parseFloat(formCostoStraordinarioFestivoSede) || 0,
-      costo_straordinario_festivo_trasferta: parseFloat(formCostoStraordinarioFestivoTrasferta) || 0,
+      // Costi per ubicazione Oilsafe
+      costo_orario_oilsafe: parseFloat(formCostoOrarioOilsafe) || 0,
+      costo_straordinario_oilsafe: parseFloat(formCostoStraordinarioOilsafe) || 0,
+      costo_festivo_oilsafe: parseFloat(formCostoFestivoOilsafe) || 0,
+      costo_straordinario_festivo_oilsafe: parseFloat(formCostoStraordinarioFestivoOilsafe) || 0,
+      // Costi per ubicazione Cliente
+      costo_orario_cliente: parseFloat(formCostoOrarioCliente) || 0,
+      costo_straordinario_cliente: parseFloat(formCostoStraordinarioCliente) || 0,
+      costo_festivo_cliente: parseFloat(formCostoFestivoCliente) || 0,
+      costo_straordinario_festivo_cliente: parseFloat(formCostoStraordinarioFestivoCliente) || 0,
+      // Costi per ubicazione Teleassistenza
+      costo_orario_teleassistenza: parseFloat(formCostoOrarioTeleassistenza) || 0,
+      costo_straordinario_teleassistenza: parseFloat(formCostoStraordinarioTeleassistenza) || 0,
+      costo_festivo_teleassistenza: parseFloat(formCostoFestivoTeleassistenza) || 0,
+      costo_straordinario_festivo_teleassistenza: parseFloat(formCostoStraordinarioFestivoTeleassistenza) || 0,
       attivo: formAttivo,
       note: formNote.trim() || null
     };
@@ -375,25 +396,39 @@ function MansioniManager({ session }) {
             <div>
               <h5 style={{ marginBottom: '10px', color: '#555' }}>Orario Normale</h5>
               <div>
-                <label htmlFor="formCostoOrarioSede">Sede:</label>
+                <label htmlFor="formCostoOrarioOilsafe">Sede Oilsafe:</label>
                 <input
                   type="number"
-                  id="formCostoOrarioSede"
-                  value={formCostoOrarioSede}
-                  onChange={(e) => setFormCostoOrarioSede(e.target.value)}
+                  id="formCostoOrarioOilsafe"
+                  value={formCostoOrarioOilsafe}
+                  onChange={(e) => setFormCostoOrarioOilsafe(e.target.value)}
                   step="0.01"
                   min="0"
+                  placeholder="es. 25.00"
                 />
               </div>
               <div>
-                <label htmlFor="formCostoOrarioTrasferta">Trasferta:</label>
+                <label htmlFor="formCostoOrarioCliente">Sede Cliente:</label>
                 <input
                   type="number"
-                  id="formCostoOrarioTrasferta"
-                  value={formCostoOrarioTrasferta}
-                  onChange={(e) => setFormCostoOrarioTrasferta(e.target.value)}
+                  id="formCostoOrarioCliente"
+                  value={formCostoOrarioCliente}
+                  onChange={(e) => setFormCostoOrarioCliente(e.target.value)}
                   step="0.01"
                   min="0"
+                  placeholder="es. 30.00"
+                />
+              </div>
+              <div>
+                <label htmlFor="formCostoOrarioTeleassistenza">Teleassistenza:</label>
+                <input
+                  type="number"
+                  id="formCostoOrarioTeleassistenza"
+                  value={formCostoOrarioTeleassistenza}
+                  onChange={(e) => setFormCostoOrarioTeleassistenza(e.target.value)}
+                  step="0.01"
+                  min="0"
+                  placeholder="es. 27.50"
                 />
               </div>
             </div>
@@ -401,25 +436,39 @@ function MansioniManager({ session }) {
             <div>
               <h5 style={{ marginBottom: '10px', color: '#555' }}>Orario Straordinario</h5>
               <div>
-                <label htmlFor="formCostoStraordinarioSede">Sede:</label>
+                <label htmlFor="formCostoStraordinarioOilsafe">Sede Oilsafe:</label>
                 <input
                   type="number"
-                  id="formCostoStraordinarioSede"
-                  value={formCostoStraordinarioSede}
-                  onChange={(e) => setFormCostoStraordinarioSede(e.target.value)}
+                  id="formCostoStraordinarioOilsafe"
+                  value={formCostoStraordinarioOilsafe}
+                  onChange={(e) => setFormCostoStraordinarioOilsafe(e.target.value)}
                   step="0.01"
                   min="0"
+                  placeholder="es. 32.50"
                 />
               </div>
               <div>
-                <label htmlFor="formCostoStraordinarioTrasferta">Trasferta:</label>
+                <label htmlFor="formCostoStraordinarioCliente">Sede Cliente:</label>
                 <input
                   type="number"
-                  id="formCostoStraordinarioTrasferta"
-                  value={formCostoStraordinarioTrasferta}
-                  onChange={(e) => setFormCostoStraordinarioTrasferta(e.target.value)}
+                  id="formCostoStraordinarioCliente"
+                  value={formCostoStraordinarioCliente}
+                  onChange={(e) => setFormCostoStraordinarioCliente(e.target.value)}
                   step="0.01"
                   min="0"
+                  placeholder="es. 39.00"
+                />
+              </div>
+              <div>
+                <label htmlFor="formCostoStraordinarioTeleassistenza">Teleassistenza:</label>
+                <input
+                  type="number"
+                  id="formCostoStraordinarioTeleassistenza"
+                  value={formCostoStraordinarioTeleassistenza}
+                  onChange={(e) => setFormCostoStraordinarioTeleassistenza(e.target.value)}
+                  step="0.01"
+                  min="0"
+                  placeholder="es. 35.75"
                 />
               </div>
             </div>
@@ -427,25 +476,39 @@ function MansioniManager({ session }) {
             <div>
               <h5 style={{ marginBottom: '10px', color: '#555' }}>Orario Festivo</h5>
               <div>
-                <label htmlFor="formCostoFestivoSede">Sede:</label>
+                <label htmlFor="formCostoFestivoOilsafe">Sede Oilsafe:</label>
                 <input
                   type="number"
-                  id="formCostoFestivoSede"
-                  value={formCostoFestivoSede}
-                  onChange={(e) => setFormCostoFestivoSede(e.target.value)}
+                  id="formCostoFestivoOilsafe"
+                  value={formCostoFestivoOilsafe}
+                  onChange={(e) => setFormCostoFestivoOilsafe(e.target.value)}
                   step="0.01"
                   min="0"
+                  placeholder="es. 37.50"
                 />
               </div>
               <div>
-                <label htmlFor="formCostoFestivoTrasferta">Trasferta:</label>
+                <label htmlFor="formCostoFestivoCliente">Sede Cliente:</label>
                 <input
                   type="number"
-                  id="formCostoFestivoTrasferta"
-                  value={formCostoFestivoTrasferta}
-                  onChange={(e) => setFormCostoFestivoTrasferta(e.target.value)}
+                  id="formCostoFestivoCliente"
+                  value={formCostoFestivoCliente}
+                  onChange={(e) => setFormCostoFestivoCliente(e.target.value)}
                   step="0.01"
                   min="0"
+                  placeholder="es. 45.00"
+                />
+              </div>
+              <div>
+                <label htmlFor="formCostoFestivoTeleassistenza">Teleassistenza:</label>
+                <input
+                  type="number"
+                  id="formCostoFestivoTeleassistenza"
+                  value={formCostoFestivoTeleassistenza}
+                  onChange={(e) => setFormCostoFestivoTeleassistenza(e.target.value)}
+                  step="0.01"
+                  min="0"
+                  placeholder="es. 41.25"
                 />
               </div>
             </div>
@@ -453,25 +516,39 @@ function MansioniManager({ session }) {
             <div>
               <h5 style={{ marginBottom: '10px', color: '#555' }}>Straordinario Festivo</h5>
               <div>
-                <label htmlFor="formCostoStraordinarioFestivoSede">Sede:</label>
+                <label htmlFor="formCostoStraordinarioFestivoOilsafe">Sede Oilsafe:</label>
                 <input
                   type="number"
-                  id="formCostoStraordinarioFestivoSede"
-                  value={formCostoStraordinarioFestivoSede}
-                  onChange={(e) => setFormCostoStraordinarioFestivoSede(e.target.value)}
+                  id="formCostoStraordinarioFestivoOilsafe"
+                  value={formCostoStraordinarioFestivoOilsafe}
+                  onChange={(e) => setFormCostoStraordinarioFestivoOilsafe(e.target.value)}
                   step="0.01"
                   min="0"
+                  placeholder="es. 43.75"
                 />
               </div>
               <div>
-                <label htmlFor="formCostoStraordinarioFestivoTrasferta">Trasferta:</label>
+                <label htmlFor="formCostoStraordinarioFestivoCliente">Sede Cliente:</label>
                 <input
                   type="number"
-                  id="formCostoStraordinarioFestivoTrasferta"
-                  value={formCostoStraordinarioFestivoTrasferta}
-                  onChange={(e) => setFormCostoStraordinarioFestivoTrasferta(e.target.value)}
+                  id="formCostoStraordinarioFestivoCliente"
+                  value={formCostoStraordinarioFestivoCliente}
+                  onChange={(e) => setFormCostoStraordinarioFestivoCliente(e.target.value)}
                   step="0.01"
                   min="0"
+                  placeholder="es. 52.50"
+                />
+              </div>
+              <div>
+                <label htmlFor="formCostoStraordinarioFestivoTeleassistenza">Teleassistenza:</label>
+                <input
+                  type="number"
+                  id="formCostoStraordinarioFestivoTeleassistenza"
+                  value={formCostoStraordinarioFestivoTeleassistenza}
+                  onChange={(e) => setFormCostoStraordinarioFestivoTeleassistenza(e.target.value)}
+                  step="0.01"
+                  min="0"
+                  placeholder="es. 48.13"
                 />
               </div>
             </div>
@@ -518,8 +595,9 @@ function MansioniManager({ session }) {
                 <th>Ruolo</th>
                 <th>Categoria</th>
                 <th>Livello</th>
-                <th>Costo Orario Sede</th>
-                <th>Costo Orario Trasferta</th>
+                <th>Costo Orario Oilsafe</th>
+                <th>Costo Orario Cliente</th>
+                <th>Costo Orario Teleass.</th>
                 <th>Stato</th>
                 {canManage && <th>Azioni</th>}
               </tr>
@@ -543,8 +621,9 @@ function MansioniManager({ session }) {
                   </td>
                   <td style={{ textTransform: 'capitalize' }}>{m.categoria}</td>
                   <td style={{ textTransform: 'capitalize' }}>{m.livello}</td>
-                  <td>{formatCosto(m.costo_orario_sede)}</td>
-                  <td>{formatCosto(m.costo_orario_trasferta)}</td>
+                  <td>{formatCosto(m.costo_orario_oilsafe)}</td>
+                  <td>{formatCosto(m.costo_orario_cliente)}</td>
+                  <td>{formatCosto(m.costo_orario_teleassistenza)}</td>
                   <td>
                     <span
                       style={{

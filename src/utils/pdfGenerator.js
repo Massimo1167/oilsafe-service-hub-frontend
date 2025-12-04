@@ -356,19 +356,33 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, at
         });
     }
 
+    // Funzione helper per normalizzare tipo_intervento (supporta valori storici)
+    const normalizeTipoIntervento = (tipo) => {
+        const mapping = {
+            'In Loco': 'Sede Cliente',
+            'In loco': 'Sede Cliente',
+            'in loco': 'Sede Cliente',
+            'Remoto': 'Sede Oilsafe',
+            'remoto': 'Sede Oilsafe',
+            'Sede Cliente': 'Sede Cliente',
+            'Sede Oilsafe': 'Sede Oilsafe',
+            'Teleassistenza': 'Teleassistenza'
+        };
+        return mapping[tipo] || tipo;
+    };
+
     // Funzione per aggregare ore per tipo_intervento e mansione (senza costi)
     const aggregaOrePerTipoEMansione = (interventi) => {
         const aggregazione = {
-            'In Loco': {},  // Chiave corretta con L maiuscola (come nel DB)
-            'Remoto': {}
+            'Sede Cliente': {},
+            'Sede Oilsafe': {},
+            'Teleassistenza': {}
         };
 
         interventi.forEach(int => {
-            // Normalizza il tipo intervento per gestire case sensitivity
-            const tipoInterventoRaw = int.tipo_intervento || 'In Loco';
-            const tipoIntervento = (tipoInterventoRaw === 'In Loco' || tipoInterventoRaw === 'In loco')
-                ? 'In Loco'
-                : 'Remoto';
+            // Normalizza il tipo intervento usando la funzione helper
+            const tipoInterventoRaw = int.tipo_intervento || 'Sede Cliente';
+            const tipoIntervento = normalizeTipoIntervento(tipoInterventoRaw);
 
             const mansione = int.mansioni?.ruolo || 'Non Specificato';
             const numTec = parseFloat(int.numero_tecnici) || 1;
@@ -392,8 +406,9 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, at
     // Funzione per aggregare ore E COSTI per tipo_intervento e mansione con calcolo straordinari
     const aggregaOreECostiPerTipoEMansione = (interventi) => {
         const aggregazione = {
-            'In Loco': {},
-            'Remoto': {}
+            'Sede Cliente': {},
+            'Sede Oilsafe': {},
+            'Teleassistenza': {}
         };
 
         // Step 1: Raggruppa interventi per tecnico+data per calcolare straordinari giornalieri
@@ -425,10 +440,8 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, at
 
             // Step 3: Proporziona ore normali/straordinarie a ciascun intervento
             interventiGiorno.forEach(int => {
-                const tipoInterventoRaw = int.tipo_intervento || 'In Loco';
-                const tipoIntervento = (tipoInterventoRaw === 'In Loco' || tipoInterventoRaw === 'In loco')
-                    ? 'In Loco'
-                    : 'Remoto';
+                const tipoInterventoRaw = int.tipo_intervento || 'Sede Cliente';
+                const tipoIntervento = normalizeTipoIntervento(tipoInterventoRaw);
 
                 const mansione = int.mansioni?.ruolo || 'Non Specificato';
                 const mansioneData = int.mansioni; // Dati completi mansione con costi
@@ -443,14 +456,18 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, at
                     ? (oreIntervento / oreTotaliGiorno) * oreStraordinarioGiorno
                     : 0;
 
-                // Determina costi orari dalla mansione
-                const costoNormale = tipoIntervento === 'In Loco'
-                    ? (parseFloat(mansioneData?.costo_orario_sede) || 0)
-                    : (parseFloat(mansioneData?.costo_orario_trasferta) || 0);
-
-                const costoStraord = tipoIntervento === 'In Loco'
-                    ? (parseFloat(mansioneData?.costo_straordinario_sede) || 0)
-                    : (parseFloat(mansioneData?.costo_straordinario_trasferta) || 0);
+                // Determina costi orari dalla mansione in base al tipo intervento
+                let costoNormale, costoStraord;
+                if (tipoIntervento === 'Sede Cliente') {
+                    costoNormale = parseFloat(mansioneData?.costo_orario_cliente) || 0;
+                    costoStraord = parseFloat(mansioneData?.costo_straordinario_cliente) || 0;
+                } else if (tipoIntervento === 'Teleassistenza') {
+                    costoNormale = parseFloat(mansioneData?.costo_orario_teleassistenza) || 0;
+                    costoStraord = parseFloat(mansioneData?.costo_straordinario_teleassistenza) || 0;
+                } else { // Sede Oilsafe
+                    costoNormale = parseFloat(mansioneData?.costo_orario_oilsafe) || 0;
+                    costoStraord = parseFloat(mansioneData?.costo_straordinario_oilsafe) || 0;
+                }
 
                 // Calcola costi
                 const importoNormale = propOreNormali * costoNormale;
@@ -776,17 +793,17 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, at
         }
     };
 
-    // Renderizza sezioni
-    let totaleInLoco = showCosts ? { ore: 0, costo: 0 } : 0;
-    let totaleRemoto = showCosts ? { ore: 0, costo: 0 } : 0;
+    // Renderizza sezioni per tutti i tipi di intervento
+    const tipiIntervento = ['Sede Cliente', 'Sede Oilsafe', 'Teleassistenza'];
+    const totaliPerTipo = {};
 
-    if (orePerTipoMansione['In Loco'] && Object.keys(orePerTipoMansione['In Loco']).length > 0) {
-        totaleInLoco = renderTipoInterventoSection(doc, 'In Loco', orePerTipoMansione['In Loco'], showCosts);
-    }
-
-    if (orePerTipoMansione['Remoto'] && Object.keys(orePerTipoMansione['Remoto']).length > 0) {
-        totaleRemoto = renderTipoInterventoSection(doc, 'Remoto', orePerTipoMansione['Remoto'], showCosts);
-    }
+    tipiIntervento.forEach(tipo => {
+        if (orePerTipoMansione[tipo] && Object.keys(orePerTipoMansione[tipo]).length > 0) {
+            totaliPerTipo[tipo] = renderTipoInterventoSection(doc, tipo, orePerTipoMansione[tipo], showCosts);
+        } else {
+            totaliPerTipo[tipo] = showCosts ? { ore: 0, costo: 0 } : 0;
+        }
+    });
 
     // Se showCosts, aggiungi totale generale e nota
     if (showCosts) {
@@ -799,8 +816,12 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, at
 
         doc.setFontSize(9);
         doc.setFont(undefined, 'normal');
-        const totaleOreGenerale = (totaleInLoco.ore || 0) + (totaleRemoto.ore || 0);
-        const totaleCostoGenerale = (totaleInLoco.costo || 0) + (totaleRemoto.costo || 0);
+        const totaleOreGenerale = tipiIntervento.reduce((sum, tipo) => {
+            return sum + (totaliPerTipo[tipo]?.ore || 0);
+        }, 0);
+        const totaleCostoGenerale = tipiIntervento.reduce((sum, tipo) => {
+            return sum + (totaliPerTipo[tipo]?.costo || 0);
+        }, 0);
 
         doc.text(`Ore Totali: ${totaleOreGenerale.toFixed(2)}h`, marginLeft + 8, yPosition);
         yPosition += 4;
@@ -819,7 +840,9 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, at
         doc.setFont(undefined, 'normal');
     } else {
         // Verifica totale (per debug) - solo per versione senza costi
-        const totaleCalcolato = totaleInLoco + totaleRemoto;
+        const totaleCalcolato = tipiIntervento.reduce((sum, tipo) => {
+            return sum + (totaliPerTipo[tipo] || 0);
+        }, 0);
         if (Math.abs(totaleCalcolato - totaleOreLavoroTecnici) > 0.1) {
             console.warn('PDFGenerator: Discrepanza totali ore:', {
                 totaleOreLavoroTecnici,

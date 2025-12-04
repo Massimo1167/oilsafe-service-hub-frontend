@@ -9,7 +9,7 @@
  *
  * @param {Object} mansione - The mansione object from database with all cost fields
  * @param {string} tipoOrario - Type of hours: 'normale', 'straordinario', 'festivo', 'straordinario_festivo'
- * @param {string} ubicazione - Location: 'sede', 'trasferta'
+ * @param {string} ubicazione - Location: 'oilsafe', 'cliente', 'teleassistenza'
  * @returns {number} The applicable hourly cost in euros
  */
 export const getCostoOrarioFromMansione = (mansione, tipoOrario, ubicazione) => {
@@ -18,20 +18,36 @@ export const getCostoOrarioFromMansione = (mansione, tipoOrario, ubicazione) => 
   // Map tipo_orario and ubicazione to the correct cost field
   const costFieldMap = {
     'normale': {
-      'sede': 'costo_orario_sede',
-      'trasferta': 'costo_orario_trasferta'
+      'oilsafe': 'costo_orario_oilsafe',
+      'cliente': 'costo_orario_cliente',
+      'teleassistenza': 'costo_orario_teleassistenza',
+      // Retrocompatibilità
+      'sede': 'costo_orario_oilsafe',
+      'trasferta': 'costo_orario_cliente'
     },
     'straordinario': {
-      'sede': 'costo_straordinario_sede',
-      'trasferta': 'costo_straordinario_trasferta'
+      'oilsafe': 'costo_straordinario_oilsafe',
+      'cliente': 'costo_straordinario_cliente',
+      'teleassistenza': 'costo_straordinario_teleassistenza',
+      // Retrocompatibilità
+      'sede': 'costo_straordinario_oilsafe',
+      'trasferta': 'costo_straordinario_cliente'
     },
     'festivo': {
-      'sede': 'costo_festivo_sede',
-      'trasferta': 'costo_festivo_trasferta'
+      'oilsafe': 'costo_festivo_oilsafe',
+      'cliente': 'costo_festivo_cliente',
+      'teleassistenza': 'costo_festivo_teleassistenza',
+      // Retrocompatibilità
+      'sede': 'costo_festivo_oilsafe',
+      'trasferta': 'costo_festivo_cliente'
     },
     'straordinario_festivo': {
-      'sede': 'costo_straordinario_festivo_sede',
-      'trasferta': 'costo_straordinario_festivo_trasferta'
+      'oilsafe': 'costo_straordinario_festivo_oilsafe',
+      'cliente': 'costo_straordinario_festivo_cliente',
+      'teleassistenza': 'costo_straordinario_festivo_teleassistenza',
+      // Retrocompatibilità
+      'sede': 'costo_straordinario_festivo_oilsafe',
+      'trasferta': 'costo_straordinario_festivo_cliente'
     }
   };
 
@@ -55,6 +71,26 @@ export const calcolaCostoTotale = (oreLavorate, costoOrario) => {
   const ore = parseFloat(oreLavorate) || 0;
   const costo = parseFloat(costoOrario) || 0;
   return ore * costo;
+};
+
+/**
+ * Map tipo_intervento to ubicazione for cost calculation
+ * Handles both new and legacy values for retrocompatibility
+ *
+ * @param {string} tipoIntervento - The intervention type ('Sede Cliente', 'Sede Oilsafe', 'Teleassistenza', 'In Loco', 'Remoto')
+ * @returns {string} The ubicazione key for cost field mapping ('oilsafe', 'cliente', 'teleassistenza')
+ */
+export const getUbicazioneFromTipoIntervento = (tipoIntervento) => {
+  const mapping = {
+    'Sede Cliente': 'cliente',
+    'Sede Oilsafe': 'oilsafe',
+    'Teleassistenza': 'teleassistenza',
+    // Retrocompatibilità per valori storici
+    'In Loco': 'cliente',
+    'In loco': 'cliente',
+    'Remoto': 'oilsafe'
+  };
+  return mapping[tipoIntervento] || 'oilsafe';
 };
 
 /**
@@ -92,8 +128,12 @@ export const getTipoOrarioLabel = (tipoOrario) => {
  */
 export const getUbicazioneLabel = (ubicazione) => {
   const labels = {
-    'sede': 'Sede',
-    'trasferta': 'Trasferta'
+    'oilsafe': 'Sede Oilsafe',
+    'cliente': 'Sede Cliente',
+    'teleassistenza': 'Teleassistenza',
+    // Retrocompatibilità per valori storici
+    'sede': 'Sede Oilsafe',
+    'trasferta': 'Sede Cliente'
   };
   return labels[ubicazione] || ubicazione;
 };
@@ -160,7 +200,8 @@ export const getTipoOrarioOptions = () => {
  */
 export const getUbicazioneOptions = () => {
   return [
-    { value: 'sede', label: 'Sede' },
-    { value: 'trasferta', label: 'Trasferta' }
+    { value: 'oilsafe', label: 'Sede Oilsafe' },
+    { value: 'cliente', label: 'Sede Cliente' },
+    { value: 'teleassistenza', label: 'Teleassistenza' }
   ];
 };

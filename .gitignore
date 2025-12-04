@@ -31,4 +31,4 @@ dist-ssr
 # (senza valori sensibili, solo i nomi delle variabili) per gli altri sviluppatori,
 # puoi escluderlo da .gitignore per committerlo.
 
-patch.diff
+patch.diffnul
