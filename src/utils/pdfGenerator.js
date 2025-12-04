@@ -240,6 +240,19 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, at
         yPosition += 4; // Spazio dopo la linea
     };
 
+    // Aggiunge una doppia linea più spessa per evidenziare il cambio giorno
+    const addDayChangeLine = (currentDoc) => {
+        checkAndAddPage(currentDoc, 8);
+        yPosition += 3; // Spazio prima della doppia linea
+        currentDoc.setDrawColor(100, 100, 100); // Grigio più scuro
+        currentDoc.setLineWidth(0.5); // Linea più spessa
+        currentDoc.line(marginLeft, yPosition, pageWidth - marginRight, yPosition);
+        yPosition += 2; // Spazio tra le due linee
+        currentDoc.line(marginLeft, yPosition, pageWidth - marginRight, yPosition);
+        currentDoc.setLineWidth(0.2); // Reset spessore linea normale
+        yPosition += 3; // Spazio dopo la doppia linea
+    };
+
     // --- INIZIO DISEGNO PDF ---
     addPageHeader(doc); // Aggiungi header alla prima pagina
 
@@ -558,11 +571,38 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, at
                     9: { cellWidth: 12, halign: 'center' },
                 },
                 didDrawPage: (data) => { if (data.pageNumber > 1) { addPageHeader(doc); } },
+                didDrawCell: (data) => {
+                    // Evidenzia il cambio giorno con una linea più spessa
+                    if (data.section === 'body' && data.column.index === 0 && data.row.index > 0) {
+                        const currentDate = interventiData[data.row.index].data_intervento_effettivo;
+                        const previousDate = interventiData[data.row.index - 1].data_intervento_effettivo;
+
+                        if (currentDate !== previousDate) {
+                            const cellY = data.cell.y;
+                            doc.setDrawColor(100, 100, 100);
+                            doc.setLineWidth(0.8);
+                            doc.line(marginLeft, cellY, pageWidth - marginRight, cellY);
+                            doc.setLineWidth(0.2); // Reset
+                        }
+                    }
+                },
             });
             yPosition = doc.autoTable.previous.finalY ? doc.autoTable.previous.finalY + 5 : yPosition;
         } else {
             interventiData.forEach((int, idx) => {
-                if (idx > 0) addLine(doc);
+                // Controlla se c'è un cambio giorno rispetto all'intervento precedente
+                if (idx > 0) {
+                    const currentDate = int.data_intervento_effettivo;
+                    const previousDate = interventiData[idx - 1].data_intervento_effettivo;
+
+                    if (currentDate !== previousDate) {
+                        // Cambio giorno: usa doppia linea più spessa
+                        addDayChangeLine(doc);
+                    } else {
+                        // Stesso giorno: usa linea normale
+                        addLine(doc);
+                    }
+                }
 
                 const row = [
                     new Date(int.data_intervento_effettivo).toLocaleDateString(),

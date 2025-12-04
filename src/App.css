@@ -282,6 +282,93 @@ header nav { /* Aggiunto per allineare il bottone a destra */
     font-size: 0.95em;
 }
 
+/* ========================================
+   ICONA INFO NAVBAR
+   ======================================== */
+.nav-info-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 2px solid white;
+  border-radius: 50%;
+  font-size: 1.2rem;
+  transition: all 0.3s ease;
+  margin-right: 1rem;
+  position: relative;
+}
+
+.nav-info-icon:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: scale(1.1);
+  text-decoration: none;
+}
+
+.nav-info-icon::after {
+  content: '';
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 8px;
+  height: 8px;
+  background: #28a745;
+  border-radius: 50%;
+  animation: blink 2s ease-in-out infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+/* ========================================
+   BADGE VERSIONE DASHBOARD
+   ======================================== */
+.version-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(135deg, #003366 0%, #0066cc 100%);
+  color: white;
+  border: none;
+  border-radius: 25px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 6px rgba(0, 51, 102, 0.2);
+}
+
+.version-badge:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0, 51, 102, 0.3);
+  background: linear-gradient(135deg, #0066cc 0%, #0088ff 100%);
+}
+
+.version-badge-icon {
+  font-size: 1.2rem;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
+.version-badge-text {
+  line-height: 1;
+}
+
+.version-badge-arrow {
+  transition: transform 0.3s ease;
+  font-weight: bold;
+}
+
+.version-badge:hover .version-badge-arrow {
+  transform: translateX(4px);
+}
+
 .filtri-grid input[type="text"],
 .filtri-grid input[type="date"] {
     background-color: #fff;

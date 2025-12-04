@@ -4,6 +4,7 @@
  * Shows role-based statistics: user sees their assigned sheets, admin sees all sheets.
  */
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import oilsafeLogo from '../assets/oilsafe-logo.png';
 import { getStatsByStatus, getStatsForTechnician } from '../utils/statistiche';
@@ -11,6 +12,7 @@ import { getStatsByStatus, getStatsForTechnician } from '../utils/statistiche';
 // Componente per la pagina Dashboard.
 // Ora è una semplice pagina di benvenuto, ripulita dalla funzionalità di test del PDF.
 function DashboardPage({ session, userRole }) { // Riceve la sessione e il ruolo per personalizzare il saluto e le statistiche
+  const navigate = useNavigate();
   const [statsUser, setStatsUser] = useState(null); // Statistiche per user
   const [statsAdmin, setStatsAdmin] = useState(null); // Statistiche per admin
   const [loadingStats, setLoadingStats] = useState(true);
@@ -238,23 +240,23 @@ function DashboardPage({ session, userRole }) { // Riceve la sessione e il ruolo
           </div>
         </>
       )}
-      <p style={{ fontStyle: 'italic', marginTop: '1em' }}>
-        {/* eslint-disable-next-line no-undef */}
-        Versione: {__APP_VERSION__}
-      </p>
-      <div style={{ fontStyle: 'italic', marginTop: '1em' }}>
-        <p style={{ marginBottom: '0.5em', fontWeight: 'bold' }}>Modifiche recenti:</p>
-        <ul style={{ marginTop: '0.5em', paddingLeft: '20px', lineHeight: '1.6' }}>
-          {/* eslint-disable-next-line no-undef */}
-          {__APP_DESCRIPTION__.split(';').map((item, idx) => (
-            <li key={idx}>{item.trim()}</li>
-          ))}
-        </ul>
+
+      {/* Badge Versione Cliccabile */}
+      <div style={{ marginTop: '2rem', textAlign: 'center' }}>
+        <button
+          className="version-badge"
+          onClick={() => navigate('/info')}
+          title="Clicca per informazioni complete"
+        >
+          <span className="version-badge-icon">ℹ️</span>
+          <span className="version-badge-text">
+            {/* eslint-disable-next-line no-undef */}
+            Versione <strong>{__APP_VERSION__}</strong>
+          </span>
+          <span className="version-badge-arrow">→</span>
+        </button>
       </div>
-      <p>DB collegato: {import.meta.env.VITE_SUPABASE_DB_LABEL}</p>
-      <p style={{ fontStyle: 'italic', marginTop: '1em' }}>
-        Sviluppato da Massimo Centrella 
-      </p>
+
       <hr style={{margin: "20px 0"}} />
       <p>Utilizza il menu di navigazione in alto per accedere alle diverse sezioni dell'applicazione.</p>
     </div>
