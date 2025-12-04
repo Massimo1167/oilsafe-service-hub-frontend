@@ -753,8 +753,7 @@ function ClientiManager({ session, onDataChanged }) {
 
             <h3>Elenco Clienti</h3>
             {clienti.length === 0 && !pageLoading ? ( <p>Nessun cliente trovato.</p> ) : (
-                <div className="table-responsive-wrapper">
-                    <table className="data-table">
+                <table className="data-table">
                     <thead>
                         <tr>
                             <th>Nome Azienda</th>
@@ -876,7 +875,6 @@ function ClientiManager({ session, onDataChanged }) {
                         ))}
                     </tbody>
                 </table>
-                </div>
             )}
             {totalPages > 1 && (
                 <div className="pagination-controls" style={{ marginTop: '20px', textAlign: 'center' }}>

@@ -614,11 +614,10 @@ function MezziTrasportoManager({ session, onDataChanged }) {
             )}
 
             {/* Table */}
-            <div className="table-responsive-wrapper">
-                <p className="results-count">
-                    {mezziFiltrati.length} {mezziFiltrati.length === 1 ? 'mezzo trovato' : 'mezzi trovati'}
-                </p>
-                <table className="data-table">
+            <p className="results-count">
+                {mezziFiltrati.length} {mezziFiltrati.length === 1 ? 'mezzo trovato' : 'mezzi trovati'}
+            </p>
+            <table className="data-table">
                     <thead>
                         <tr>
                             <th>Targa</th>
@@ -721,7 +720,6 @@ function MezziTrasportoManager({ session, onDataChanged }) {
                         )}
                     </tbody>
                 </table>
-            </div>
         </div>
     );
 }
