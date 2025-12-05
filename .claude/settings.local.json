@@ -16,7 +16,10 @@
       "Bash(find:*)",
       "Bash(node scripts/migrate-changelog.js:*)",
       "Bash(powershell -Command \"Get-Content ''C:\\__Projects\\__dev_oilsafe\\oilsafe-service-hub-frontend\\src\\App.css'' | Measure-Object -Line\")",
-      "Bash(npm run preview:*)"
+      "Bash(npm run preview:*)",
+      "Bash(grep:*)",
+      "Bash(git log:*)",
+      "Bash(powershell -Command:*)"
     ],
     "deny": [],
     "ask": []

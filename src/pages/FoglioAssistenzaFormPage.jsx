@@ -8,6 +8,7 @@ import { useNavigate, useParams, Link, Navigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { STATO_FOGLIO_STEPS } from '../utils/statoFoglio';
 import SignatureCanvas from 'react-signature-canvas';
+import ConfirmModal from '../components/ConfirmModal';
 
 const MAX_SIGNATURE_SIZE = 2 * 1024 * 1024; // 2MB
 import VoiceInputButton from '../components/VoiceInputButton';
@@ -26,6 +27,47 @@ function dataURLtoBlob(dataurl) {
 // Helper: verifica se uno stato è uno stato finale (che completa il foglio)
 const isStatoFinale = (stato) => {
     return ['Completato', 'Consuntivato', 'Inviato', 'In attesa accettazione', 'Fatturato', 'Chiuso'].includes(stato);
+};
+
+/**
+ * Determina se uno stato foglio è "irreversibile" (punto di non ritorno)
+ * LOGICA: Gli stati da "Completato" in poi sono irreversibili
+ * Gli user possono modificare solo fino a Completato (incluso)
+ * Admin/Manager possono modificare fino a Chiuso, ma stati successivi sono irreversibili
+ */
+const isStatoIrreversibile = (nuovoStato, statoOriginale, userRole) => {
+    const completatoIndex = STATO_FOGLIO_STEPS.indexOf('Completato');
+    const consuntivatoIndex = STATO_FOGLIO_STEPS.indexOf('Consuntivato');
+    const nuovoStatoIndex = STATO_FOGLIO_STEPS.indexOf(nuovoStato);
+    const statoOriginaleIndex = STATO_FOGLIO_STEPS.indexOf(statoOriginale);
+
+    // Se lo stato non cambia, non è irreversibile
+    if (nuovoStato === statoOriginale) return false;
+
+    // Se si sta tornando indietro (indice diminuisce), non è irreversibile
+    if (nuovoStatoIndex < statoOriginaleIndex) return false;
+
+    // REGOLA 1: User che passa a "Completato" (stato finale per loro)
+    if (userRole === 'user' && nuovoStato === 'Completato') {
+        return true;
+    }
+
+    // REGOLA 2: Qualsiasi utente che passa da uno stato pre-Consuntivato a Consuntivato o successivi
+    if (statoOriginaleIndex < consuntivatoIndex && nuovoStatoIndex >= consuntivatoIndex) {
+        return true;
+    }
+
+    return false;
+};
+
+/**
+ * Genera il messaggio di conferma SEMPLIFICATO per stato irreversibile
+ */
+const getMessaggioConfermaStatoIrreversibile = (nuovoStato, numeroFoglio) => {
+    return {
+        title: 'ATTENZIONE: Operazione Irreversibile',
+        message: `Una volta impostato lo stato "${nuovoStato}" per il foglio ${numeroFoglio || ''}, non potrai più tornare agli stati precedenti. Vuoi procedere?`
+    };
 };
 
 // Helper: verifica se ci sono modifiche significative (escluso stato_foglio e nota_stato_foglio)
@@ -105,8 +147,12 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
     const [localTecnici, setLocalTecnici] = useState(tecnici || []);
 
     const [loadingSubmit, setLoadingSubmit] = useState(false);
-    const [pageLoading, setPageLoading] = useState(isEditMode); 
+    const [pageLoading, setPageLoading] = useState(isEditMode);
     const [error, setError] = useState(null);
+
+    // Stati per modal conferma stato irreversibile
+    const [showConfirmModal, setShowConfirmModal] = useState(false);
+    const [pendingStatoChange, setPendingStatoChange] = useState(null);
     const sigCanvasClienteRef = useRef(null);
     const sigCanvasTecnicoRef = useRef(null);
     const [clienteFile, setClienteFile] = useState(null);
@@ -673,6 +719,36 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
 
     const canEditAssignedTecnico = userRole === 'admin' || userRole === 'manager';
 
+    // Handler per cambio stato con controllo irreversibilità
+    const handleStatoChange = (e) => {
+        const nuovoStato = e.target.value;
+
+        // Verifica se è uno stato irreversibile
+        if (isStatoIrreversibile(nuovoStato, statoFoglioOriginale || formStatoFoglio, userRole)) {
+            // Mostra modal di conferma
+            setPendingStatoChange(nuovoStato);
+            setShowConfirmModal(true);
+        } else {
+            // Cambio stato normale, nessuna conferma necessaria
+            setFormStatoFoglio(nuovoStato);
+        }
+    };
+
+    // Handler conferma cambio stato dal modal
+    const handleConfirmStatoChange = () => {
+        if (pendingStatoChange) {
+            setFormStatoFoglio(pendingStatoChange);
+            setPendingStatoChange(null);
+        }
+        setShowConfirmModal(false);
+    };
+
+    // Handler annulla cambio stato dal modal
+    const handleCancelStatoChange = () => {
+        setPendingStatoChange(null);
+        setShowConfirmModal(false);
+    };
+
     if (pageLoading && isEditMode) return <p>Caricamento dati foglio...</p>;
     if (!session) return <Navigate to="/login" replace />;
     if (!pageLoading && !canSubmitForm) return <p>Non hai i permessi per accedere a questa pagina.</p>;
@@ -849,7 +925,7 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
                 <div style={{display:'flex', gap:'10px', alignItems:'flex-start'}}>
                     <div>
                         <label htmlFor="formStatoFoglio">Stato Foglio:</label>
-                        <select id="formStatoFoglio" value={formStatoFoglio} onChange={e => setFormStatoFoglio(e.target.value)}>
+                        <select id="formStatoFoglio" value={formStatoFoglio} onChange={handleStatoChange}>
                             {allowedStatoOptions.map(st => (
                                 <option key={st} value={st}>{st}</option>
                             ))}
@@ -877,6 +953,19 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
                     </button>
                 )}
             </form>
+
+            {/* Modal conferma stato irreversibile */}
+            {showConfirmModal && pendingStatoChange && (
+                <ConfirmModal
+                    isOpen={showConfirmModal}
+                    {...getMessaggioConfermaStatoIrreversibile(pendingStatoChange, numeroFoglioVisualizzato)}
+                    confirmLabel="Sì, Procedi"
+                    cancelLabel="Annulla"
+                    onConfirm={handleConfirmStatoChange}
+                    onCancel={handleCancelStatoChange}
+                    variant="danger"
+                />
+            )}
         </div>
     );
 }
