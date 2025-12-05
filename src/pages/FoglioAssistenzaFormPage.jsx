@@ -30,43 +30,52 @@ const isStatoFinale = (stato) => {
 };
 
 /**
- * Determina se uno stato foglio è "irreversibile" (punto di non ritorno)
- * LOGICA: Gli stati da "Completato" in poi sono irreversibili
- * Gli user possono modificare solo fino a Completato (incluso)
- * Admin/Manager possono modificare fino a Chiuso, ma stati successivi sono irreversibili
+ * Determina se uno stato foglio richiede conferma (irreversibile o rollback)
+ * LOGICA AGGIORNATA:
+ * - Avanzamento verso "Completato" o stati successivi: richiede conferma (irreversibile)
+ * - Rollback DA "Completato" o stati successivi: richiede conferma (permesso speciale)
  */
 const isStatoIrreversibile = (nuovoStato, statoOriginale, userRole) => {
     const completatoIndex = STATO_FOGLIO_STEPS.indexOf('Completato');
-    const consuntivatoIndex = STATO_FOGLIO_STEPS.indexOf('Consuntivato');
     const nuovoStatoIndex = STATO_FOGLIO_STEPS.indexOf(nuovoStato);
     const statoOriginaleIndex = STATO_FOGLIO_STEPS.indexOf(statoOriginale);
 
-    // Se lo stato non cambia, non è irreversibile
+    // Se lo stato non cambia, non richiede conferma
     if (nuovoStato === statoOriginale) return false;
 
-    // Se si sta tornando indietro (indice diminuisce), non è irreversibile
-    if (nuovoStatoIndex < statoOriginaleIndex) return false;
-
-    // REGOLA 1: User che passa a "Completato" (stato finale per loro)
-    if (userRole === 'user' && nuovoStato === 'Completato') {
-        return true;
+    // CASO 1: Passaggio VERSO "Completato" o stati successivi (avanti)
+    if (nuovoStatoIndex >= completatoIndex && statoOriginaleIndex < completatoIndex) {
+        return true; // Richiede conferma: stai entrando in stati irreversibili
     }
 
-    // REGOLA 2: Qualsiasi utente che passa da uno stato pre-Consuntivato a Consuntivato o successivi
-    if (statoOriginaleIndex < consuntivatoIndex && nuovoStatoIndex >= consuntivatoIndex) {
-        return true;
+    // CASO 2: Rollback DA "Completato" o stati successivi (indietro)
+    if (statoOriginaleIndex >= completatoIndex && nuovoStatoIndex < completatoIndex) {
+        return true; // Richiede conferma: stai forzando un rollback
     }
 
     return false;
 };
 
 /**
- * Genera il messaggio di conferma SEMPLIFICATO per stato irreversibile
+ * Genera il messaggio di conferma con testo differenziato per avanzamento/rollback
  */
-const getMessaggioConfermaStatoIrreversibile = (nuovoStato, numeroFoglio) => {
+const getMessaggioConfermaStatoIrreversibile = (nuovoStato, statoOriginale, numeroFoglio) => {
+    const completatoIndex = STATO_FOGLIO_STEPS.indexOf('Completato');
+    const nuovoStatoIndex = STATO_FOGLIO_STEPS.indexOf(nuovoStato);
+    const statoOriginaleIndex = STATO_FOGLIO_STEPS.indexOf(statoOriginale);
+
+    // Rollback (torna indietro)
+    if (statoOriginaleIndex > nuovoStatoIndex) {
+        return {
+            title: 'ATTENZIONE: Rollback Stato Foglio',
+            message: `Stai per riportare il foglio ${numeroFoglio || ''} da "${statoOriginale}" a "${nuovoStato}". Questa operazione richiede permessi speciali e verrà registrata nei log. Sei sicuro di voler procedere?`
+        };
+    }
+
+    // Avanzamento verso Completato o successivi
     return {
         title: 'ATTENZIONE: Operazione Irreversibile',
-        message: `Una volta impostato lo stato "${nuovoStato}" per il foglio ${numeroFoglio || ''}, non potrai più tornare agli stati precedenti. Vuoi procedere?`
+        message: `Una volta impostato lo stato "${nuovoStato}" per il foglio ${numeroFoglio || ''}, non potrai più tornare agli stati precedenti senza permessi speciali. Vuoi procedere?`
     };
 };
 
@@ -153,6 +162,7 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
     // Stati per modal conferma stato irreversibile
     const [showConfirmModal, setShowConfirmModal] = useState(false);
     const [pendingStatoChange, setPendingStatoChange] = useState(null);
+    const [pendingStatoOriginale, setPendingStatoOriginale] = useState(null);
     const sigCanvasClienteRef = useRef(null);
     const sigCanvasTecnicoRef = useRef(null);
     const [clienteFile, setClienteFile] = useState(null);
@@ -722,11 +732,13 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
     // Handler per cambio stato con controllo irreversibilità
     const handleStatoChange = (e) => {
         const nuovoStato = e.target.value;
+        const statoCorrente = formStatoFoglio; // Usa lo stato ATTUALE del form, non quello originale
 
-        // Verifica se è uno stato irreversibile
-        if (isStatoIrreversibile(nuovoStato, statoFoglioOriginale || formStatoFoglio, userRole)) {
+        // Verifica se è uno stato irreversibile o richiede conferma
+        if (isStatoIrreversibile(nuovoStato, statoCorrente, userRole)) {
             // Mostra modal di conferma
             setPendingStatoChange(nuovoStato);
+            setPendingStatoOriginale(statoCorrente); // Salva stato corrente per messaggio modal
             setShowConfirmModal(true);
         } else {
             // Cambio stato normale, nessuna conferma necessaria
@@ -739,6 +751,7 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
         if (pendingStatoChange) {
             setFormStatoFoglio(pendingStatoChange);
             setPendingStatoChange(null);
+            setPendingStatoOriginale(null);
         }
         setShowConfirmModal(false);
     };
@@ -746,6 +759,7 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
     // Handler annulla cambio stato dal modal
     const handleCancelStatoChange = () => {
         setPendingStatoChange(null);
+        setPendingStatoOriginale(null);
         setShowConfirmModal(false);
     };
 
@@ -958,7 +972,11 @@ const [formStatoFoglio, setFormStatoFoglio] = useState('Aperto');
             {showConfirmModal && pendingStatoChange && (
                 <ConfirmModal
                     isOpen={showConfirmModal}
-                    {...getMessaggioConfermaStatoIrreversibile(pendingStatoChange, numeroFoglioVisualizzato)}
+                    {...getMessaggioConfermaStatoIrreversibile(
+                        pendingStatoChange,
+                        pendingStatoOriginale || formStatoFoglio,
+                        numeroFoglioVisualizzato
+                    )}
                     confirmLabel="Sì, Procedi"
                     cancelLabel="Annulla"
                     onConfirm={handleConfirmStatoChange}
