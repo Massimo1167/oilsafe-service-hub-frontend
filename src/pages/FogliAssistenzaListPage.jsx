@@ -440,6 +440,14 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
         setPreviewLoading(false);
     };
 
+    /**
+     * Copia uno o più fogli selezionati con reset automatico:
+     * - Genera nuovo numero_foglio univoco
+     * - Stato sempre "Aperto"
+     * - Firma cliente rimossa
+     * - Data apertura = oggi
+     * - Reset flag stampa
+     */
     const handleCopySelected = async () => {
         if (selectedFogli.size === 0) { alert("Seleziona almeno un foglio di assistenza da copiare."); return; }
         if (!window.confirm(`Copiare ${selectedFogli.size} fogli selezionati?`)) return;
@@ -454,7 +462,27 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                 if (numeroError) throw new Error(numeroError.message);
 
                 const { id, created_at, updated_at, numero_foglio, ...copyFields } = foglioData;
-                const foglioPayload = { ...copyFields, numero_foglio: numeroData };
+
+                // Override campi che devono essere resettati/modificati nella copia
+                const foglioPayload = {
+                    ...copyFields,
+                    numero_foglio: numeroData,
+
+                    // RESET STATO E FIRMA (sempre "Aperto" per fogli copiati)
+                    stato_foglio: 'Aperto',
+                    firma_cliente_url: null,  // Cancella firma cliente (firma tecnico mantenuta)
+                    nota_stato_foglio: '',    // Cancella nota stato
+
+                    // RESET DATE E FLAG STAMPA
+                    data_apertura_foglio: new Date().toISOString().split('T')[0],  // Data odierna formato YYYY-MM-DD
+                    richiesta_nuova_stampa: false,
+                    ultima_data_stampa: null,
+
+                    // EMAIL MANTENUTE (non modificate)
+                    // email_report_cliente: mantiene valore originale
+                    // email_report_interno: mantiene valore originale
+                };
+
                 if ((userRole === 'user' || userRole === 'manager') && currentUserId) {
                     foglioPayload.creato_da_user_id = currentUserId;
                 }

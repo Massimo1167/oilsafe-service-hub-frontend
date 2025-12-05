@@ -1,8 +1,8 @@
 {
   "name": "oilsafe-service-frontend",
   "private": true,
-  "version": "1.1.9",
-  "description": "Controllo avanzamento foglio di lavoro",
+  "version": "1.1.10",
+  "description": "Gestione copia fogli di lavoro con reset campi avanzamento e firme",
   "author": "Massimo Centrella",
   "company": "Oilsafe S.r.l.",
   "type": "module",

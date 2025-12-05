@@ -4,7 +4,15 @@ Tutte le modifiche significative al progetto sono documentate in questo file.
 
 Il formato si basa su [Keep a Changelog](https://keepachangelog.com/it/1.0.0/),
 e questo progetto aderisce al [Semantic Versioning](https://semver.org/lang/it/).
+## [1.1.10] - 2025-12-05
 
+### Added
+- Gestione copia fogli di lavoro con reset campi avanzamento e firme
+
+## [1.1.9] - 2025-12-05
+
+### Added
+- Controllo avanzamento foglio di lavoro
 
 ## [1.1.8e] - 2025-12-05
 
