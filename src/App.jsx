@@ -63,6 +63,7 @@ function App() {
 
   const [session, setSession] = useState(null);
   const [loadingSession, setLoadingSession] = useState(true);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
 
   // NUOVO: Stato di caricamento specifico per le anagrafiche
@@ -406,34 +407,46 @@ function App() {
       <header style={{ backgroundColor: headerBgColor }}>
         <h1>Oilsafe Service FLE ver.{__APP_VERSION__}</h1>
         {session && session.user && (
-          <nav>
-            <Link to="/">Dashboard</Link>
-            <Link to="/fogli-assistenza">Fogli Assistenza</Link>
-            <Link to="/pianificazioni-menu">Pianificazioni</Link>
-            {(userRole === 'admin' || userRole === 'manager') && (
-              <>
-                <Link to="/anagrafiche">Anagrafiche</Link>
-                <Link to="/statistiche">Statistiche</Link>
-              </>
-            )}
-            {userRole === 'admin' && (
-              <>
-                <Link to="/configurazione">Configurazione</Link>
-                <Link to="/admin-monitoring">Monitoraggio</Link>
-              </>
-            )}
-            <Link to="/info" className="nav-info-icon" title="Informazioni applicazione">
-              ℹ️
-            </Link>
+          <>
             <button
-              onClick={handleLogout}
-              className="button-logout"
-              title={`Logout ${(session.user.full_name || session.user.email)}`}
+              className="hamburger-menu-button"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              aria-label="Toggle navigation menu"
+              aria-expanded={mobileMenuOpen}
             >
-              Logout ({ (session.user.full_name || session.user.email || 'Utente').substring(0,15) }
-              { (session.user.full_name || session.user.email)?.length > 15 ? '...' : '' })
+              <span className="hamburger-icon">
+                {mobileMenuOpen ? '✕' : '☰'}
+              </span>
             </button>
-          </nav>
+            <nav className={mobileMenuOpen ? 'nav-open' : ''}>
+              <Link to="/" onClick={() => setMobileMenuOpen(false)}>Dashboard</Link>
+              <Link to="/fogli-assistenza" onClick={() => setMobileMenuOpen(false)}>Fogli Assistenza</Link>
+              <Link to="/pianificazioni-menu" onClick={() => setMobileMenuOpen(false)}>Pianificazioni</Link>
+              {(userRole === 'admin' || userRole === 'manager') && (
+                <>
+                  <Link to="/anagrafiche" onClick={() => setMobileMenuOpen(false)}>Anagrafiche</Link>
+                  <Link to="/statistiche" onClick={() => setMobileMenuOpen(false)}>Statistiche</Link>
+                </>
+              )}
+              {userRole === 'admin' && (
+                <>
+                  <Link to="/configurazione" onClick={() => setMobileMenuOpen(false)}>Configurazione</Link>
+                  <Link to="/admin-monitoring" onClick={() => setMobileMenuOpen(false)}>Monitoraggio</Link>
+                </>
+              )}
+              <Link to="/info" className="nav-info-icon" title="Informazioni applicazione" onClick={() => setMobileMenuOpen(false)}>
+                ℹ️
+              </Link>
+              <button
+                onClick={() => { handleLogout(); setMobileMenuOpen(false); }}
+                className="button-logout"
+                title={`Logout ${(session.user.full_name || session.user.email)}`}
+              >
+                Logout ({ (session.user.full_name || session.user.email || 'Utente').substring(0,15) }
+                { (session.user.full_name || session.user.email)?.length > 15 ? '...' : '' })
+              </button>
+            </nav>
+          </>
         )}
       </header>
       <main>

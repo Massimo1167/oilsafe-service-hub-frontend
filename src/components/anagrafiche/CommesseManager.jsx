@@ -555,7 +555,7 @@ function CommesseManager({ session, clienti, onDataChanged }) { // `clienti` pro
             {pageLoading && commesse.length === 0 ? <p>Caricamento commesse...</p> : null}
             {!pageLoading && commesse.length === 0 ? (<p>Nessuna commessa trovata con i filtri applicati.</p>) : (
                 <>
-                <table>
+                <table className="data-table">
                     <thead><tr><th>Codice</th><th>Descrizione</th><th>Cliente</th><th>Stato</th>{canManage && <th>Azioni</th>}</tr></thead>
                     <tbody>
                         {commesse.map(c => (

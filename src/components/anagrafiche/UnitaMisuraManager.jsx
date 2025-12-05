@@ -231,7 +231,7 @@ function UnitaMisuraManager({ session, onDataChanged }) {
             ) : unitaMisura.length === 0 ? (
                 <p>Nessuna unità di misura configurata.</p>
             ) : (
-                <table>
+                <table className="data-table">
                     <thead>
                         <tr>
                             <th>Codice</th>

@@ -820,7 +820,7 @@ function AttivitaStandardManager({ session, onDataChanged }) {
                     ) : attivita.length === 0 ? (
                         <p>Nessuna attività standard configurata per questo cliente.</p>
                     ) : (
-                        <table>
+                        <table className="data-table">
                             <thead>
                                 <tr>
                                     <th style={{width: '50px', textAlign: 'center'}}>

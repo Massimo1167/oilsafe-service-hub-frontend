@@ -590,7 +590,7 @@ function OrdiniInterniManager({ session, clienti, commesse, onDataChanged }) {
             {pageLoading && ordini.length === 0 ? <p>Caricamento ordini interni...</p> : null}
             {!pageLoading && ordini.length === 0 ? (<p>Nessun ordine interno trovato con i filtri applicati.</p>) : (
                 <>
-                <table>
+                <table className="data-table">
                     <thead><tr><th>Numero Ordine Interno</th><th>Data</th><th>Cliente</th><th>Commessa</th><th>Descrizione</th>{canManage && <th>Azioni</th>}</tr></thead>
                     <tbody>
                         {ordini.map(o => (

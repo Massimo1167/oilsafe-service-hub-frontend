@@ -753,7 +753,7 @@ function ClientiManager({ session, onDataChanged }) {
 
             <h3>Elenco Clienti</h3>
             {clienti.length === 0 && !pageLoading ? ( <p>Nessun cliente trovato.</p> ) : (
-                 <table>
+                <table className="data-table">
                     <thead>
                         <tr>
                             <th>Nome Azienda</th>
