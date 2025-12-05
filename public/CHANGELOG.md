@@ -5,6 +5,11 @@ Tutte le modifiche significative al progetto sono documentate in questo file.
 Il formato si basa su [Keep a Changelog](https://keepachangelog.com/it/1.0.0/),
 e questo progetto aderisce al [Semantic Versioning](https://semver.org/lang/it/).
 
+## [1.1.7f] - 2025-12-04
+
+### Added
+- Oilsafe Service Hub - Sistema gestionale per fogli di lavoro e assistenza tecnica pagina Info
+
 ## [1.1.7e] - 2025-12-04
 
 ### Added
