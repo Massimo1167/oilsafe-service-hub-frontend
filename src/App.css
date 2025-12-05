@@ -1,5 +1,6 @@
 html {
     touch-action: pan-x pan-y pinch-zoom;
+    contain: layout style paint;
 }
 
 html, body {
@@ -562,14 +563,5 @@ label:has(> input[type="radio"]) {
         display: none;
     }
 
-    header nav.nav-open::before {
-        content: '';
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 280px;
-        bottom: 0;
-        background-color: rgba(0, 0, 0, 0.5);
-        z-index: -1;
-    }
+    /* header nav.nav-open::before rimosso - causava rendering bug con z-index: -1 durante zoom/pan su mobile */
 }

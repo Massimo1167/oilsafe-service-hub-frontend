@@ -1,0 +1,62 @@
+.zoom-reset-button {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 9999;
+
+  /* WCAG touch target */
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+
+  /* Stile circolare */
+  border-radius: 50%;
+
+  /* Colori brand Oilsafe */
+  background-color: #003366;
+  color: white;
+  border: 2px solid white;
+
+  /* Tipografia */
+  font-size: 1rem;
+  font-weight: bold;
+
+  /* Layout */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  /* Interazione */
+  cursor: pointer;
+  touch-action: manipulation;
+
+  /* Ombra per visibilità */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+
+  /* Animazioni */
+  transition: all 0.2s ease;
+}
+
+.zoom-reset-button:active {
+  transform: scale(0.95);
+  background-color: #002244;
+}
+
+.zoom-reset-button:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  background-color: #0066cc;
+}
+
+/* Responsive: leggermente più piccolo su schermi molto piccoli */
+@media (max-width: 480px) {
+  .zoom-reset-button {
+    bottom: 15px;
+    right: 15px;
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    min-height: 40px;
+    font-size: 0.9rem;
+  }
+}
