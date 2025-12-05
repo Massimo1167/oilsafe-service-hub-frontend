@@ -57,5 +57,8 @@ export default defineConfig({
     __APP_VERSION__: JSON.stringify(pkg.version),
     __APP_DESCRIPTION__: JSON.stringify(getCurrentVersionFromChangelog()),
   },
-  publicDir: 'public'
+  publicDir: 'public',
+  server: {
+    historyApiFallback: true,
+  },
 });
