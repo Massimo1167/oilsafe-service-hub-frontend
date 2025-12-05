@@ -1,8 +1,8 @@
 {
   "name": "oilsafe-service-frontend",
   "private": true,
-  "version": "1.1.8e",
-  "description": "Ottimizzazione webapp su tablet e cellulare (zoom e refresh)",
+  "version": "1.1.9",
+  "description": "Controllo avanzamento foglio di lavoro",
   "author": "Massimo Centrella",
   "company": "Oilsafe S.r.l.",
   "type": "module",
