@@ -1,8 +1,8 @@
 {
   "name": "oilsafe-service-frontend",
   "private": true,
-  "version": "1.1.8c",
-  "description": "Ottimizzazione webapp su tablet e cellulare",
+  "version": "1.1.8d",
+  "description": "Ottimizzazione webapp su tablet e cellulare (zoom e refresh)",
   "author": "Massimo Centrella",
   "company": "Oilsafe S.r.l.",
   "type": "module",

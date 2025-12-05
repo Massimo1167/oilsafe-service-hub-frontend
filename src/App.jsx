@@ -38,9 +38,6 @@ import UnitaMisuraManager from './components/anagrafiche/UnitaMisuraManager';
 import MezziTrasportoManager from './components/anagrafiche/MezziTrasportoManager';
 import RepartiManager from './components/anagrafiche/RepartiManager';
 
-// Importa Componente Zoom Reset
-import ZoomResetButton from './components/ZoomResetButton';
-
 // Importa Performance Monitoring
 import AdminMonitoringPage from './pages/AdminMonitoringPage';
 import { initPerformanceTracking, trackPageLoad, flushPerformanceLogs } from './utils/performanceTracker';
@@ -572,9 +569,6 @@ function App() {
         </Routes>
       </main>
       <footer><p>© {new Date().getFullYear()} Oilsafe S.r.l.</p></footer>
-
-      {/* Pulsante reset zoom - appare solo su mobile quando zoomato */}
-      <ZoomResetButton />
     </div>
   );
 }

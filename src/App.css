@@ -535,6 +535,7 @@ label:has(> input[type="radio"]) {
         min-height: 44px;
         display: flex;
         align-items: center;
+        color: white !important;
     }
 
     header nav a:hover {
