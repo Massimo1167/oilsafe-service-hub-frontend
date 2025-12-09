@@ -249,6 +249,184 @@ header nav { /* Aggiunto per allineare il bottone a destra */
     margin-top: 0.5rem;
 }
 
+/* ===================================
+   LAYOUT INTERVENTI DESKTOP
+   =================================== */
+
+.interventi-desktop-container {
+    margin-top: 1rem;
+}
+
+.interventi-table-desktop {
+    width: 100%;
+    table-layout: auto;
+    border-collapse: collapse;
+    margin-top: 1rem;
+}
+
+.interventi-table-desktop thead {
+    background-color: #f5f5f5;
+    border-bottom: 2px solid #ddd;
+}
+
+.interventi-table-desktop th,
+.interventi-table-desktop td {
+    padding: 0.75rem 0.5rem;
+    border-bottom: 1px solid #e0e0e0;
+    text-align: left;
+    vertical-align: middle;
+}
+
+.interventi-table-desktop tbody tr:hover {
+    background-color: #f9f9f9;
+}
+
+/* Colonne - Larghezze ottimizzate */
+.col-checkbox {
+    width: 30px;
+    padding-left: 1rem;
+}
+.col-data {
+    min-width: 90px;
+}
+.col-tecnico {
+    min-width: 120px;
+}
+.col-n-tecnici {
+    min-width: 60px;
+    text-align: center;
+}
+.col-tipo {
+    min-width: 100px;
+}
+.col-ore-lavoro {
+    min-width: 70px;
+    text-align: center;
+}
+.col-ore-viaggio {
+    min-width: 70px;
+    text-align: center;
+}
+.col-km {
+    min-width: 60px;
+    text-align: center;
+}
+.col-spese {
+    min-width: 80px;
+    text-align: center;
+}
+.col-azioni {
+    min-width: 140px;
+    text-align: right;
+    padding-right: 1rem;
+}
+
+/* Riga principale */
+.riga-principale {
+    border-bottom: 1px solid #e0e0e0;
+}
+
+/* Livello 2: Descrizione (sempre visibile) */
+.livello-descrizione td {
+    padding: 1rem;
+    background-color: #f9f9f9;
+    border-bottom: 1px solid #ddd;
+}
+
+.descrizione-container {
+    max-width: 100%;
+}
+
+.descrizione-container strong {
+    color: #333;
+    font-size: 0.95em;
+}
+
+/* Livelli espandibili (3 e 4) */
+.livello-osservazioni,
+.livello-attivita-standard {
+    border-bottom: 2px solid #ddd;
+}
+
+.expandable-section {
+    margin: 0.5rem 0;
+}
+
+.expand-button {
+    background: none;
+    border: none;
+    padding: 0.5rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    text-align: left;
+    font-weight: 500;
+    color: #333;
+    transition: background-color 0.2s;
+    border-radius: 4px;
+    font-size: 0.95em;
+}
+
+.expand-button:hover {
+    background-color: #f0f0f0;
+}
+
+.preview-text {
+    color: #666;
+    font-style: italic;
+    font-size: 0.9em;
+    margin-left: 0.5rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.expanded-content {
+    animation: slideDown 0.2s ease-out;
+    padding: 0.5rem 0.5rem 0.5rem 2rem;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Stili per bottoni azioni */
+.btn-icon {
+    background: #fff;
+    border: 1px solid #ddd;
+    padding: 0.4rem 0.6rem;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s;
+    font-size: 1rem;
+}
+
+.btn-icon:hover {
+    background-color: #f0f0f0;
+    border-color: #aaa;
+}
+
+.btn-danger:hover {
+    background-color: #fee;
+    border-color: #f88;
+}
+
+/* Media query: su schermi <=1024px nascondi layout desktop */
+@media (max-width: 1024px) {
+    .interventi-desktop-container {
+        display: none;
+    }
+}
+
 .voice-textarea-wrapper {
     display: flex;
     align-items: flex-start;
