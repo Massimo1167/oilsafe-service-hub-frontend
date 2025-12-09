@@ -1,6 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import './InfoPage.css';
 import oilsafeLogo from '../assets/oilsafe-logo.png';
+import { Document, Page, pdfjs } from 'react-pdf';
+import 'react-pdf/dist/Page/AnnotationLayer.css';
+import 'react-pdf/dist/Page/TextLayer.css';
+import { videoTutorials } from '../data/videoTutorials';
+import { faqCategories } from '../data/faqData';
+
+// Configurazione worker per react-pdf (CRITICO: senza questo, il PDF non si carica)
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 /**
  * Pagina Informazioni Applicazione
@@ -15,6 +23,7 @@ function InfoPage() {
   const [activeTab, setActiveTab] = useState('changelog');
   const [changelogData, setChangelogData] = useState([]);
   const [loadingChangelog, setLoadingChangelog] = useState(true);
+  // eslint-disable-next-line no-undef
   const [expandedVersions, setExpandedVersions] = useState(new Set([__APP_VERSION__]));
 
   useEffect(() => {
@@ -94,8 +103,8 @@ function InfoPage() {
       <div className="info-header">
         <img src={oilsafeLogo} alt="Oilsafe Logo" className="info-logo" />
         <h1>Informazioni Applicazione</h1>
-        {/* eslint-disable-next-line no-undef */}
         <p className="info-subtitle">
+          {/* eslint-disable-next-line no-undef */}
           Oilsafe Service Hub - Versione {__APP_VERSION__}
         </p>
       </div>
@@ -258,8 +267,10 @@ function SistemaTab() {
         <div className="info-card">
           <div className="info-card-icon">📦</div>
           <h3>Versione App</h3>
-          {/* eslint-disable-next-line no-undef */}
-          <p className="info-value">{__APP_VERSION__}</p>
+          <p className="info-value">
+            {/* eslint-disable-next-line no-undef */}
+            {__APP_VERSION__}
+          </p>
         </div>
 
         <div className="info-card">
@@ -325,35 +336,306 @@ function CreditsTab() {
 }
 
 /**
- * Tab Documentazione: Placeholder per documentazione futura
+ * Tab Documentazione: Manuale PDF, Video Tutorial, FAQ
  */
 function DocsTab() {
+  const [activeDocsTab, setActiveDocsTab] = useState('manuale');
+
   return (
     <div className="docs-container">
       <h2>Documentazione</h2>
 
-      <div className="placeholder-content">
-        <div className="placeholder-icon">📚</div>
-        <h3>Documentazione in Arrivo</h3>
-        <p>
-          Questa sezione conterrà guide utente, tutorial e documentazione tecnica
-        </p>
-
-        <div className="placeholder-sections">
-          <div className="placeholder-item">
-            <h4>📖 Guide Utente</h4>
-            <p>Manuali per l'utilizzo delle funzionalità principali</p>
-          </div>
-          <div className="placeholder-item">
-            <h4>🎓 Tutorial</h4>
-            <p>Istruzioni passo-passo per operazioni comuni</p>
-          </div>
-          <div className="placeholder-item">
-            <h4>🔧 Documentazione Tecnica</h4>
-            <p>Specifiche tecniche e architettura del sistema</p>
-          </div>
-        </div>
+      {/* Sub-tab Navigation */}
+      <div className="docs-subtabs">
+        <button
+          className={`docs-subtab ${activeDocsTab === 'manuale' ? 'active' : ''}`}
+          onClick={() => setActiveDocsTab('manuale')}
+        >
+          📖 Manuale Utente
+        </button>
+        <button
+          className={`docs-subtab ${activeDocsTab === 'video' ? 'active' : ''}`}
+          onClick={() => setActiveDocsTab('video')}
+        >
+          🎥 Video Tutorial
+        </button>
+        <button
+          className={`docs-subtab ${activeDocsTab === 'faq' ? 'active' : ''}`}
+          onClick={() => setActiveDocsTab('faq')}
+        >
+          ❓ FAQ
+        </button>
       </div>
+
+      {/* Sub-tab Content */}
+      {activeDocsTab === 'manuale' && <ManualeSubTab />}
+      {activeDocsTab === 'video' && <VideoSubTab />}
+      {activeDocsTab === 'faq' && <FAQSubTab />}
+    </div>
+  );
+}
+
+/**
+ * Sub-Tab: Manuale PDF con viewer interattivo
+ */
+function ManualeSubTab() {
+  const [numPages, setNumPages] = useState(null);
+  const [pageNumber, setPageNumber] = useState(1);
+  const [scale, setScale] = useState(1.0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const onDocumentLoadSuccess = ({ numPages }) => {
+    setNumPages(numPages);
+    setLoading(false);
+    setError(null);
+  };
+
+  const onDocumentLoadError = (error) => {
+    console.error('Errore caricamento PDF:', error);
+    setLoading(false);
+    setError('Impossibile caricare il manuale. Il file potrebbe non essere disponibile.');
+  };
+
+  return (
+    <div className="manuale-container">
+      <p className="manuale-intro">
+        Consulta il manuale utente completo per scoprire tutte le funzionalità dell'applicazione.
+      </p>
+
+      {/* Controlli PDF */}
+      <div className="pdf-controls">
+        <div className="pdf-controls-group">
+          <button
+            onClick={() => setScale(s => Math.max(0.5, s - 0.1))}
+            disabled={loading}
+            title="Riduci zoom"
+          >
+            🔍−
+          </button>
+          <span className="pdf-zoom-label">{Math.round(scale * 100)}%</span>
+          <button
+            onClick={() => setScale(s => Math.min(2.0, s + 0.1))}
+            disabled={loading}
+            title="Aumenta zoom"
+          >
+            🔍+
+          </button>
+        </div>
+
+        <div className="pdf-controls-group">
+          <button
+            onClick={() => setPageNumber(p => Math.max(1, p - 1))}
+            disabled={pageNumber === 1 || loading}
+            title="Pagina precedente"
+          >
+            ←
+          </button>
+          <span className="pdf-page-label">
+            Pagina {pageNumber} di {numPages || '?'}
+          </span>
+          <button
+            onClick={() => setPageNumber(p => Math.min(numPages, p + 1))}
+            disabled={pageNumber === numPages || loading}
+            title="Pagina successiva"
+          >
+            →
+          </button>
+        </div>
+
+        <a
+          href="/docs/manuale-utente.pdf"
+          download="Oilsafe_Manuale_Utente.pdf"
+          className="pdf-download-btn"
+          title="Scarica PDF"
+        >
+          📥 Scarica PDF
+        </a>
+      </div>
+
+      {/* Viewer PDF */}
+      <div className="pdf-viewer-container">
+        {error ? (
+          <div className="pdf-error">
+            <div className="error-icon">⚠️</div>
+            <h3>Manuale non disponibile</h3>
+            <p>{error}</p>
+            <p className="error-hint">
+              Il manuale sarà disponibile a breve. Nel frattempo, puoi consultare le FAQ o guardare i video tutorial.
+            </p>
+          </div>
+        ) : (
+          <>
+            {loading && (
+              <div className="loading-state">
+                <div className="spinner"></div>
+                <p>Caricamento manuale...</p>
+              </div>
+            )}
+            <Document
+              file="/docs/manuale-utente.pdf"
+              onLoadSuccess={onDocumentLoadSuccess}
+              onLoadError={onDocumentLoadError}
+              loading={<div className="spinner"></div>}
+            >
+              <Page
+                pageNumber={pageNumber}
+                scale={scale}
+                renderTextLayer={true}
+                renderAnnotationLayer={true}
+              />
+            </Document>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Sub-Tab: Video Tutorial YouTube
+ */
+function VideoSubTab() {
+  const [selectedVideo, setSelectedVideo] = useState(null);
+
+  // Vista player (quando un video è selezionato)
+  if (selectedVideo) {
+    return (
+      <div className="video-player-container">
+        <button
+          className="back-to-grid-btn"
+          onClick={() => setSelectedVideo(null)}
+        >
+          ← Torna ai video
+        </button>
+        <h3>{selectedVideo.title}</h3>
+        <div className="video-embed-wrapper">
+          <iframe
+            width="100%"
+            height="500"
+            src={`https://www.youtube-nocookie.com/embed/${selectedVideo.youtubeId}`}
+            title={selectedVideo.title}
+            frameBorder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            loading="lazy"
+          />
+        </div>
+        <p className="video-description">{selectedVideo.description}</p>
+        {selectedVideo.category && (
+          <span className="video-category-badge">{selectedVideo.category}</span>
+        )}
+      </div>
+    );
+  }
+
+  // Vista griglia (default)
+  return (
+    <div className="video-container">
+      <p className="video-intro">
+        Guarda i nostri video tutorial per imparare velocemente ad utilizzare l'applicazione.
+      </p>
+
+      {videoTutorials.length === 0 ? (
+        <div className="empty-state">
+          <div className="empty-icon">🎥</div>
+          <h3>Video Tutorial in Arrivo</h3>
+          <p>I video tutorial saranno disponibili a breve.</p>
+        </div>
+      ) : (
+        <div className="video-grid">
+          {videoTutorials.map(video => (
+            <div
+              key={video.id}
+              className="video-card"
+              onClick={() => setSelectedVideo(video)}
+            >
+              <div className="video-thumbnail-wrapper">
+                <img
+                  src={video.thumbnail}
+                  alt={video.title}
+                  className="video-thumbnail"
+                  loading="lazy"
+                />
+                <div className="video-play-overlay">▶</div>
+                {video.duration && (
+                  <span className="video-duration-badge">{video.duration}</span>
+                )}
+              </div>
+              <div className="video-info">
+                <h4>{video.title}</h4>
+                <p>{video.description}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Sub-Tab: FAQ (Domande Frequenti)
+ */
+function FAQSubTab() {
+  const [expandedFAQs, setExpandedFAQs] = useState(new Set());
+
+  const toggleFAQ = (faqId) => {
+    const newExpanded = new Set(expandedFAQs);
+    if (newExpanded.has(faqId)) {
+      newExpanded.delete(faqId);
+    } else {
+      newExpanded.add(faqId);
+    }
+    setExpandedFAQs(newExpanded);
+  };
+
+  return (
+    <div className="faq-container">
+      <p className="faq-intro">
+        Trova rapidamente le risposte alle domande più comuni sull'utilizzo dell'applicazione.
+      </p>
+
+      {faqCategories.map(category => (
+        <div key={category.category} className="faq-category">
+          <h3 className="faq-category-title">
+            <span className="faq-category-icon">{category.icon}</span>
+            {category.category}
+          </h3>
+
+          {category.questions.map(faq => (
+            <div key={faq.id} className="faq-item">
+              <button
+                className="faq-question"
+                onClick={() => toggleFAQ(faq.id)}
+              >
+                <span className="faq-question-text">{faq.question}</span>
+                <span className="expand-icon">
+                  {expandedFAQs.has(faq.id) ? '▼' : '▶'}
+                </span>
+              </button>
+
+              {expandedFAQs.has(faq.id) && (
+                <div className="faq-answer">
+                  <p>{faq.answer}</p>
+                  {faq.relatedVideo && (
+                    <button
+                      className="related-video-link"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        // TODO: Switch to video tab and select video
+                        alert('Funzionalità in arrivo: collegamento al video tutorial');
+                      }}
+                    >
+                      📹 Guarda il video tutorial correlato
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      ))}
     </div>
   );
 }
