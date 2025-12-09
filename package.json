@@ -1,8 +1,8 @@
 {
   "name": "oilsafe-service-frontend",
   "private": true,
-  "version": "1.1.11",
-  "description": "Modifica rappresentazione interventi in formato desktop",
+  "version": "1.1.12",
+  "description": "Documentazione online",
   "author": "Massimo Centrella",
   "company": "Oilsafe S.r.l.",
   "type": "module",
@@ -23,6 +23,7 @@
     "react-big-calendar": "^1.19.4",
     "react-datepicker": "^8.8.0",
     "react-dom": "^19.1.0",
+    "react-pdf": "^10.2.0",
     "react-router-dom": "^7.6.1",
     "react-signature-canvas": "^1.0.6",
     "recharts": "^3.3.0",

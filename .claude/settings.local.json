@@ -19,7 +19,8 @@
       "Bash(npm run preview:*)",
       "Bash(grep:*)",
       "Bash(git log:*)",
-      "Bash(powershell -Command:*)"
+      "Bash(powershell -Command:*)",
+      "Bash(echo:*)"
     ],
     "deny": [],
     "ask": []
