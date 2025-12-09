@@ -35,6 +35,11 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
     const [selectedInterventi, setSelectedInterventi] = useState([]);
     const [copiedInterventi, setCopiedInterventi] = useState([]);
 
+    // Stati per expand/collapse dettagli interventi (desktop layout)
+    const [expandedDescrizione, setExpandedDescrizione] = useState(new Set());
+    const [expandedOsservazioni, setExpandedOsservazioni] = useState(new Set());
+    const [expandedAttivita, setExpandedAttivita] = useState(new Set());
+
     const userRole = (session?.user?.role || '').trim().toLowerCase();
     const currentUserId = session?.user?.id;
     const currentUserEmail = session?.user?.email?.toLowerCase();
@@ -214,7 +219,7 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
 
     useEffect(() => {
         const handleResize = () => {
-            setIsSmallScreen(window.innerWidth <= 768);
+            setIsSmallScreen(window.innerWidth <= 1024);  // Breakpoint aggiornato: tablet/mobile <= 1024px
         };
         handleResize();
         window.addEventListener('resize', handleResize);
@@ -386,6 +391,74 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
             setSelectedInterventi([]);
         } else {
             setSelectedInterventi(interventi.map(i => i.id));
+        }
+    };
+
+    // Toggle expand/collapse per Descrizione, Osservazioni e Attività Standard (desktop layout)
+    const toggleDescrizione = (interventoId) => {
+        setExpandedDescrizione(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(interventoId)) {
+                newSet.delete(interventoId);
+            } else {
+                newSet.add(interventoId);
+            }
+            return newSet;
+        });
+    };
+
+    const toggleOsservazioni = (interventoId) => {
+        setExpandedOsservazioni(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(interventoId)) {
+                newSet.delete(interventoId);
+            } else {
+                newSet.add(interventoId);
+            }
+            return newSet;
+        });
+    };
+
+    const toggleAttivita = (interventoId) => {
+        setExpandedAttivita(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(interventoId)) {
+                newSet.delete(interventoId);
+            } else {
+                newSet.add(interventoId);
+            }
+            return newSet;
+        });
+    };
+
+    // Toggle tutti i livelli (Descrizione + Osservazioni + Attività) insieme
+    const toggleAllDetails = (interventoId, hasAttivitaStandard) => {
+        const isAnyExpanded = expandedDescrizione.has(interventoId) || expandedOsservazioni.has(interventoId) || expandedAttivita.has(interventoId);
+
+        if (isAnyExpanded) {
+            // Comprimi tutti
+            setExpandedDescrizione(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(interventoId);
+                return newSet;
+            });
+            setExpandedOsservazioni(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(interventoId);
+                return newSet;
+            });
+            setExpandedAttivita(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(interventoId);
+                return newSet;
+            });
+        } else {
+            // Espandi tutti
+            setExpandedDescrizione(prev => new Set(prev).add(interventoId));
+            setExpandedOsservazioni(prev => new Set(prev).add(interventoId));
+            if (hasAttivitaStandard) {
+                setExpandedAttivita(prev => new Set(prev).add(interventoId));
+            }
         }
     };
 
@@ -892,12 +965,13 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
                         ))}
                     </div>
                 ) : (
-                <div style={{overflowX: 'auto'}}>
-                <table>
+                /* DESKTOP: Nuovo layout tabella a 4 livelli */
+                <div className="interventi-desktop-container">
+                <table className="interventi-table-desktop">
                     <thead>
                         <tr>
                             {canModifyInterventi && (
-                                <th style={{width:'50px'}}>
+                                <th className="col-checkbox">
                                     <input
                                         type="checkbox"
                                         checked={interventi.length > 0 && selectedInterventi.length === interventi.length}
@@ -906,77 +980,214 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
                                     />
                                 </th>
                             )}
-                            <th>Data</th>
-                            <th>Tecnico</th>
-                            <th>N. Tecnici</th>
-                            <th>Tipo</th>
-                            <th>Ore Lavoro</th>
-                            <th>Ore Viaggio</th>
-                            <th>Km</th>
-                            <th style={{minWidth:'200px'}}>Descrizione Attività</th>
-                            <th style={{minWidth:'150px'}}>Osservazioni Intervento</th>
-                            <th>Spese</th>
-                            <th>Azioni</th>
+                            <th className="col-data">Data</th>
+                            <th className="col-tecnico">Tecnico</th>
+                            <th className="col-n-tecnici">N. Tecnici</th>
+                            <th className="col-tipo">Tipo</th>
+                            <th className="col-ore-lavoro">Ore Lavoro</th>
+                            <th className="col-ore-viaggio">Ore Viaggio</th>
+                            <th className="col-km">Km</th>
+                            <th className="col-spese">Spese</th>
+                            <th className="col-azioni">Azioni</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {interventi.map(intervento => (
-                        <tr key={intervento.id}>
-                            {canModifyInterventi && (
-                                <td style={{textAlign:'center'}}>
-                                    <input
-                                        type="checkbox"
-                                        checked={selectedInterventi.includes(intervento.id)}
-                                        onChange={() => handleToggleSelectIntervento(intervento.id)}
-                                    />
-                                </td>
-                            )}
-                            <td>{new Date(intervento.data_intervento_effettivo).toLocaleDateString()}</td>
-                            <td>{intervento.tecnici ? `${intervento.tecnici.nome} ${intervento.tecnici.cognome}` : 'N/D'}</td>
-                            <td>{intervento.numero_tecnici || '-'}</td>
-                            <td>{intervento.tipo_intervento || '-'}</td>
-                            <td>{intervento.ore_lavoro_effettive || '-'}</td>
-                            <td>{intervento.ore_viaggio || '-'}</td>
-                            <td>{intervento.km_percorsi || '-'}</td>
-                            <td style={{maxWidth:'300px', whiteSpace:'pre-wrap'}}>{intervento.descrizione_attivita_svolta_intervento || '-'}</td>
-                            <td style={{maxWidth:'200px', whiteSpace:'pre-wrap'}}>{intervento.osservazioni_intervento || '-'}</td>
-                            <td>
-                                {intervento.vitto && "Vitto "}
-                                {intervento.autostrada && "Autostrada "}
-                                {intervento.alloggio && "Alloggio"}
-                                {(!intervento.vitto && !intervento.autostrada && !intervento.alloggio) && "-"}
-                            </td>
-                            <td className="actions">
-                                {canModifyInterventi ? (
-                                    <>
-                                        <button
-                                            className="button secondary small"
-                                            onClick={() => handleOpenInterventoForm(intervento)}
-                                            disabled={actionLoading || showInterventoForm}
-                                            style={{marginRight:'5px'}}
-                                        >
-                                            Modifica
-                                        </button>
-                                        <button
-                                            className="button danger small"
-                                            onClick={() => handleDeleteIntervento(intervento.id)}
-                                            disabled={actionLoading}
-                                        >
-                                            Elimina
-                                        </button>
-                                    </>
-                                ) : (
-                                    <button
-                                        className="button secondary small"
-                                        onClick={() => handleOpenInterventoForm(intervento, true)}
-                                        disabled={actionLoading || showInterventoForm}
-                                    >
-                                        Visualizza
-                                    </button>
+                        {interventi.map(intervento => {
+                            const hasAttivitaStandard = intervento.interventi_attivita_standard?.length > 0;
+                            const isAnyExpanded = expandedDescrizione.has(intervento.id) || expandedOsservazioni.has(intervento.id) || expandedAttivita.has(intervento.id);
+                            const colSpan = canModifyInterventi ? "10" : "9";
+
+                            return (
+                            <React.Fragment key={intervento.id}>
+                                {/* LIVELLO 1: Riga Dati Principale */}
+                                <tr className="riga-principale">
+                                    {canModifyInterventi && (
+                                        <td className="col-checkbox">
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedInterventi.includes(intervento.id)}
+                                                onChange={() => handleToggleSelectIntervento(intervento.id)}
+                                            />
+                                        </td>
+                                    )}
+                                    <td className="col-data">{new Date(intervento.data_intervento_effettivo).toLocaleDateString()}</td>
+                                    <td className="col-tecnico">{intervento.tecnici ? `${intervento.tecnici.nome} ${intervento.tecnici.cognome}` : 'N/D'}</td>
+                                    <td className="col-n-tecnici">{intervento.numero_tecnici || '-'}</td>
+                                    <td className="col-tipo">{intervento.tipo_intervento || '-'}</td>
+                                    <td className="col-ore-lavoro">{intervento.ore_lavoro_effettive || '-'}</td>
+                                    <td className="col-ore-viaggio">{intervento.ore_viaggio || '-'}</td>
+                                    <td className="col-km">{intervento.km_percorsi || '-'}</td>
+                                    <td className="col-spese">
+                                        <div style={{display: 'flex', gap: '4px', justifyContent: 'center'}}>
+                                            {intervento.vitto && <span title="Vitto">🍽️</span>}
+                                            {intervento.autostrada && <span title="Autostrada">🛣️</span>}
+                                            {intervento.alloggio && <span title="Alloggio">🛏️</span>}
+                                            {!intervento.vitto && !intervento.autostrada && !intervento.alloggio && (
+                                                <span style={{color: '#ccc'}}>-</span>
+                                            )}
+                                        </div>
+                                    </td>
+                                    <td className="col-azioni">
+                                        <div style={{display: 'flex', gap: '0.5rem', justifyContent: 'flex-end'}}>
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    toggleAllDetails(intervento.id, hasAttivitaStandard);
+                                                }}
+                                                className="btn-icon"
+                                                title="Espandi/Comprimi dettagli"
+                                            >
+                                                {isAnyExpanded ? '▼' : '▲'}
+                                            </button>
+                                            {canModifyInterventi ? (
+                                                <>
+                                                    <button
+                                                        onClick={() => handleOpenInterventoForm(intervento)}
+                                                        className="btn-icon"
+                                                        title="Modifica"
+                                                        disabled={actionLoading || showInterventoForm}
+                                                    >
+                                                        ✏️
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDeleteIntervento(intervento.id)}
+                                                        className="btn-icon btn-danger"
+                                                        title="Elimina"
+                                                        disabled={actionLoading}
+                                                    >
+                                                        🗑️
+                                                    </button>
+                                                </>
+                                            ) : (
+                                                <button
+                                                    onClick={() => handleOpenInterventoForm(intervento, true)}
+                                                    className="btn-icon"
+                                                    title="Visualizza"
+                                                    disabled={actionLoading || showInterventoForm}
+                                                >
+                                                    👁️
+                                                </button>
+                                            )}
+                                        </div>
+                                    </td>
+                                </tr>
+
+                                {/* LIVELLO 2: Descrizione Attività (Espandibile - Compressa di Default) */}
+                                <tr className="livello-descrizione">
+                                    <td colSpan={colSpan} style={{padding: '0 1rem'}}>
+                                        <div className="expandable-section">
+                                            <button
+                                                onClick={() => toggleDescrizione(intervento.id)}
+                                                className="expand-button"
+                                            >
+                                                {expandedDescrizione.has(intervento.id) ? '▼' : '▶'}
+                                                📋 Descrizione Attività
+                                                {!expandedDescrizione.has(intervento.id) && intervento.descrizione_attivita_svolta_intervento && (
+                                                    <span className="preview-text">
+                                                        {intervento.descrizione_attivita_svolta_intervento.substring(0, 50)}...
+                                                    </span>
+                                                )}
+                                            </button>
+
+                                            {expandedDescrizione.has(intervento.id) && (
+                                                <div className="expanded-content">
+                                                    <p style={{
+                                                        marginTop: '0.5rem',
+                                                        marginBottom: '0.5rem',
+                                                        whiteSpace: 'pre-wrap',
+                                                        lineHeight: '1.6',
+                                                        padding: '0.75rem',
+                                                        backgroundColor: '#f9f9f9',
+                                                        border: '1px solid #e0e0e0',
+                                                        borderRadius: '4px'
+                                                    }}>
+                                                        {intervento.descrizione_attivita_svolta_intervento || 'Nessuna descrizione'}
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </td>
+                                </tr>
+
+                                {/* LIVELLO 3: Osservazioni (Espandibile - Compressa di Default) */}
+                                <tr className="livello-osservazioni">
+                                    <td colSpan={colSpan} style={{padding: '0 1rem'}}>
+                                        <div className="expandable-section">
+                                            <button
+                                                onClick={() => toggleOsservazioni(intervento.id)}
+                                                className="expand-button"
+                                            >
+                                                {expandedOsservazioni.has(intervento.id) ? '▼' : '▶'}
+                                                💬 Osservazioni
+                                                {!expandedOsservazioni.has(intervento.id) && intervento.osservazioni_intervento && (
+                                                    <span className="preview-text">
+                                                        {intervento.osservazioni_intervento.substring(0, 50)}...
+                                                    </span>
+                                                )}
+                                            </button>
+
+                                            {expandedOsservazioni.has(intervento.id) && (
+                                                <div className="expanded-content">
+                                                    <p style={{
+                                                        marginTop: '0.5rem',
+                                                        marginBottom: '0.5rem',
+                                                        whiteSpace: 'pre-wrap',
+                                                        lineHeight: '1.6',
+                                                        padding: '0.75rem',
+                                                        backgroundColor: '#fff',
+                                                        border: '1px solid #e0e0e0',
+                                                        borderRadius: '4px'
+                                                    }}>
+                                                        {intervento.osservazioni_intervento || 'Nessuna osservazione'}
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </td>
+                                </tr>
+
+                                {/* LIVELLO 4: Attività Standard (Espandibile - Compressa di Default - Solo se presenti) */}
+                                {hasAttivitaStandard && (
+                                    <tr className="livello-attivita-standard">
+                                        <td colSpan={colSpan} style={{padding: '0 1rem 1rem 1rem'}}>
+                                            <div className="expandable-section">
+                                                <button
+                                                    onClick={() => toggleAttivita(intervento.id)}
+                                                    className="expand-button"
+                                                >
+                                                    {expandedAttivita.has(intervento.id) ? '▼' : '▶'}
+                                                    ⚙️ Attività Standard Eseguite ({intervento.interventi_attivita_standard.length})
+                                                </button>
+
+                                                {expandedAttivita.has(intervento.id) && (
+                                                    <div className="expanded-content">
+                                                        <div style={{
+                                                            padding: '0.75rem',
+                                                            backgroundColor: '#f0f8ff',
+                                                            border: '1px solid #b3d9ff',
+                                                            borderRadius: '4px'
+                                                        }}>
+                                                            <ul style={{margin: 0, paddingLeft: '1.5rem'}}>
+                                                                {intervento.interventi_attivita_standard.map(att => (
+                                                                    <li key={att.id} style={{marginBottom: '0.5rem'}}>
+                                                                        <strong>{att.codice_attivita}</strong> - {att.descrizione}
+                                                                        <br />
+                                                                        <span style={{fontSize: '0.9em', color: '#666'}}>
+                                                                            Quantità: {att.quantita} {att.unita_misura}
+                                                                        </span>
+                                                                    </li>
+                                                                ))}
+                                                            </ul>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </td>
+                                    </tr>
                                 )}
-                            </td>
-                        </tr>
-                        ))}
+                            </React.Fragment>
+                            );
+                        })}
                     </tbody>
                 </table>
                 </div>
