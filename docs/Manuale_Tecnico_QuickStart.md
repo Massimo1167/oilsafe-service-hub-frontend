@@ -1,11 +1,11 @@
 ---
-marp: true
+marp: false
 ---
 
 # OilSafe Service Hub
 ## Guida Rapida per Tecnici
 
-**Versione**: 1.1.3 | **Ultimo aggiornamento**: Novembre 2025
+**Versione**: 1.1.12 | **Ultimo aggiornamento**: Dicembre 2025
 
 ---
 
@@ -18,6 +18,8 @@ marp: true
 
 > **Suggerimento**: Salva l'indirizzo nei preferiti per accesso rapido!
 
+> **Funziona su tutti i dispositivi**: PC, tablet e smartphone si adattano automaticamente per la migliore esperienza!
+
 ---
 
 ## La Tua Dashboard
@@ -26,6 +28,12 @@ Dopo il login vedrai la tua dashboard personale con:
 
 - **I tuoi fogli** divisi per stato (Aperti, In Lavorazione, Completati)
 - **Accesso rapido** alle funzioni principali
+
+> **Documentazione integrata (v1.1.12)**: Clicca su "Info" → "Documentazione" per manuale PDF, video tutorial e FAQ!
+
+
+
+
 
 ---
 
@@ -71,7 +79,7 @@ Dopo il login vedrai la tua dashboard personale con:
 3. Compila:
    - **Data**: quando hai fatto l'intervento
    - **Tecnico**: seleziona te stesso
-   - **Tipo**: In Loco, Remoto, etc.
+   - **Tipo**: In Loco, Remoto, **Teleassistenza** (novità: se selezioni Teleassistenza, non ti verranno chiesti km e spese viaggio)
    - **Ore lavorate**: durata intervento
    - **Descrizione**: cosa hai fatto
 
@@ -123,6 +131,8 @@ Per la descrizione puoi usare il **microfono**:
 
 > Dopo il completamento non potrai più modificare il foglio
 
+> ⚠️ **Attenzione**: Lo stato "Completato" è **irreversibile** per i tecnici. Completa solo quando sei sicuro! Se serve correggere dopo, dovrai contattare il tuo responsabile.
+
 ---
 
 ## 6. Visualizzare/Stampare il PDF
@@ -168,10 +178,38 @@ Per la descrizione puoi usare il **microfono**:
 
 ---
 
+## Novità Ultima Versione (1.1.12)
+
+### 🆕 Cosa c'è di nuovo
+
+**Documentazione Integrata** 📖
+- Vai su Menu → Info → Documentazione per trovare:
+  - Manuale PDF completo con viewer
+  - Video tutorial YouTube
+  - FAQ per risolvere dubbi comuni
+
+**Teleassistenza** 💻
+- Nuovo tipo intervento: se lavori da remoto, seleziona "Teleassistenza" e non ti verranno chiesti km e spese
+
+**⚠️ Importante: Stato Completato**
+- Da v1.1.9, quando completi un foglio è **irreversibile**
+- Verifica tutto prima di completare!
+- Per correzioni dopo, contatta il responsabile
+
+**Copia Fogli** 📋
+- Se fai spesso lo stesso lavoro, puoi copiare fogli esistenti
+- Il sistema crea un nuovo foglio identico ma resetta numero, stato e firme
+
+**Mobile Ottimizzato** 📱
+- L'app funziona perfettamente anche su smartphone
+- Layout automatico per schermi piccoli
+
+---
+
 ## Hai Bisogno di Aiuto?
 
 Per funzionalità avanzate consulta il **Manuale Completo per Tecnici** oppure contatta il tuo responsabile.
 
 ---
 
-*Guida rapida OilSafe Service Hub - Versione Tecnici*
+*Guida rapida OilSafe Service Hub - Versione Tecnici v1.1.12*
