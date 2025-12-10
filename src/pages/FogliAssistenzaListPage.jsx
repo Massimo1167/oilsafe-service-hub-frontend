@@ -48,6 +48,12 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
     // Stato per pianificazioni (per mostrare badge)
     const [pianificazioniMap, setPianificazioniMap] = useState({}); // foglioId -> count pianificazioni attive
 
+    // Stato per feedback copia percorso
+    const [copiedFoglioId, setCopiedFoglioId] = useState(null);
+
+    // Stato per rilevare se è desktop (>768px)
+    const [isDesktop, setIsDesktop] = useState(window.innerWidth > 768);
+
     const navigate = useNavigate();
     const userRole = (session?.user?.role || '').trim().toLowerCase();
     const currentUserId = session?.user?.id;
@@ -135,6 +141,7 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                     ...foglio,
                     cliente_nome_azienda: cliente?.nome_azienda || 'N/D',
                     commessa_codice: commessa?.codice_commessa || '-',
+                    commessa_percorso_salvataggio: commessa?.percorso_salvataggio || null,
                     ordine_numero: ordine?.numero_ordine_cliente || '-',
                     motivo_intervento_generale: foglio.motivo_intervento_generale,
                     nomi_tecnici_coinvolti: Array.from(tecniciNomiSet).join(', ') || 'Nessuno',
@@ -184,6 +191,15 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
         }, 300);
         return () => clearTimeout(debounceTimeout);
     }, [fetchFogliDaServer, fetchPianificazioni]);
+
+    // useEffect per gestire il resize della finestra (desktop detection)
+    useEffect(() => {
+        const handleResize = () => {
+            setIsDesktop(window.innerWidth > 768);
+        };
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
     // useMemo per applicare tutti i filtri testuali e di stato (client-side)
     const fogliFiltrati = useMemo(() => {
@@ -631,6 +647,23 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
         setFiltroDaStampare(false); // Resetta filtro da stampare
     };
 
+    // Funzione per copiare il percorso di salvataggio negli appunti
+    const handleCopyPercorso = async (foglioId, percorsoSalvataggio) => {
+        if (!percorsoSalvataggio) return;
+
+        try {
+            await navigator.clipboard.writeText(percorsoSalvataggio);
+            setCopiedFoglioId(foglioId);
+            // Reset del feedback dopo 2 secondi
+            setTimeout(() => {
+                setCopiedFoglioId(null);
+            }, 2000);
+        } catch (err) {
+            console.error('Errore durante la copia del percorso:', err);
+            alert('Impossibile copiare il percorso negli appunti');
+        }
+    };
+
     if (loadingAnagrafiche || loadingFogli) {
         return <p>Caricamento fogli di assistenza...</p>;
     }
@@ -918,7 +951,43 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                                     />
                                 </td>
                                 <td className="actions">
-                                    <Link to={`/fogli-assistenza/${foglio.id}`} className="button small">Dettaglio</Link>
+                                    <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
+                                        <Link
+                                            to={`/fogli-assistenza/${foglio.id}`}
+                                            className="button small"
+                                            title="Visualizza e modifica dettagli foglio"
+                                            style={{
+                                                padding: '4px 8px',
+                                                fontSize: '1.2em'
+                                            }}
+                                        >
+                                            ✏️
+                                        </Link>
+                                        {isDesktop && (
+                                            <button
+                                                onClick={() => handleCopyPercorso(foglio.id, foglio.commessa_percorso_salvataggio)}
+                                                disabled={!foglio.commessa_percorso_salvataggio}
+                                                className="button small"
+                                                title={
+                                                    copiedFoglioId === foglio.id
+                                                        ? 'Percorso copiato!'
+                                                        : foglio.commessa_percorso_salvataggio
+                                                            ? 'Copia percorso cartella'
+                                                            : 'Percorso non disponibile'
+                                                }
+                                                style={{
+                                                    padding: '4px 8px',
+                                                    fontSize: '1.2em',
+                                                    cursor: foglio.commessa_percorso_salvataggio ? 'pointer' : 'not-allowed',
+                                                    opacity: foglio.commessa_percorso_salvataggio ? 1 : 0.4,
+                                                    backgroundColor: copiedFoglioId === foglio.id ? '#28a745' : undefined,
+                                                    transition: 'background-color 0.3s ease'
+                                                }}
+                                            >
+                                                {copiedFoglioId === foglio.id ? '✓' : '📁'}
+                                            </button>
+                                        )}
+                                    </div>
                                 </td>
                                 <td>{foglio.numero_foglio || `ID: ${foglio.id.substring(0,8)}`}</td>
                                 <td>{new Date(foglio.data_apertura_foglio).toLocaleDateString()}</td>
