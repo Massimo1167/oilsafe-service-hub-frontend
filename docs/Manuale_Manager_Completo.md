@@ -1,11 +1,11 @@
 ---
-marp: true
+marp: false
 ---
 
 # OilSafe Service Hub
 ## Manuale Completo per Manager e Admin
 
-**Versione**: 1.1.3 | **Ultimo aggiornamento**: Novembre 2025
+**Versione**: 1.1.12 | **Ultimo aggiornamento**: Dicembre 2025
 
 ---
 
@@ -20,6 +20,7 @@ marp: true
 7. [Gestione Mezzi e Scadenze](#7-gestione-mezzi-e-scadenze)
 8. [Configurazione Sistema](#8-configurazione-sistema)
 9. [Domande Frequenti](#9-domande-frequenti)
+10. [Novità per Versione](#10-novità-per-versione)
 
 ---
 
@@ -47,6 +48,26 @@ OilSafe Service Hub è la piattaforma completa per la gestione dei servizi di as
 1. Apri il browser all'indirizzo dell'applicazione
 2. Inserisci email e password
 3. Dopo il login vedrai il menu completo con tutte le funzionalità
+
+### Utilizzo Multi-Dispositivo
+
+OilSafe Service Hub è progettato per funzionare perfettamente su qualsiasi dispositivo:
+
+**Responsive Design:**
+- **Desktop**: interfaccia completa, ideale per gestione anagrafiche e statistiche
+- **Tablet**: ottimizzato per pianificazione e consultazione
+- **Mobile**: layout semplificato per accesso rapido ai dati
+
+**Ottimizzazioni specifiche (v1.1.8e):**
+- Rilevamento automatico schermo piccolo (< 768px)
+- Font adattati alla leggibilità touch
+- Layout responsive per tutte le pagine
+- Performance ottimizzate per connessioni mobili
+
+**Consiglio d'uso:**
+- Desktop per lavori di back-office
+- Tablet per pianificazione e modifiche fogli
+- Mobile per consultazione rapida e dashboard
 
 ---
 
@@ -853,6 +874,189 @@ R: Contatta il supporto tecnico per il reset.
 
 ---
 
+## 10. Novità per Versione
+
+Riepilogo funzionalità aggiunte dalla versione 1.1.3 alla versione corrente 1.1.12, con focus sulle implicazioni per Manager e Admin.
+
+---
+
+### Versione 1.1.12 (Dicembre 2025)
+#### Documentazione Online Integrata 📖
+
+**Novità:**
+- Tab Documentazione in pagina Info con 3 sezioni
+- Manuale PDF con viewer, zoom, download
+- Video tutorial YouTube con player integrato
+- FAQ interattive categorizzate
+
+**Impatto Gestionale:**
+- Formazione tecnici più rapida (video + FAQ)
+- Riduzione chiamate supporto
+- Manuale sempre aggiornato con app
+
+**Manutenzione:**
+- File PDF in `public/docs/manuale-utente.pdf`
+- Video configurati in `src/data/videoTutorials.js`
+- FAQ in `src/data/faqData.js`
+- Modifiche richiedono ricompilazione app
+
+**Capitolo di riferimento:** 2 (Dashboard e Statistiche Globali)
+
+---
+
+### Versione 1.1.11 (Dicembre 2025)
+#### Visualizzazione Desktop Ottimizzata 🖥️
+
+**Novità:**
+- Toggle espandi/collassa per sezioni interventi lunghe
+- Pulsante "Espandi/Collassa Tutto"
+- Solo su desktop (> 1024px)
+
+**Impatto Gestionale:**
+- Migliore leggibilità fogli con molti interventi
+- Verifica rapida su monitor ufficio
+- Nessuna configurazione richiesta
+
+**Capitolo di riferimento:** 3.5 (Gestione Interventi)
+
+---
+
+### Versione 1.1.10 (Dicembre 2025)
+#### Copia Fogli con Reset Campi 📋
+
+**Novità:**
+- Funzione copia fogli multipli
+- Reset automatico: numero, stato, firme, date
+- Preserva: cliente, commessa, tutti gli interventi
+
+**Impatto Gestionale:**
+- Velocizza creazione fogli ricorrenti
+- Ideale per contratti manutenzione programmata
+- Template riutilizzabili
+
+**Best Practice:**
+- Creare fogli template per clienti con attività standard
+- Copiare e adattare invece di creare da zero
+- Verificare sempre i dati dopo copia
+
+**Capitolo di riferimento:** 3.2 (Operazioni sui Fogli)
+
+---
+
+### Versione 1.1.9 (Dicembre 2025)
+#### Controllo Avanzamento Foglio ⚠️ **IMPORTANTE**
+
+**Novità:**
+- Workflow a 9 stati (Aperto → Chiuso)
+- Stato "Completato" irreversibile per tecnici
+- Verifica obbligatoria prima completamento
+- Solo Manager/Admin possono fare rollback
+
+**Impatto Gestionale - CRITICO:**
+
+**Workflow completo:**
+```
+Aperto → In Lavorazione → Attesa Firma → Completato
+  ↓
+Consuntivato → Inviato → In attesa accettazione → Fatturato → Chiuso
+```
+
+**Privilegi Manager/Admin:**
+- Unici a poter modificare fogli completati
+- Unici a proseguire verso stati contabili
+- Responsabilità sblocco per correzioni
+
+**Note obbligatorie:**
+- A "Consuntivato": OBBLIGATORIE (es. riferimento fattura)
+- Ad altri stati: facoltative ma consigliate
+
+**Comunicazione ai Tecnici:**
+Importante comunicare che "Completato" è irreversibile. Devono verificare tutto prima di completare.
+
+**Capitolo di riferimento:** 3.4 (Modifica Stati Avanzata) - AGGIORNATO
+
+---
+
+### Versione 1.1.8e (Dicembre 2025)
+#### Ottimizzazione Mobile/Tablet 📱
+
+**Novità:**
+- Responsive design automatico (< 768px)
+- Font adattati, zoom dinamico
+- Layout touch-friendly
+
+**Impatto Gestionale:**
+- Tecnici possono lavorare comodamente da smartphone
+- Manager possono verificare dati anche in mobilità
+- Nessuna configurazione utente richiesta
+
+**Raccomandazioni:**
+- Desktop per lavori back-office (anagrafiche, statistiche)
+- Tablet per pianificazione e modifiche fogli
+- Mobile per consultazioni rapide
+
+**Capitolo di riferimento:** 1 (Introduzione e Ruoli)
+
+---
+
+### Versione 1.1.7f (Dicembre 2025)
+#### Pagina Info ℹ️
+
+**Novità:**
+- Pagina Info con 4 tab (Changelog, Sistema, Credits, Documentazione)
+- Accessibile a tutti i ruoli dal menu
+
+**Impatto Gestionale:**
+- Verifica versione prima segnalare bug
+- Changelog per comunicare novità ai tecnici
+- Info sistema per troubleshooting
+
+**Capitolo di riferimento:** 2 (Dashboard e Statistiche Globali)
+
+---
+
+### Versione 1.1.7e (Dicembre 2025)
+#### Tipo Intervento: Teleassistenza 💻
+
+**Novità:**
+- Distinzione "Sede Cliente" vs "Teleassistenza"
+- Campi viaggio non richiesti per teleassistenza
+- Costi mansioni specifici
+
+**Impatto Gestionale:**
+- Report separati per tipo intervento
+- Analisi costi fisici vs remoti
+- Tracciabilità migliore per fatturazione
+
+**Statistiche:**
+- Possibile filtrare per tipo intervento
+- KPI separati (es. % teleassistenza)
+
+**Capitolo di riferimento:** 3.5 (Gestione Interventi)
+
+---
+
+### Roadmap Documentazione
+
+**Versioni future:**
+Questa sezione sarà aggiornata ad ogni release con le nuove funzionalità.
+
+**Formato entry:**
+- Versione e data
+- Descrizione funzionalità
+- Impatto gestionale
+- Best practice (se applicabili)
+- Capitolo riferimento
+
+**Consultazione consigliata:**
+Prima di ogni riunione con i tecnici, consulta questa sezione per verificare le novità da comunicare.
+
+---
+
+*Per implementazione tecnica e manutenzione, consulta `docs/GUIDA_MANUTENZIONE_DOCUMENTAZIONE.md`*
+
+---
+
 ## Appendice: Scorciatoie e Tips
 
 ### Navigazione Rapida
@@ -881,4 +1085,4 @@ Evita Internet Explorer (non supportato).
 
 ---
 
-*Manuale Completo OilSafe Service Hub - Versione Manager/Admin v1.1.3*
+*Manuale Completo OilSafe Service Hub - Versione Manager/Admin v1.1.12*

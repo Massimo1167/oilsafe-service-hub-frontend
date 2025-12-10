@@ -17,7 +17,7 @@ export const faqCategories = [
       {
         id: 'faq-1',
         question: "Come accedo al sistema?",
-        answer: "Utilizza le credenziali fornite dal tuo amministratore. Se hai dimenticato la password, usa il link 'Password dimenticata' nella pagina di login."
+        answer: "Utilizza le credenziali fornite dal tuo amministratore. Se hai dimenticato la password, usa il link 'Password dimenticata' nella pagina di login o contatta l'amministratore di sistema."
       },
       {
         id: 'faq-2',
@@ -27,7 +27,7 @@ export const faqCategories = [
       {
         id: 'faq-3',
         question: "Come posso cambiare la mia password?",
-        answer: "Dopo aver effettuato il login, vai nell'area del tuo profilo e seleziona 'Cambia Password'. Inserisci la password attuale e la nuova password due volte per conferma."
+        answer: "Dopo aver effettuato il login, vai nell'area del tuo profilo e seleziona 'Cambia Password'. Inserisci la password attuale e la nuova password due volte per conferma. Se la funzionalità non è disponibile contatta l'amministratore di stistema"
       }
     ]
   },
@@ -39,7 +39,7 @@ export const faqCategories = [
         id: 'faq-4',
         question: "Come creo un nuovo foglio di assistenza?",
         answer: "Vai su 'Fogli Assistenza' nel menu principale, poi clicca sul pulsante 'Nuovo Foglio'. Compila i campi obbligatori (cliente, tecnico, data) e clicca 'Salva'.",
-        relatedVideo: 'video-2' // Collegamento al video tutorial (quando disponibile)
+        relatedVideo: 'video-1' // Collegamento al video tutorial (quando disponibile)
       },
       {
         id: 'faq-5',
