@@ -20,7 +20,10 @@
       "Bash(grep:*)",
       "Bash(git log:*)",
       "Bash(powershell -Command:*)",
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(ls:*)"
     ],
     "deny": [],
     "ask": []

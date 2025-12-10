@@ -12,9 +12,9 @@ export const videoTutorials = [
     id: 'video-1',
     title: "Introduzione a Oilsafe Service Hub",
     description: "Panoramica generale delle funzionalità principali dell'applicazione",
-    youtubeId: "dQw4w9WgXcQ", // Sostituisci con l'ID del tuo video YouTube
-    thumbnail: "https://img.youtube.com/vi/dQw4w9WgXcQ/mqdefault.jpg",
-    duration: "5:30",
+    youtubeId: "qZAHNAKaq50", // Sostituisci con l'ID del tuo video YouTube
+    thumbnail: "https://img.youtube.com/vi/qZAHNAKaq50/mqdefault.jpg",
+    duration: "3:59",
     category: "Introduzione"
   },
   // Aggiungi altri video qui seguendo lo stesso formato
