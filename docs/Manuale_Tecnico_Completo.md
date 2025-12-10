@@ -1,11 +1,11 @@
 ---
-marp: true
+marp: false
 ---
 
 # OilSafe Service Hub
 ## Manuale Completo per Tecnici
 
-**Versione**: 1.1.3 | **Ultimo aggiornamento**: Novembre 2025
+**Versione**: 1.1.12 | **Ultimo aggiornamento**: Dicembre 2025
 
 ---
 
@@ -20,6 +20,7 @@ marp: true
 7. [Firme Digitali](#7-firme-digitali)
 8. [Generazione PDF](#8-generazione-pdf)
 9. [Domande Frequenti](#9-domande-frequenti)
+10. [Novità per Versione](#10-novità-per-versione)
 
 ---
 
@@ -51,6 +52,29 @@ OilSafe Service Hub è l'applicazione aziendale per gestire digitalmente i fogli
 - Tablet o smartphone con browser moderno (Chrome, Safari, Firefox)
 - Connessione internet (WiFi o dati mobili)
 - Le tue credenziali (email e password)
+
+### Compatibilità Mobile e Tablet
+
+L'applicazione è **completamente ottimizzata** per dispositivi mobili e tablet.
+
+#### Adattamento automatico
+
+Il sistema rileva automaticamente le dimensioni dello schermo e adatta l'interfaccia:
+
+| Dispositivo | Threshold | Comportamento |
+|-------------|-----------|---------------|
+| **Smartphone** | < 768px | Layout verticale, font maggiorati, elementi touch-friendly |
+| **Tablet** | 768px - 1024px | Layout intermedio, zoom dinamico |
+| **Desktop** | > 1024px | Layout completo con tutte le funzionalità visibili |
+
+#### Esperienza Touch
+
+- Pulsanti dimensionati per il tocco
+- Scroll fluido
+- Zoom automatico sui campi di input
+- Swipe per navigazione calendario
+
+> Puoi usare l'app comodamente anche dallo smartphone durante gli interventi!
 
 ### Come accedere
 
@@ -109,6 +133,90 @@ Dal menu principale (in alto o laterale) puoi accedere a:
 - **Fogli Assistenza**: gestione fogli
 - **Pianificazioni**: calendario impegni
 - **Logout**: uscita dal sistema
+
+### Pagina Info e Documentazione Online
+
+Dal menu principale puoi accedere alla **pagina Info** che contiene:
+
+#### Tab disponibili
+
+**1. Changelog**
+- Versione corrente in evidenza
+- Storico versioni precedenti
+- Dettaglio modifiche per categoria (Aggiunte, Modifiche, Fix)
+
+**2. Sistema**
+- Database collegato (produzione o debug)
+- Versione applicazione
+- Ambiente di esecuzione
+- Framework utilizzati
+
+**3. Credits**
+- Sviluppatore
+- Azienda
+- Licenza
+- Tecnologie utilizzate
+
+**4. Documentazione** ✨ **NOVITÀ v1.1.12**
+
+La sezione Documentazione include 3 strumenti:
+
+##### 📖 Manuale Utente PDF
+
+- Viewer integrato per leggere il manuale senza uscire dall'app
+- Controlli: **zoom** (0.5x - 2.0x), **navigazione pagine**, **download PDF**
+- Il PDF viene aggiornato periodicamente con le nuove funzionalità
+
+**Come usarlo:**
+1. Vai su Info → Documentazione → Manuale Utente
+2. Usa i pulsanti per zoomare e cambiare pagina
+3. Clicca "Scarica PDF" per salvarlo sul dispositivo
+
+##### 🎥 Video Tutorial
+
+- Galleria video YouTube con tutorial guidati
+- Thumbnail cliccabili per apertura rapida
+- Player fullscreen integrato
+- Categoria e durata per ogni video
+
+**Come usarli:**
+1. Vai su Info → Documentazione → Video Tutorial
+2. Clicca su un video per guardarlo
+3. Clicca "Torna ai video" per cambiare
+
+##### ❓ FAQ (Domande Frequenti)
+
+- Organizzate per categoria con icone colorate
+- Formato accordion (clicca per espandere)
+- Collegamento a video tutorial correlati
+
+**Categorie disponibili:**
+- Generale (accesso, password)
+- Fogli di Assistenza
+- Clienti e Anagrafiche
+- Problemi Tecnici
+- Calendario e Pianificazione
+
+**Come usarle:**
+1. Vai su Info → Documentazione → FAQ
+2. Scorri le categorie
+3. Clicca su una domanda per vedere la risposta
+4. Se presente, clicca sul link al video correlato
+
+#### Perché usare la Documentazione integrata
+
+**Vantaggi:**
+- ✅ Sempre aggiornata con l'app
+- ✅ Accessibile senza uscire dal sistema
+- ✅ Ricerca rapida nelle FAQ
+- ✅ Video tutorial per apprendimento visivo
+- ✅ Nessun file esterno da cercare
+
+> **Consiglio**: Se hai un dubbio, controlla prima le FAQ integrate prima di chiamare il supporto!
+
+#### Come accedere
+
+Dal menu principale clicca su **Info**, poi seleziona il tab **Documentazione**.
 
 ---
 
@@ -307,22 +415,153 @@ Dopo lo stato "Completato" non puoi più modificare il foglio. Se serve una corr
 
 ### 5.5 Stati del Foglio
 
-Il foglio attraversa diversi stati nel suo ciclo di vita:
+Il foglio di assistenza attraversa un ciclo di vita ben definito con 9 stati possibili.
 
-| Stato | Descrizione | Cosa puoi fare |
-|-------|-------------|----------------|
-| **Aperto** | Appena creato | Aggiungere interventi |
-| **In Lavorazione** | Lavoro iniziato | Aggiungere interventi |
-| **Attesa Firma** | Lavoro finito | Raccogliere firme |
-| **Completato** | Chiuso | Solo visualizzare |
+#### Workflow Completo
 
-Per cambiare stato:
+```
+Aperto → In Lavorazione → Attesa Firma → Completato
+```
+
+Dopo "Completato", solo i Manager/Admin possono proseguire verso:
+
+```
+Completato → Consuntivato → Inviato → In attesa accettazione → Fatturato → Chiuso
+```
+
+#### Descrizione Stati
+
+| Stato | Descrizione | Chi può modificare |
+|-------|-------------|-------------------|
+| **Aperto** | Appena creato, puoi aggiungere interventi | User, Manager, Admin |
+| **In Lavorazione** | Lavoro in corso | User, Manager, Admin |
+| **Attesa Firma** | Pronto per raccolta firme | User, Manager, Admin |
+| **Completato** | ⚠️ Stato finale per tecnici | Solo Manager/Admin |
+| **Consuntivato** | Pronto per invio/fatturazione | Solo Manager/Admin |
+| **Inviato** | Inviato al cliente | Solo Manager/Admin |
+| **In attesa accettazione** | Attesa conferma cliente | Solo Manager/Admin |
+| **Fatturato** | Fattura emessa | Solo Manager/Admin |
+| **Chiuso** | Archiviato | Solo Manager/Admin |
+
+#### Passaggio a "Completato" - ATTENZIONE
+
+Quando porti un foglio a **Completato**, succede quanto segue:
+
+1. **Il sistema verifica** che siano presenti:
+   - Almeno un intervento registrato
+   - Firme cliente e tecnico (se richieste)
+
+2. **Ti chiede conferma** perché Completato è **irreversibile** per i tecnici:
+   - ✅ Confermi → il foglio viene bloccato
+   - ❌ Annulli → rimane nello stato precedente
+
+3. **Dopo il completamento** come tecnico NON puoi più:
+   - Modificare i dati generali
+   - Aggiungere/modificare interventi
+   - Modificare le firme
+   - Tornare indietro agli stati precedenti
+
+#### Correzioni dopo Completamento
+
+Se dopo aver completato il foglio ti accorgi di un errore:
+
+**DEVI contattare il tuo responsabile** (Manager o Admin) che può:
+- Riportare il foglio a "In Lavorazione"
+- Permetterti le correzioni
+- Ricompletarlo successivamente
+
+> ⚠️ **IMPORTANTE**: Completa il foglio solo quando sei SICURO che tutto sia corretto!
+
+#### Come Cambiare Stato
+
 1. Apri il foglio
-2. Clicca sul selettore stato
-3. Seleziona il nuovo stato
-4. Conferma
+2. Trova il selettore stato (in alto)
+3. Clicca e seleziona il nuovo stato
+4. Se richiesto, aggiungi note obbligatorie
+5. Clicca **Salva**
 
-> Alcuni passaggi richiedono note obbligatorie.
+#### Note di Stato
+
+Alcuni passaggi richiedono note obbligatorie per tracciabilità:
+- A "Completato": note facoltative
+- A "Consuntivato" (Manager): note obbligatorie
+
+---
+
+### 5.6 Copiare Fogli di Assistenza
+
+Dalla versione 1.1.10 puoi copiare fogli esistenti per creare rapidamente nuovi fogli simili.
+
+#### Quando è Utile
+
+La funzione copia è ideale per:
+- **Clienti ricorrenti**: stesso cliente, stessa commessa, nuovo intervento
+- **Lavori ripetitivi**: attività simili da rifare
+- **Template**: creare un foglio base e duplicarlo
+
+#### Come Funziona
+
+**1. Selezione multipla** (puoi copiare più fogli insieme)
+   - Nell'elenco fogli, spunta le checkbox dei fogli da copiare
+   - In alto appare il pulsante **Copia Fogli Selezionati**
+
+**2. Avvia la copia**
+   - Clicca **Copia Fogli Selezionati**
+   - Il sistema crea immediatamente i nuovi fogli
+
+**3. Reset automatico**
+
+Il sistema copia tutto MA resetta questi campi:
+
+| Campo | Valore dopo copia |
+|-------|-------------------|
+| **Numero foglio** | Nuovo numero progressivo |
+| **Stato** | Aperto |
+| **Data apertura** | Oggi |
+| **Data modifica** | Oggi |
+| **Firme** | NULL (da raccogliere di nuovo) |
+| **Note stato** | Vuote |
+
+**4. Cosa viene copiato**
+
+✅ **Copiato identico:**
+- Cliente e indirizzo
+- Commessa e ordine
+- Tutti gli interventi registrati
+- Firma tecnico principale
+- Note generali
+
+#### Procedura Completa
+
+1. Vai su **Fogli Assistenza**
+2. Trova il foglio da copiare (usa filtri se necessario)
+3. Spunta la checkbox a sinistra del foglio
+4. Clicca **Copia** (in alto)
+5. Conferma l'operazione
+6. Il sistema crea il nuovo foglio e ti mostra il numero assegnato
+7. Apri il nuovo foglio per verificare e modificare se necessario
+
+#### Dopo la Copia
+
+Il nuovo foglio è **indipendente** dall'originale:
+- Puoi modificarlo liberamente
+- Gli interventi copiati possono essere modificati o eliminati
+- Devi raccogliere le firme di nuovo
+
+> **Suggerimento**: Se fai spesso lo stesso tipo di lavoro, crea un foglio "template" e duplicalo ogni volta!
+
+#### Copia Multipla
+
+Puoi copiare più fogli contemporaneamente:
+1. Seleziona più fogli con le checkbox
+2. Clicca **Copia**
+3. Il sistema crea una copia per ogni foglio selezionato
+4. Vedrai un messaggio con il numero di fogli copiati
+
+#### Limitazioni
+
+- **Non puoi copiare** fogli in stato "Bozza" se corrotti
+- **Contatta il responsabile** se la copia fallisce
 
 ---
 
@@ -345,6 +584,23 @@ Per cambiare stato:
 | **Tipo intervento** | In Loco, Remoto, Telefonico, etc. |
 | **Ore lavorate** | Durata in ore (es. 2.5) |
 | **Descrizione** | Cosa hai fatto |
+
+#### Tipo Intervento: In Sede o Teleassistenza
+
+Quando selezioni il tipo intervento, puoi scegliere tra:
+- **Sede Cliente**: intervento fisico presso il cliente
+- **Teleassistenza**: supporto da remoto
+
+**Cosa cambia con Teleassistenza:**
+
+Se selezioni "Teleassistenza", i seguenti campi NON vengono richiesti:
+- **Km percorsi**: non applicabile
+- **Ore viaggio**: non necessario
+- **Spese viaggio**: non richieste
+
+Il form si adatta automaticamente nascondendo questi campi, rendendo la compilazione più veloce.
+
+> Usa Teleassistenza per supporto telefonico, videochiamata, desktop remoto o qualsiasi intervento senza spostamento fisico.
 
 #### Campi opzionali
 
@@ -413,7 +669,71 @@ Le attività standard semplificano la compilazione perché hanno già descrizion
 
 ---
 
-### 6.5 Eliminare un Intervento
+### 6.5 Visualizzazione Interventi Desktop
+
+Dalla versione 1.1.11, su **schermi desktop** (monitor grandi) hai controlli avanzati per gestire la visualizzazione degli interventi.
+
+#### Problema Risolto
+
+Su monitor grandi, vedere tutti i dettagli di ogni intervento può essere dispersivo. Questa funzione ti permette di **espandere/collassare** le sezioni lunghe per una lettura più ordinata.
+
+#### Sezioni Collassabili
+
+Per ogni intervento puoi nascondere/mostrare:
+- **Descrizione Attività** (spesso lunga)
+- **Osservazioni** (note aggiuntive)
+- **Attività Standard** (tabella costi)
+
+#### Come Funziona
+
+**Toggle singola sezione:**
+1. Nell'intervento, trova la sezione che vuoi nascondere
+2. Clicca sull'**icona freccia** (▲ / ▼) accanto al titolo sezione
+3. La sezione si espande o si chiude
+
+**Pulsante Espandi/Collassa Tutto:**
+1. In cima all'intervento trovi il pulsante **Espandi Tutto** / **Collassa Tutto**
+2. Clicca per aprire/chiudere tutte le sezioni in un colpo solo
+
+#### Memoria Stato
+
+Il sistema **ricorda** lo stato di ogni intervento:
+- Se collassi l'intervento 1, rimane collassato anche se ne apri altri
+- Ogni intervento ha la sua memoria indipendente
+- Lo stato NON viene salvato sul server (solo in sessione)
+
+#### Quando Usarla
+
+**Collassa tutto quando:**
+- Hai molti interventi e vuoi una visione d'insieme
+- Cerchi un intervento specifico per data
+- Vuoi velocizzare lo scroll
+
+**Espandi quando:**
+- Devi leggere i dettagli
+- Stai verificando le attività svolte
+- Prepari la stampa del PDF
+
+#### Disponibilità
+
+Questa funzione è disponibile **solo su desktop** (schermi > 1024px):
+- Su **tablet/mobile** non appare (spazio limitato)
+- Rilevamento automatico della dimensione schermo
+
+> **Suggerimento**: Se lavori spesso da ufficio con tanti interventi per foglio, usa questa funzione per migliorare la leggibilità!
+
+#### Shortcut Visivi
+
+| Icona | Significato |
+|-------|-------------|
+| ▼ | Sezione espansa (clicca per chiudere) |
+| ▶ | Sezione chiusa (clicca per aprire) |
+| **Espandi Tutto** | Pulsante per aprire tutte le sezioni |
+| **Collassa Tutto** | Pulsante per chiudere tutte le sezioni |
+
+---
+
+### 6.6 Eliminare un Intervento
 
 1. Nell'elenco interventi, trova quello da eliminare
 2. Clicca **Elimina** (icona cestino)
@@ -638,6 +958,180 @@ R: No, solo i Manager possono modificare le pianificazioni.
 
 ---
 
+## 10. Novità per Versione
+
+In questa sezione trovi un riepilogo delle funzionalità aggiunte dalla versione 1.1.3 (versione del manuale precedente) alla versione corrente 1.1.12.
+
+---
+
+### Versione 1.1.12 (Dicembre 2025)
+#### Documentazione Online 📖
+
+**Cosa è stato aggiunto:**
+- Tab "Documentazione" nella pagina Info
+- Manuale utente PDF integrato con viewer interattivo
+- Galleria video tutorial YouTube
+- FAQ interattive organizzate per categoria
+
+**Dove trovi la funzione:**
+Menu → Info → Documentazione
+
+**Perché è utile:**
+- Consulti il manuale senza uscire dall'app
+- Guardi video tutorial per imparare velocemente
+- Risolvi dubbi con le FAQ prima di chiamare supporto
+
+**Capitolo di riferimento:** 3 (Dashboard Personale)
+
+---
+
+### Versione 1.1.11 (Dicembre 2025)
+#### Toggle Espandi/Collassa Interventi Desktop 🖥️
+
+**Cosa è stato aggiunto:**
+- Pulsanti per espandere/collassare sezioni lunghe degli interventi
+- Pulsante "Espandi/Collassa Tutto" per ogni intervento
+- Funzione disponibile solo su desktop (monitor grandi)
+
+**Dove trovi la funzione:**
+Dettaglio foglio → Sezione interventi (solo su desktop > 1024px)
+
+**Perché è utile:**
+- Migliora la leggibilità su monitor grandi
+- Vista compatta quando hai molti interventi
+- Espansione selettiva per i dettagli che servono
+
+**Capitolo di riferimento:** 6.5 (Visualizzazione Interventi Desktop)
+
+---
+
+### Versione 1.1.10 (Dicembre 2025)
+#### Copia Fogli con Reset Automatico 📋
+
+**Cosa è stato aggiunto:**
+- Funzione per copiare uno o più fogli esistenti
+- Reset automatico: numero, stato, firme, date
+- Preserva: cliente, commessa, interventi
+
+**Dove trovi la funzione:**
+Elenco Fogli Assistenza → Seleziona fogli → Pulsante "Copia"
+
+**Perché è utile:**
+- Velocizza creazione fogli per clienti ricorrenti
+- Template per lavori standard
+- Evita di ridigitare dati ripetitivi
+
+**Capitolo di riferimento:** 5.6 (Copiare Fogli di Assistenza)
+
+---
+
+### Versione 1.1.9 (Dicembre 2025)
+#### Controllo Avanzamento Foglio ⚠️
+
+**Cosa è stato modificato:**
+- 9 stati invece di 4 (workflow completo)
+- Stato "Completato" diventa irreversibile per tecnici
+- Verifica obbligatoria prima di completare
+- Solo Manager/Admin possono sbloccare fogli completati
+
+**Dove trovi la funzione:**
+Dettaglio foglio → Selettore stato
+
+**Perché è importante:**
+- Tracciabilità completa ciclo di vita foglio
+- Evita modifiche accidentali dopo completamento
+- Workflow allineato alla contabilità
+
+**⚠️ ATTENZIONE:** Completa un foglio solo quando sei SICURO che tutto sia corretto!
+
+**Capitolo di riferimento:** 5.5 (Stati del Foglio) - AGGIORNATO
+
+---
+
+### Versione 1.1.8e (Dicembre 2025)
+#### Ottimizzazione Mobile/Tablet 📱
+
+**Cosa è stato migliorato:**
+- Rilevamento automatico schermo piccolo (< 768px)
+- Layout responsive adattivo
+- Font maggiorati per leggibilità touch
+- Zoom dinamico sui campi input
+
+**Dove si vede:**
+Automatico su tutti i dispositivi
+
+**Perché è utile:**
+- Esperienza ottimale anche su smartphone
+- Uso comodo durante interventi sul campo
+- Nessun zoom manuale necessario
+
+**Capitolo di riferimento:** 2 (Accesso al Sistema)
+
+---
+
+### Versione 1.1.7f (Dicembre 2025)
+#### Pagina Info ℹ️
+
+**Cosa è stato aggiunto:**
+- Nuova pagina "Info" accessibile dal menu
+- 4 tab: Changelog, Sistema, Credits, Documentazione
+- Visualizzazione versione e ambiente
+
+**Dove trovi la funzione:**
+Menu principale → Info
+
+**Perché è utile:**
+- Scopri le novità dell'app
+- Verifica quale versione stai usando
+- Accesso rapido al changelog
+
+**Capitolo di riferimento:** 3 (Dashboard Personale)
+
+---
+
+### Versione 1.1.7e (Dicembre 2025)
+#### Tipo Intervento: Teleassistenza 💻
+
+**Cosa è stato aggiunto:**
+- Nuovo tipo intervento: "Teleassistenza"
+- Campi viaggio (km, ore, spese) non richiesti per teleassistenza
+- Costi mansioni specifici per interventi remoti
+
+**Dove trovi la funzione:**
+Form intervento → Campo "Tipo Intervento"
+
+**Perché è utile:**
+- Tracciabilità separata interventi fisici vs remoti
+- Compilazione più veloce (meno campi)
+- Report distinti per tipo
+
+**Capitolo di riferimento:** 6.1 (Aggiungere un Intervento)
+
+---
+
+### Come Leggere Questa Sezione
+
+**Icone:**
+- 📖 Documentazione
+- 🖥️ Desktop
+- 📋 Gestione fogli
+- ⚠️ Attenzione importante
+- 📱 Mobile
+- ℹ️ Informazioni
+- 💻 Remote
+
+**Struttura:**
+1. **Cosa è stato aggiunto/modificato**: descrizione funzionalità
+2. **Dove trovi la funzione**: percorso nell'app
+3. **Perché è utile**: benefici pratici
+4. **Capitolo di riferimento**: dove leggere i dettagli nel manuale
+
+---
+
+*Per dettagli completi su ogni funzionalità, consulta i capitoli indicati.*
+
+---
+
 ## Supporto
 
 ### In caso di problemi
@@ -656,4 +1150,4 @@ Se trovi un errore nell'applicazione:
 
 ---
 
-*Manuale Completo OilSafe Service Hub - Versione Tecnici v1.1.3*
+*Manuale Completo OilSafe Service Hub - Versione Tecnici v1.1.12*

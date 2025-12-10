@@ -1,11 +1,11 @@
 ---
-marp: true
+marp: false
 ---
 
 # OilSafe Service Hub
 ## Guida Rapida per Manager e Admin
 
-**Versione**: 1.1.3 | **Ultimo aggiornamento**: Novembre 2025
+**Versione**: 1.1.12 | **Ultimo aggiornamento**: Dicembre 2025
 
 ---
 
@@ -16,6 +16,8 @@ marp: true
 3. Inserisci email e password
 4. Clicca **Accedi**
 
+> **Funziona su tutti i dispositivi**: PC, tablet e smartphone si adattano automaticamente!
+
 ---
 
 ## La Tua Dashboard
@@ -23,6 +25,8 @@ marp: true
 Come Manager/Admin vedi statistiche globali di tutti i fogli:
 - Conteggi per ogni stato (Aperto, In Lavorazione, Completato, etc.)
 - Visione complessiva del lavoro aziendale
+
+> **Documentazione integrata (v1.1.12)**: Clicca su "Info" → "Documentazione" per manuale PDF, video tutorial e FAQ!
 
 ---
 
@@ -140,11 +144,18 @@ Usa i filtri in alto per cercare per nome, codice, etc.
 2. Usa i pulsanti in alto:
    - **Stampa**: genera PDF multipli
    - **Excel**: esporta selezione
-   - **Copia**: duplica foglio
+   - **Copia**: duplica fogli selezionati (reset automatico numero, stato, firme)
 
-### Modificare stati
+> **Novità v1.1.7e**: Gli interventi ora distinguono tra "Sede Cliente" e "Teleassistenza" per una migliore tracciabilità dei costi.
 
-Puoi modificare lo stato dei fogli anche dopo il completamento (per correzioni).
+### ⚠️ Novità: Controllo Avanzamento Fogli
+
+Da v1.1.9, lo stato "Completato" è irreversibile per i tecnici. Come Manager/Admin puoi:
+- Sbloccare fogli completati riportandoli a "In Lavorazione"
+- Proseguire verso stati contabili (Consuntivato → Fatturato → Chiuso)
+- Solo tu puoi fare rollback per correzioni
+
+Alcuni passaggi richiedono **note obbligatorie** (es. a "Consuntivato").
 
 ### ⚠️ Nuova Regola: Campi Obbligatori
 
@@ -201,6 +212,52 @@ Da ora in avanti, **tutti i fogli** (nuovi o modificati) richiedono obbligatoria
 
 ---
 
+## Novità Versione 1.1.12
+
+### 🆕 Ultime Funzionalità
+
+**Documentazione Online** 📖
+- Menu → Info → Documentazione:
+  - Manuale PDF integrato
+  - Video tutorial
+  - FAQ categorizzate
+- Utile per formazione rapida tecnici
+
+**Copia Fogli Multipli** 📋
+- Seleziona fogli → Copia
+- Reset automatico numero, stato, firme
+- Ideale per contratti ricorrenti
+
+**⚠️ Controllo Avanzamento (v1.1.9)**
+- 9 stati completi (Aperto → Chiuso)
+- "Completato" irreversibile per tecnici
+- Solo Manager/Admin possono sbloccare
+- Note obbligatorie per "Consuntivato"
+
+**Privilegi Manager:**
+- Sblocchi fogli completati per correzioni
+- Prosegui verso stati contabili
+- Gestisci workflow completo
+
+**Teleassistenza** 💻
+- Interventi remoti senza campi viaggio
+- Report separati per tipo
+
+**Mobile/Tablet Ottimizzato** 📱
+- App responsive su tutti i dispositivi
+- Desktop per back-office, mobile per consultazioni
+
+---
+
+### 📚 Prossimi Passi
+
+1. Esplora la nuova pagina Documentazione (Info → Docs)
+2. Comunica ai tecnici il cambio su stato "Completato"
+3. Crea template fogli per clienti ricorrenti (usa Copia)
+4. Consulta FAQ prima di chiamare supporto
+
+---
+
 ## Hai Bisogno di Più Dettagli?
 
 Consulta il **Manuale Completo per Manager/Admin** per:
@@ -212,4 +269,4 @@ Consulta il **Manuale Completo per Manager/Admin** per:
 
 ---
 
-*Guida rapida OilSafe Service Hub - Versione Manager/Admin*
+*Guida rapida OilSafe Service Hub - Versione Manager/Admin v1.1.12*
