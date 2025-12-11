@@ -659,29 +659,20 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
             // 2. Tentativo di aprire con file:// (best-effort, potrebbe non funzionare)
             try {
                 const fileUrl = `file:///${percorsoSalvataggio.replace(/\\/g, '/')}`;
-                const opened = window.open(fileUrl, '_blank');
-
-                if (opened) {
-                    // Se si apre (raro), messaggio semplice
-                    setSuccessMessage('✓ Percorso copiato e cartella aperta!');
-                } else {
-                    // Fallback comune
-                    setSuccessMessage('✓ Percorso copiato negli appunti! Premi Win+E per aprire Esplora Risorse, poi incolla (Ctrl+V) nella barra indirizzi');
-                }
+                window.open(fileUrl, '_blank');
             } catch (fileErr) {
-                // Se file:// non funziona, messaggio con istruzioni
-                setSuccessMessage('✓ Percorso copiato negli appunti! Premi Win+E per aprire Esplora Risorse, poi incolla (Ctrl+V) nella barra indirizzi');
+                // Ignora silenziosamente se file:// non funziona
+                console.log('Apertura automatica non supportata dal browser');
             }
 
-            // 3. Reset feedback dopo 5 secondi
+            // 3. Reset feedback dopo 3 secondi
             setTimeout(() => {
                 setCopiedFoglioId(null);
-                setSuccessMessage('');
-            }, 5000);
+            }, 3000);
 
         } catch (err) {
             console.error('Errore durante la copia del percorso:', err);
-            setError('⚠️ Impossibile copiare il percorso negli appunti. Verifica i permessi del browser.');
+            alert('⚠️ Impossibile copiare il percorso negli appunti. Verifica i permessi del browser.');
         }
     };
 
@@ -991,9 +982,9 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                                                 className="button small"
                                                 title={
                                                     copiedFoglioId === foglio.id
-                                                        ? 'Percorso copiato!'
+                                                        ? '✓ Percorso copiato! Apri Esplora Risorse (Win+E) e incolla (Ctrl+V)'
                                                         : foglio.commessa_percorso_salvataggio
-                                                            ? 'Copia percorso e apri cartella'
+                                                            ? 'Copia percorso negli appunti - Premi Win+E e incolla (Ctrl+V) nella barra indirizzi'
                                                             : 'Percorso non disponibile'
                                                 }
                                                 style={{
