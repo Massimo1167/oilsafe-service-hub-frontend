@@ -652,15 +652,36 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
         if (!percorsoSalvataggio) return;
 
         try {
+            // 1. Copia negli appunti
             await navigator.clipboard.writeText(percorsoSalvataggio);
             setCopiedFoglioId(foglioId);
-            // Reset del feedback dopo 2 secondi
+
+            // 2. Tentativo di aprire con file:// (best-effort, potrebbe non funzionare)
+            try {
+                const fileUrl = `file:///${percorsoSalvataggio.replace(/\\/g, '/')}`;
+                const opened = window.open(fileUrl, '_blank');
+
+                if (opened) {
+                    // Se si apre (raro), messaggio semplice
+                    setSuccessMessage('✓ Percorso copiato e cartella aperta!');
+                } else {
+                    // Fallback comune
+                    setSuccessMessage('✓ Percorso copiato negli appunti! Premi Win+E per aprire Esplora Risorse, poi incolla (Ctrl+V) nella barra indirizzi');
+                }
+            } catch (fileErr) {
+                // Se file:// non funziona, messaggio con istruzioni
+                setSuccessMessage('✓ Percorso copiato negli appunti! Premi Win+E per aprire Esplora Risorse, poi incolla (Ctrl+V) nella barra indirizzi');
+            }
+
+            // 3. Reset feedback dopo 5 secondi
             setTimeout(() => {
                 setCopiedFoglioId(null);
-            }, 2000);
+                setSuccessMessage('');
+            }, 5000);
+
         } catch (err) {
             console.error('Errore durante la copia del percorso:', err);
-            alert('Impossibile copiare il percorso negli appunti');
+            setError('⚠️ Impossibile copiare il percorso negli appunti. Verifica i permessi del browser.');
         }
     };
 
@@ -972,7 +993,7 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                                                     copiedFoglioId === foglio.id
                                                         ? 'Percorso copiato!'
                                                         : foglio.commessa_percorso_salvataggio
-                                                            ? 'Copia percorso cartella'
+                                                            ? 'Copia percorso e apri cartella'
                                                             : 'Percorso non disponibile'
                                                 }
                                                 style={{
@@ -981,7 +1002,8 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                                                     cursor: foglio.commessa_percorso_salvataggio ? 'pointer' : 'not-allowed',
                                                     opacity: foglio.commessa_percorso_salvataggio ? 1 : 0.4,
                                                     backgroundColor: copiedFoglioId === foglio.id ? '#28a745' : undefined,
-                                                    transition: 'background-color 0.3s ease'
+                                                    transition: 'all 0.3s ease',
+                                                    transform: copiedFoglioId === foglio.id ? 'scale(1.1)' : 'scale(1)'
                                                 }}
                                             >
                                                 {copiedFoglioId === foglio.id ? '✓' : '📁'}
