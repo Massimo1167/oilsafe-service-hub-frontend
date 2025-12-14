@@ -54,9 +54,78 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
     // Stato per rilevare se è desktop (>768px)
     const [isDesktop, setIsDesktop] = useState(window.innerWidth > 768);
 
+    // Stato per expand/collapse sezione filtri
+    const [filtriExpanded, setFiltriExpanded] = useState(true);
+
     const navigate = useNavigate();
     const userRole = (session?.user?.role || '').trim().toLowerCase();
     const currentUserId = session?.user?.id;
+
+    /**
+     * Rileva quali filtri sono attivi e ritorna conteggio + descrizioni
+     * @returns {Object} { count: number, descriptions: string[] }
+     */
+    const getActiveFiltriInfo = useCallback(() => {
+        const activeFilters = [];
+
+        // Date filters
+        if (filtroDataDa && filtroDataA) {
+            const dataFrom = new Date(filtroDataDa).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' });
+            const dataTo = new Date(filtroDataA).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' });
+            activeFilters.push(`Data: ${dataFrom} - ${dataTo}`);
+        } else if (filtroDataDa) {
+            const dataFrom = new Date(filtroDataDa).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' });
+            activeFilters.push(`Da: ${dataFrom}`);
+        } else if (filtroDataA) {
+            const dataTo = new Date(filtroDataA).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' });
+            activeFilters.push(`A: ${dataTo}`);
+        }
+
+        // Text filters with truncation
+        if (filtroClienteTesto.trim()) {
+            const value = filtroClienteTesto.length > 20
+                ? filtroClienteTesto.substring(0, 20) + '...'
+                : filtroClienteTesto;
+            activeFilters.push(`Cliente: ${value}`);
+        }
+
+        if (filtroTecnicoTesto.trim()) {
+            const value = filtroTecnicoTesto.length > 20
+                ? filtroTecnicoTesto.substring(0, 20) + '...'
+                : filtroTecnicoTesto;
+            activeFilters.push(`Tecnico: ${value}`);
+        }
+
+        if (filtroCommessaTesto.trim()) {
+            const value = filtroCommessaTesto.length > 20
+                ? filtroCommessaTesto.substring(0, 20) + '...'
+                : filtroCommessaTesto;
+            activeFilters.push(`Commessa: ${value}`);
+        }
+
+        if (filtroOrdineTesto.trim()) {
+            const value = filtroOrdineTesto.length > 20
+                ? filtroOrdineTesto.substring(0, 20) + '...'
+                : filtroOrdineTesto;
+            activeFilters.push(`Ordine: ${value}`);
+        }
+
+        // Stato filter
+        if (filtroStato) {
+            activeFilters.push(`Stato: ${filtroStato}`);
+        }
+
+        // Da stampare filter
+        if (filtroDaStampare) {
+            activeFilters.push('Solo da stampare');
+        }
+
+        return {
+            count: activeFilters.length,
+            descriptions: activeFilters
+        };
+    }, [filtroDataDa, filtroDataA, filtroClienteTesto, filtroTecnicoTesto,
+        filtroCommessaTesto, filtroOrdineTesto, filtroStato, filtroDaStampare]);
 
     // Funzione per caricare i dati dei fogli dal server
     const fetchFogliDaServer = useCallback(async () => {
@@ -201,6 +270,14 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
+    // useEffect per caricare stato filtri espansi da localStorage
+    useEffect(() => {
+        const savedExpansion = localStorage.getItem('fogliAssistenza_filtriExpanded');
+        if (savedExpansion !== null) {
+            setFiltriExpanded(savedExpansion === 'true');
+        }
+    }, []);
+
     // useMemo per applicare tutti i filtri testuali e di stato (client-side)
     const fogliFiltrati = useMemo(() => {
         let dataDaFiltrare = [...fogli];
@@ -293,6 +370,25 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
     const resetPaginaEImpostaFiltro = (setter, value) => {
         setter(value);
         setCurrentPage(1);
+    };
+
+    /**
+     * Gestisce il toggle della sezione filtri (expand/collapse)
+     */
+    const handleToggleFiltri = () => {
+        const newState = !filtriExpanded;
+        setFiltriExpanded(newState);
+        localStorage.setItem('fogliAssistenza_filtriExpanded', newState.toString());
+    };
+
+    /**
+     * Gestisce la navigazione da tastiera per il toggle (Enter/Space)
+     */
+    const handleToggleKeyPress = (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            handleToggleFiltri();
+        }
     };
 
     const handlePrintSelected = async () => {
@@ -645,6 +741,12 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
         setFiltroCommessaTesto(''); setFiltroOrdineTesto('');
         setFiltroStato(''); // Resetta anche il filtro stato
         setFiltroDaStampare(false); // Resetta filtro da stampare
+
+        // Auto-espandi filtri per feedback visivo dopo reset
+        if (!filtriExpanded) {
+            setFiltriExpanded(true);
+            localStorage.setItem('fogliAssistenza_filtriExpanded', 'true');
+        }
     };
 
     // Funzione per copiare il percorso di salvataggio negli appunti
@@ -688,123 +790,221 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
             {error && <p style={{ color: 'red', fontWeight:'bold', whiteSpace:'pre-wrap' }}>ERRORE: {error}</p>}
 
             <div className="filtri-container">
-                <h4>Filtri di Ricerca</h4>
-                <div className="filtri-grid" style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(4, 1fr)',
-                    gap: '15px',
-                    marginBottom: '15px'
+                {/* HEADER ROW - Sempre Visibile */}
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    marginBottom: filtriExpanded ? '15px' : '10px',
+                    flexWrap: 'wrap',
+                    gap: '10px'
                 }}>
-                    {/* RIGA 1: Da Data | A Data | Tecnico | (vuoto) */}
-                    <div>
-                        <label htmlFor="filtroDataDa">Da Data Apertura:</label>
-                        <input
-                            type="date"
-                            id="filtroDataDa"
-                            value={filtroDataDa}
-                            onChange={e => resetPaginaEImpostaFiltro(setFiltroDataDa, e.target.value)}
-                        />
-                    </div>
-                    <div>
-                        <label htmlFor="filtroDataA">A Data Apertura:</label>
-                        <input
-                            type="date"
-                            id="filtroDataA"
-                            value={filtroDataA}
-                            onChange={e => resetPaginaEImpostaFiltro(setFiltroDataA, e.target.value)}
-                        />
-                    </div>
-                    <div>
-                        <label htmlFor="filtroTecnicoTesto">Tecnico Coinvolto:</label>
-                        <input
-                            type="text"
-                            id="filtroTecnicoTesto"
-                            placeholder="Cerca nome tecnico..."
-                            value={filtroTecnicoTesto}
-                            onChange={e => resetPaginaEImpostaFiltro(setFiltroTecnicoTesto, e.target.value)}
-                        />
-                    </div>
-                    <div></div> {/* cella vuota */}
-
-                    {/* RIGA 2: Cliente | Ordine | Commessa | Stato */}
-                    <div>
-                        <label htmlFor="filtroClienteTesto">Cliente:</label>
-                        <input
-                            type="text"
-                            id="filtroClienteTesto"
-                            placeholder="Cerca nome cliente..."
-                            value={filtroClienteTesto}
-                            onChange={e => resetPaginaEImpostaFiltro(setFiltroClienteTesto, e.target.value)}
-                        />
-                    </div>
-                    <div>
-                        <label htmlFor="filtroOrdineTesto">Ordine Interno:</label>
-                        <input
-                            type="text"
-                            id="filtroOrdineTesto"
-                            placeholder="Cerca numero ordine..."
-                            value={filtroOrdineTesto}
-                            onChange={e => resetPaginaEImpostaFiltro(setFiltroOrdineTesto, e.target.value)}
-                        />
-                    </div>
-                    <div>
-                        <label htmlFor="filtroCommessaTesto">Commessa:</label>
-                        <input
-                            type="text"
-                            id="filtroCommessaTesto"
-                            placeholder="Cerca codice commessa..."
-                            value={filtroCommessaTesto}
-                            onChange={e => resetPaginaEImpostaFiltro(setFiltroCommessaTesto, e.target.value)}
-                        />
-                    </div>
-                    <div>
-                        <label htmlFor="filtroStato">Stato Foglio:</label>
-                        <select
-                            id="filtroStato"
-                            value={filtroStato}
-                            onChange={e => resetPaginaEImpostaFiltro(setFiltroStato, e.target.value)}
-                        >
-                            <option value="">Tutti gli Stati</option>
-                            {STATO_FOGLIO_STEPS.map(st => (
-                                <option key={st} value={st}>{st}</option>
-                            ))}
-                        </select>
-                    </div>
-                </div>
-
-                {/* Filtro Da Stampare */}
-                <div style={{ marginTop: '10px' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                        <input
-                            type="checkbox"
-                            checked={filtroDaStampare}
-                            onChange={e => {
-                                setFiltroDaStampare(e.target.checked);
-                                setCurrentPage(1);
+                    {/* Left side: Toggle button + Title + Badge */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <button
+                            onClick={handleToggleFiltri}
+                            onKeyDown={handleToggleKeyPress}
+                            className="expand-button"
+                            aria-expanded={filtriExpanded}
+                            aria-label={filtriExpanded ? 'Comprimi filtri di ricerca' : 'Espandi filtri di ricerca'}
+                            style={{
+                                border: 'none',
+                                background: 'none',
+                                cursor: 'pointer',
+                                fontSize: '1.2em',
+                                padding: '4px 8px',
+                                color: '#003366',
+                                transition: 'transform 0.2s ease'
                             }}
-                        />
-                        <span style={{
-                            backgroundColor: filtroDaStampare ? '#dc3545' : 'transparent',
-                            color: filtroDaStampare ? 'white' : 'inherit',
-                            padding: filtroDaStampare ? '2px 8px' : '0',
-                            borderRadius: '4px',
-                            fontWeight: filtroDaStampare ? 'bold' : 'normal'
-                        }}>
-                            Mostra solo fogli da stampare
-                        </span>
-                    </label>
-                </div>
+                            title={filtriExpanded ? 'Comprimi filtri' : 'Espandi filtri'}
+                        >
+                            {filtriExpanded ? '▼' : '▶'}
+                        </button>
 
-                {/* Controlli: Azzera Filtri + Paginazione */}
-                <div style={{display: 'flex', gap: '15px', alignItems: 'center', flexWrap: 'wrap'}}>
+                        <h4 style={{ margin: 0, display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                            Filtri di Ricerca
+                            {(() => {
+                                const { count } = getActiveFiltriInfo();
+                                return count > 0 ? (
+                                    <span style={{
+                                        backgroundColor: '#007bff',
+                                        color: 'white',
+                                        padding: '2px 8px',
+                                        borderRadius: '12px',
+                                        fontSize: '0.85em',
+                                        fontWeight: 'bold'
+                                    }}>
+                                        {count}
+                                    </span>
+                                ) : null;
+                            })()}
+                        </h4>
+                    </div>
+
+                    {/* Right side: Azzera Filtri button - Always visible */}
                     <button
                         onClick={resetAllFilters}
                         className="button secondary"
                         disabled={loadingFogli || stampaLoading}
+                        style={{ margin: 0 }}
                     >
                         Azzera Filtri
                     </button>
+                </div>
 
+                {/* SUMMARY ROW - Visible only when collapsed and filters are active */}
+                {!filtriExpanded && (() => {
+                    const { count, descriptions } = getActiveFiltriInfo();
+                    return count > 0 ? (
+                        <div style={{
+                            padding: '8px 12px',
+                            backgroundColor: '#e3f2fd',
+                            borderLeft: '4px solid #007bff',
+                            borderRadius: '4px',
+                            marginBottom: '15px',
+                            fontSize: '0.95em',
+                            color: '#003366'
+                        }}>
+                            <strong>{count} {count === 1 ? 'filtro attivo' : 'filtri attivi'}:</strong>{' '}
+                            {descriptions.join(' • ')}
+                        </div>
+                    ) : (
+                        <div style={{
+                            padding: '8px 12px',
+                            backgroundColor: '#f5f5f5',
+                            borderLeft: '4px solid #999',
+                            borderRadius: '4px',
+                            marginBottom: '15px',
+                            fontSize: '0.95em',
+                            color: '#666',
+                            fontStyle: 'italic'
+                        }}>
+                            Nessun filtro attivo
+                        </div>
+                    );
+                })()}
+
+                {/* COLLAPSIBLE SECTION - Filter Grid + Da Stampare Checkbox */}
+                {filtriExpanded && (
+                    <div className="expanded-content">
+                        <div className="filtri-grid" style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(4, 1fr)',
+                            gap: '15px',
+                            marginBottom: '15px'
+                        }}>
+                            {/* RIGA 1: Da Data | A Data | Tecnico | (vuoto) */}
+                            <div>
+                                <label htmlFor="filtroDataDa">Da Data Apertura:</label>
+                                <input
+                                    type="date"
+                                    id="filtroDataDa"
+                                    value={filtroDataDa}
+                                    onChange={e => resetPaginaEImpostaFiltro(setFiltroDataDa, e.target.value)}
+                                />
+                            </div>
+                            <div>
+                                <label htmlFor="filtroDataA">A Data Apertura:</label>
+                                <input
+                                    type="date"
+                                    id="filtroDataA"
+                                    value={filtroDataA}
+                                    onChange={e => resetPaginaEImpostaFiltro(setFiltroDataA, e.target.value)}
+                                />
+                            </div>
+                            <div>
+                                <label htmlFor="filtroTecnicoTesto">Tecnico Coinvolto:</label>
+                                <input
+                                    type="text"
+                                    id="filtroTecnicoTesto"
+                                    placeholder="Cerca nome tecnico..."
+                                    value={filtroTecnicoTesto}
+                                    onChange={e => resetPaginaEImpostaFiltro(setFiltroTecnicoTesto, e.target.value)}
+                                />
+                            </div>
+                            <div></div> {/* cella vuota */}
+
+                            {/* RIGA 2: Cliente | Ordine | Commessa | Stato */}
+                            <div>
+                                <label htmlFor="filtroClienteTesto">Cliente:</label>
+                                <input
+                                    type="text"
+                                    id="filtroClienteTesto"
+                                    placeholder="Cerca nome cliente..."
+                                    value={filtroClienteTesto}
+                                    onChange={e => resetPaginaEImpostaFiltro(setFiltroClienteTesto, e.target.value)}
+                                />
+                            </div>
+                            <div>
+                                <label htmlFor="filtroOrdineTesto">Ordine Interno:</label>
+                                <input
+                                    type="text"
+                                    id="filtroOrdineTesto"
+                                    placeholder="Cerca numero ordine..."
+                                    value={filtroOrdineTesto}
+                                    onChange={e => resetPaginaEImpostaFiltro(setFiltroOrdineTesto, e.target.value)}
+                                />
+                            </div>
+                            <div>
+                                <label htmlFor="filtroCommessaTesto">Commessa:</label>
+                                <input
+                                    type="text"
+                                    id="filtroCommessaTesto"
+                                    placeholder="Cerca codice commessa..."
+                                    value={filtroCommessaTesto}
+                                    onChange={e => resetPaginaEImpostaFiltro(setFiltroCommessaTesto, e.target.value)}
+                                />
+                            </div>
+                            <div>
+                                <label htmlFor="filtroStato">Stato Foglio:</label>
+                                <select
+                                    id="filtroStato"
+                                    value={filtroStato}
+                                    onChange={e => resetPaginaEImpostaFiltro(setFiltroStato, e.target.value)}
+                                >
+                                    <option value="">Tutti gli Stati</option>
+                                    {STATO_FOGLIO_STEPS.map(st => (
+                                        <option key={st} value={st}>{st}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+
+                        {/* Filtro Da Stampare */}
+                        <div style={{ marginTop: '10px' }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                                <input
+                                    type="checkbox"
+                                    checked={filtroDaStampare}
+                                    onChange={e => {
+                                        setFiltroDaStampare(e.target.checked);
+                                        setCurrentPage(1);
+                                    }}
+                                />
+                                <span style={{
+                                    backgroundColor: filtroDaStampare ? '#dc3545' : 'transparent',
+                                    color: filtroDaStampare ? 'white' : 'inherit',
+                                    padding: filtroDaStampare ? '2px 8px' : '0',
+                                    borderRadius: '4px',
+                                    fontWeight: filtroDaStampare ? 'bold' : 'normal'
+                                }}>
+                                    Mostra solo fogli da stampare
+                                </span>
+                            </label>
+                        </div>
+                    </div>
+                )}
+
+                {/* PAGINATION AND CONTROLS - Always Visible */}
+                <div style={{
+                    display: 'flex',
+                    gap: '15px',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    marginTop: filtriExpanded ? '15px' : '0',
+                    paddingTop: '15px',
+                    borderTop: '1px solid #ddd'
+                }}>
                     <div style={{display: 'flex', gap: '10px', alignItems: 'center'}}>
                         <label htmlFor="righePerPagina" style={{margin: 0}}>Max fogli:</label>
                         <input
