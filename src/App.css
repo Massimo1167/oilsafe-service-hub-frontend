@@ -605,6 +605,22 @@ label:has(> input[type="radio"]) {
     }
 }
 
+/* Hover effect per toggle button filtri */
+.filtri-container .expand-button:hover {
+    background-color: rgba(0, 51, 102, 0.05);
+    border-radius: 4px;
+}
+
+/* Animazione pulse per badge filtri attivi */
+@keyframes badgePulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+}
+
+.filtri-container h4 span {
+    animation: badgePulse 2s ease-in-out infinite;
+}
+
 /* ========================================
    TABLET & iPAD BREAKPOINT (768px)
    ======================================== */
