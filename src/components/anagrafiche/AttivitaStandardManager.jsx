@@ -22,6 +22,23 @@ function AttivitaStandardManager({ session, onDataChanged }) {
     // Stati per filtro clienti
     const [clienteFilter, setClienteFilter] = useState('');
 
+    // Stati per Overview Table (NUOVO)
+    const [overviewData, setOverviewData] = useState([]); // Array di {cliente, sedi, conteggi}
+    const [expandedClients, setExpandedClients] = useState(new Set()); // Set di clienteId espansi
+    const [loadingOverview, setLoadingOverview] = useState(false);
+
+    // Advanced Filters State (NUOVO)
+    const [mostraFilter, setMostraFilter] = useState('tutti'); // 'tutti' | 'listino_unico' | 'multi_sede'
+    const [ordinaFilter, setOrdinaFilter] = useState('a-z'); // 'a-z' | 'z-a' | 'piu_attivita' | 'meno_attivita'
+
+    // Statistics State (NUOVO)
+    const [stats, setStats] = useState({
+        totaleClienti: 0,
+        totaleAttivita: 0,
+        attivitaGeneriche: 0,
+        attivitaSpecifiche: 0
+    });
+
     // Stati per selezione multipla e cancellazione bulk
     const [selectedIds, setSelectedIds] = useState(new Set());
 
@@ -51,6 +68,39 @@ function AttivitaStandardManager({ session, onDataChanged }) {
             c.nome_azienda.toLowerCase().includes(filterLower)
         );
     }, [clienti, clienteFilter]);
+
+    // Filtro e ordinamento overview table (NUOVO)
+    const overviewFiltrata = useMemo(() => {
+        let filtered = [...overviewData];
+
+        // Filtro ricerca clienti (esistente clienteFilter)
+        if (clienteFilter.trim()) {
+            const filterLower = clienteFilter.toLowerCase();
+            filtered = filtered.filter(c =>
+                c.nome_azienda.toLowerCase().includes(filterLower)
+            );
+        }
+
+        // Filtro "Mostra"
+        if (mostraFilter === 'listino_unico') {
+            filtered = filtered.filter(c => c.usa_listino_unico === true);
+        } else if (mostraFilter === 'multi_sede') {
+            filtered = filtered.filter(c => c.usa_listino_unico === false);
+        }
+
+        // Ordinamento
+        if (ordinaFilter === 'a-z') {
+            filtered.sort((a, b) => a.nome_azienda.localeCompare(b.nome_azienda));
+        } else if (ordinaFilter === 'z-a') {
+            filtered.sort((a, b) => b.nome_azienda.localeCompare(a.nome_azienda));
+        } else if (ordinaFilter === 'piu_attivita') {
+            filtered.sort((a, b) => b.totale - a.totale);
+        } else if (ordinaFilter === 'meno_attivita') {
+            filtered.sort((a, b) => a.totale - b.totale);
+        }
+
+        return filtered;
+    }, [overviewData, clienteFilter, mostraFilter, ordinaFilter]);
 
     // Fetch clienti e unità di misura
     useEffect(() => {
@@ -107,6 +157,13 @@ function AttivitaStandardManager({ session, onDataChanged }) {
         }
     }, [selectedSedeFilter]);
 
+    // Fetch overview data quando tipoListino === 'cliente' (NUOVO)
+    useEffect(() => {
+        if (tipoListino === 'cliente') {
+            fetchOverviewData();
+        }
+    }, [tipoListino]);
+
     const fetchIndirizziCliente = async () => {
         try {
             // Fetch info cliente (usa_listino_unico)
@@ -154,6 +211,236 @@ function AttivitaStandardManager({ session, onDataChanged }) {
         } catch (err) {
             console.error('Errore caricamento clienti:', err);
             setError(err.message);
+        }
+    };
+
+    // Fetch overview data per tabella listini clienti (NUOVO)
+    const fetchOverviewData = async () => {
+        setLoadingOverview(true);
+        setError(null);
+        try {
+            const { data: clientiData, error } = await supabase
+                .from('clienti')
+                .select(`
+                    id,
+                    nome_azienda,
+                    usa_listino_unico,
+                    attivita_standard_clienti (
+                        id,
+                        attivo,
+                        indirizzo_cliente_id
+                    )
+                `)
+                .order('nome_azienda');
+
+            if (error) throw error;
+
+            // Process data - calcola conteggi per ogni cliente
+            const processed = clientiData.map(cliente => {
+                const attivita = cliente.attivita_standard_clienti || [];
+                return {
+                    id: cliente.id,
+                    nome_azienda: cliente.nome_azienda,
+                    usa_listino_unico: cliente.usa_listino_unico,
+                    totale: attivita.length,
+                    attive: attivita.filter(a => a.attivo).length,
+                    generiche: attivita.filter(a => a.indirizzo_cliente_id === null).length,
+                    specifiche_sede: attivita.filter(a => a.indirizzo_cliente_id !== null).length,
+                    sedi: null // Loaded on demand quando cliente espanso
+                };
+            });
+
+            // Filtra clienti SENZA listino (non mostrati in tabella, solo in dropdown)
+            const conListino = processed.filter(c => c.totale > 0);
+
+            // Calcola statistiche globali
+            const newStats = {
+                totaleClienti: conListino.length,
+                totaleAttivita: conListino.reduce((sum, c) => sum + c.totale, 0),
+                attivitaGeneriche: conListino.reduce((sum, c) => sum + c.generiche, 0),
+                attivitaSpecifiche: conListino.reduce((sum, c) => sum + c.specifiche_sede, 0)
+            };
+            setStats(newStats);
+
+            setOverviewData(conListino);
+        } catch (err) {
+            console.error('Errore fetch overview:', err);
+            setError(err.message);
+        } finally {
+            setLoadingOverview(false);
+        }
+    };
+
+    // Toggle expand/collapse cliente in overview table (NUOVO)
+    const handleToggleExpandCliente = async (clienteId) => {
+        const newExpanded = new Set(expandedClients);
+
+        if (newExpanded.has(clienteId)) {
+            // Collapse
+            newExpanded.delete(clienteId);
+            setExpandedClients(newExpanded);
+        } else {
+            // Expand - carica sedi se non già caricate
+            const cliente = overviewData.find(c => c.id === clienteId);
+            if (cliente && !cliente.sedi) {
+                await fetchSediPerCliente(clienteId);
+            }
+            newExpanded.add(clienteId);
+            setExpandedClients(newExpanded);
+        }
+    };
+
+    // Fetch sedi per cliente espanso (NUOVO)
+    const fetchSediPerCliente = async (clienteId) => {
+        try {
+            const { data: sedi, error } = await supabase
+                .from('indirizzi_clienti')
+                .select('id, descrizione, indirizzo_completo, is_default')
+                .eq('cliente_id', clienteId)
+                .order('is_default', { ascending: false });
+
+            if (error) throw error;
+
+            // Per ogni sede, conta attività specifiche
+            const sediConConteggi = await Promise.all(
+                (sedi || []).map(async (sede) => {
+                    const { data: attivitaSede, error: attError } = await supabase
+                        .from('attivita_standard_clienti')
+                        .select('id, attivo')
+                        .eq('cliente_id', clienteId)
+                        .eq('indirizzo_cliente_id', sede.id);
+
+                    if (attError) throw attError;
+
+                    return {
+                        ...sede,
+                        totale: (attivitaSede || []).length,
+                        attive: (attivitaSede || []).filter(a => a.attivo).length
+                    };
+                })
+            );
+
+            // Aggiorna overviewData con sedi caricate
+            setOverviewData(prev => prev.map(c =>
+                c.id === clienteId ? { ...c, sedi: sediConConteggi } : c
+            ));
+        } catch (err) {
+            console.error('Errore fetch sedi:', err);
+            setError(err.message);
+        }
+    };
+
+    // Modifica listino cliente/sede (NUOVO) - apre tabella attività
+    const handleModificaListinoCliente = (clienteId, sedeId = null) => {
+        setSelectedClienteId(clienteId);
+        if (sedeId) {
+            setSelectedSedeFilter(sedeId);
+        } else {
+            setSelectedSedeFilter('');
+        }
+        // Scroll to activity table
+        setTimeout(() => {
+            const tableElement = document.querySelector('.data-table');
+            if (tableElement) {
+                tableElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }, 100);
+    };
+
+    // Export Excel per cliente/sede specifico (NUOVO)
+    const handleExportExcelCliente = async (clienteId, sedeId = null) => {
+        try {
+            let query = supabase
+                .from('attivita_standard_clienti')
+                .select(`
+                    *,
+                    unita_misura (codice, descrizione)
+                `)
+                .eq('cliente_id', clienteId);
+
+            if (sedeId) {
+                query = query.eq('indirizzo_cliente_id', sedeId);
+            }
+
+            const { data, error } = await query.order('codice_attivita');
+            if (error) throw error;
+
+            if (!data || data.length === 0) {
+                alert('Nessuna attività da esportare');
+                return;
+            }
+
+            const cliente = clienti.find(c => c.id === clienteId);
+            const nomeCliente = cliente ? cliente.nome_azienda.replace(/[^a-zA-Z0-9]/g, '_') : 'cliente';
+            const dataOggi = new Date().toISOString().split('T')[0];
+
+            const nomeFile = sedeId
+                ? `attivita_${nomeCliente}_SEDE_${dataOggi}.xlsx`
+                : `attivita_${nomeCliente}_${dataOggi}.xlsx`;
+
+            const excelData = data.map(att => ({
+                'Codice Attività': att.codice_attivita,
+                'Normativa': att.normativa || '',
+                'Descrizione': att.descrizione,
+                'Unità di Misura': att.unita_misura?.codice || '',
+                'Costo Unitario (€)': parseFloat(att.costo_unitario).toFixed(2),
+                'Attivo': att.attivo ? 'Sì' : 'No'
+            }));
+
+            const ws = XLSX.utils.json_to_sheet(excelData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Attività Standard');
+            XLSX.writeFile(wb, nomeFile);
+
+            setSuccessMessage(`Esportate ${data.length} attività`);
+            setTimeout(() => setSuccessMessage(''), 3000);
+        } catch (err) {
+            console.error('Errore export:', err);
+            setError(err.message);
+        }
+    };
+
+    // Elimina bulk attività per cliente/sede (NUOVO)
+    const handleEliminaListinoCliente = async (clienteId, sedeId = null, totaleAttivita) => {
+        const cliente = clienti.find(c => c.id === clienteId);
+        const nomeCliente = cliente?.nome_azienda || 'questo cliente';
+
+        const messaggio = sedeId
+            ? `Eliminare tutte le ${totaleAttivita} attività della sede specificata? Questa azione è irreversibile.\n\n⚠️ Gli interventi già registrati NON saranno influenzati.`
+            : `Eliminare tutte le ${totaleAttivita} attività di ${nomeCliente}? Questa azione è irreversibile.\n\n⚠️ Gli interventi già registrati NON saranno influenzati.`;
+
+        if (!window.confirm(messaggio)) return;
+
+        setError(null);
+        setLoading(true);
+
+        try {
+            let query = supabase
+                .from('attivita_standard_clienti')
+                .delete()
+                .eq('cliente_id', clienteId);
+
+            if (sedeId) {
+                query = query.eq('indirizzo_cliente_id', sedeId);
+            }
+
+            const { error } = await query;
+            if (error) throw error;
+
+            setSuccessMessage(`Eliminate ${totaleAttivita} attività`);
+            setTimeout(() => setSuccessMessage(''), 3000);
+
+            // Refresh overview e tabella attività
+            fetchOverviewData();
+            if (selectedClienteId === clienteId) {
+                fetchAttivita();
+            }
+            if (onDataChanged) onDataChanged();
+        } catch (err) {
+            console.error('Errore eliminazione bulk:', err);
+            setError(err.message);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -789,6 +1076,242 @@ function AttivitaStandardManager({ session, onDataChanged }) {
                     }
                 </small>
             </div>
+
+            {/* Statistics Box - solo per listino cliente (NUOVO) */}
+            {tipoListino === 'cliente' && (
+                <div style={{
+                    marginBottom: '20px',
+                    padding: '20px',
+                    backgroundColor: '#f8f9fa',
+                    border: '2px solid #dee2e6',
+                    borderRadius: '8px'
+                }}>
+                    <h3 style={{marginTop: 0, marginBottom: '15px', fontSize: '1.2em'}}>
+                        Statistiche Listini Clienti
+                    </h3>
+                    <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                        gap: '15px'
+                    }}>
+                        <div style={{padding: '10px', backgroundColor: '#e3f2fd', borderRadius: '4px'}}>
+                            <div style={{fontSize: '0.9em', color: '#666', marginBottom: '5px'}}>
+                                Clienti con Listino
+                            </div>
+                            <div style={{fontSize: '1.8em', fontWeight: 'bold', color: '#1976d2'}}>
+                                {stats.totaleClienti}
+                            </div>
+                        </div>
+                        <div style={{padding: '10px', backgroundColor: '#e8f5e9', borderRadius: '4px'}}>
+                            <div style={{fontSize: '0.9em', color: '#666', marginBottom: '5px'}}>
+                                Totale Attività
+                            </div>
+                            <div style={{fontSize: '1.8em', fontWeight: 'bold', color: '#388e3c'}}>
+                                {stats.totaleAttivita}
+                            </div>
+                        </div>
+                        <div style={{padding: '10px', backgroundColor: '#fff3e0', borderRadius: '4px'}}>
+                            <div style={{fontSize: '0.9em', color: '#666', marginBottom: '5px'}}>
+                                Attività Generiche
+                            </div>
+                            <div style={{fontSize: '1.8em', fontWeight: 'bold', color: '#f57c00'}}>
+                                {stats.attivitaGeneriche}
+                            </div>
+                        </div>
+                        <div style={{padding: '10px', backgroundColor: '#fce4ec', borderRadius: '4px'}}>
+                            <div style={{fontSize: '0.9em', color: '#666', marginBottom: '5px'}}>
+                                Attività per Sede
+                            </div>
+                            <div style={{fontSize: '1.8em', fontWeight: 'bold', color: '#c2185b'}}>
+                                {stats.attivitaSpecifiche}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Advanced Search Dropdowns - solo per listino cliente (NUOVO) */}
+            {tipoListino === 'cliente' && (
+                <div style={{
+                    marginBottom: '20px',
+                    padding: '15px',
+                    backgroundColor: '#ffffff',
+                    border: '1px solid #dee2e6',
+                    borderRadius: '6px'
+                }}>
+                    <div style={{display: 'flex', gap: '20px', alignItems: 'center', flexWrap: 'wrap'}}>
+                        <div style={{flex: 1, minWidth: '200px'}}>
+                            <label style={{display: 'block', marginBottom: '5px', fontWeight: 'bold'}}>
+                                Mostra:
+                            </label>
+                            <select
+                                value={mostraFilter}
+                                onChange={(e) => setMostraFilter(e.target.value)}
+                                style={{width: '100%', padding: '8px'}}
+                            >
+                                <option value="tutti">Tutti i clienti</option>
+                                <option value="listino_unico">Solo listini unici</option>
+                                <option value="multi_sede">Solo multi-sede</option>
+                            </select>
+                        </div>
+                        <div style={{flex: 1, minWidth: '200px'}}>
+                            <label style={{display: 'block', marginBottom: '5px', fontWeight: 'bold'}}>
+                                Ordina:
+                            </label>
+                            <select
+                                value={ordinaFilter}
+                                onChange={(e) => setOrdinaFilter(e.target.value)}
+                                style={{width: '100%', padding: '8px'}}
+                            >
+                                <option value="a-z">Nome A-Z</option>
+                                <option value="z-a">Nome Z-A</option>
+                                <option value="piu_attivita">Più attività</option>
+                                <option value="meno_attivita">Meno attività</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Overview Table Espandibile - solo per listino cliente (NUOVO) */}
+            {tipoListino === 'cliente' && (
+                <div style={{marginBottom: '30px'}}>
+                    <h3 style={{marginBottom: '15px'}}>
+                        Listini Clienti Configurati ({overviewFiltrata.length})
+                    </h3>
+
+                    {loadingOverview ? (
+                        <p>Caricamento overview...</p>
+                    ) : overviewFiltrata.length === 0 ? (
+                        <p>Nessun cliente con listino configurato{clienteFilter ? ' (prova a modificare i filtri)' : ''}.</p>
+                    ) : (
+                        <table className="data-table">
+                            <thead>
+                                <tr>
+                                    <th style={{width: '40px'}}></th>
+                                    <th>Cliente</th>
+                                    <th>Tipo Listino</th>
+                                    <th>Attività</th>
+                                    <th>Azioni</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {overviewFiltrata.map(cliente => (
+                                    <React.Fragment key={cliente.id}>
+                                        {/* Riga Cliente */}
+                                        <tr style={{backgroundColor: '#f8f9fa', fontWeight: 'bold'}}>
+                                            <td style={{textAlign: 'center'}}>
+                                                {!cliente.usa_listino_unico && (
+                                                    <button
+                                                        onClick={() => handleToggleExpandCliente(cliente.id)}
+                                                        style={{
+                                                            background: 'none',
+                                                            border: 'none',
+                                                            cursor: 'pointer',
+                                                            fontSize: '1.2em',
+                                                            padding: '0'
+                                                        }}
+                                                        title={expandedClients.has(cliente.id) ? 'Chiudi' : 'Espandi sedi'}
+                                                    >
+                                                        {expandedClients.has(cliente.id) ? '▼' : '▶'}
+                                                    </button>
+                                                )}
+                                            </td>
+                                            <td>{cliente.nome_azienda}</td>
+                                            <td>
+                                                <span style={{
+                                                    padding: '3px 8px',
+                                                    borderRadius: '3px',
+                                                    fontSize: '0.85em',
+                                                    backgroundColor: cliente.usa_listino_unico ? '#e3f2fd' : '#fff3cd'
+                                                }}>
+                                                    {cliente.usa_listino_unico ? 'Unico' : 'Multi-sede'}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <strong>{cliente.attive} active</strong> ({cliente.totale} total)
+                                            </td>
+                                            <td className="actions">
+                                                <button
+                                                    onClick={() => handleModificaListinoCliente(cliente.id)}
+                                                    className="button small"
+                                                    title="Modifica attività"
+                                                >
+                                                    Modifica
+                                                </button>
+                                                <button
+                                                    onClick={() => handleExportExcelCliente(cliente.id)}
+                                                    className="button small"
+                                                    style={{marginLeft: '5px'}}
+                                                    title="Export Excel"
+                                                >
+                                                    Export
+                                                </button>
+                                                <button
+                                                    onClick={() => handleEliminaListinoCliente(cliente.id, null, cliente.totale)}
+                                                    className="button small secondary"
+                                                    style={{marginLeft: '5px'}}
+                                                    title="Elimina tutte le attività"
+                                                >
+                                                    Elimina
+                                                </button>
+                                            </td>
+                                        </tr>
+
+                                        {/* Righe Sedi (se espanso e multi-sede) */}
+                                        {expandedClients.has(cliente.id) && !cliente.usa_listino_unico && cliente.sedi && cliente.sedi.length > 0 && (
+                                            cliente.sedi.map(sede => (
+                                                <tr key={sede.id} style={{backgroundColor: '#ffffff'}}>
+                                                    <td></td>
+                                                    <td style={{paddingLeft: '30px', fontSize: '0.9em'}}>
+                                                        {sede.descrizione || 'Sede'}: {sede.indirizzo_completo}
+                                                    </td>
+                                                    <td>-</td>
+                                                    <td style={{fontSize: '0.9em'}}>
+                                                        <strong>{sede.attive} active</strong> ({sede.totale} total)
+                                                    </td>
+                                                    <td className="actions">
+                                                        <button
+                                                            onClick={() => handleModificaListinoCliente(cliente.id, sede.id)}
+                                                            className="button small"
+                                                        >
+                                                            Modifica
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleExportExcelCliente(cliente.id, sede.id)}
+                                                            className="button small"
+                                                            style={{marginLeft: '5px'}}
+                                                        >
+                                                            Export
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleEliminaListinoCliente(cliente.id, sede.id, sede.totale)}
+                                                            className="button small secondary"
+                                                            style={{marginLeft: '5px'}}
+                                                        >
+                                                            Elimina
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        )}
+
+                                        {/* Messaggio se cliente multi-sede ma senza sedi configurate */}
+                                        {expandedClients.has(cliente.id) && !cliente.usa_listino_unico && (!cliente.sedi || cliente.sedi.length === 0) && (
+                                            <tr>
+                                                <td></td>
+                                                <td colSpan="4" style={{paddingLeft: '30px', fontStyle: 'italic', color: '#999'}}>
+                                                    Nessuna sede configurata per questo cliente
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </React.Fragment>
+                                ))}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
+            )}
 
             {/* Filtro e Selezione Cliente - solo per listino cliente */}
             {tipoListino === 'cliente' && (

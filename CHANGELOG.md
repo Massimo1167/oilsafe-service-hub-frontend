@@ -4,7 +4,19 @@ Tutte le modifiche significative al progetto sono documentate in questo file.
 
 Il formato si basa su [Keep a Changelog](https://keepachangelog.com/it/1.0.0/),
 e questo progetto aderisce al [Semantic Versioning](https://semver.org/lang/it/).
-## [1.1.15] - 2025-12-15
+## [1.1.16] - 2025-12-16
+
+### Added
+- Tabella overview listini prezzi clienti con expand/collapse in AttivitaStandardManager
+  - Statistiche aggregate: clienti con listino, totale attività, breakdown per tipo
+  - Filtri avanzati: Mostra (Tutti/Solo listini unici/Solo multi-sede) e Ordina (A-Z/Z-A/Più attività/Meno attività)
+  - Tabella espandibile a 2 livelli: cliente e sedi specifiche
+  - Azioni per riga: Modifica (scroll alla tabella attività), Export Excel, Elimina bulk
+  - Lazy loading delle sedi al primo expand
+  - Sincronizzazione filtro ricerca tra dropdown e tabella overview
+  - Conteggi formato "X active (Y total)" per ogni cliente/sede
+
+## [1.1.15b] - 2025-12-15
 
 ### Added
 - Attività standard default aziendale 

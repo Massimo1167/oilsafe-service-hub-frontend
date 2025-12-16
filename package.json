@@ -1,8 +1,8 @@
 {
   "name": "oilsafe-service-frontend",
   "private": true,
-  "version": "1.1.15",
-  "description": "Attività standard default aziendale",
+  "version": "1.1.16",
+  "description": "Overview listini prezzi clienti con expand/collapse",
   "author": "Massimo Centrella",
   "company": "Oilsafe S.r.l.",
   "type": "module",
