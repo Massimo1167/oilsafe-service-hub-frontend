@@ -4,6 +4,11 @@ Tutte le modifiche significative al progetto sono documentate in questo file.
 
 Il formato si basa su [Keep a Changelog](https://keepachangelog.com/it/1.0.0/),
 e questo progetto aderisce al [Semantic Versioning](https://semver.org/lang/it/).
+## [1.1.14] - 2025-12-14
+
+### Added
+- Expande \ Collapse filtri in pagina elenco fogli di assistenza 
+
 ## [1.1.13] - 2025-12-10
 
 ### Added
