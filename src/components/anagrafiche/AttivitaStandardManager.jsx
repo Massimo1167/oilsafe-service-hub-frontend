@@ -16,8 +16,28 @@ function AttivitaStandardManager({ session, onDataChanged }) {
     const [error, setError] = useState(null);
     const [successMessage, setSuccessMessage] = useState('');
 
+    // Stati per tipo listino (NUOVO: supporto listino aziendale)
+    const [tipoListino, setTipoListino] = useState('cliente'); // 'cliente' | 'aziendale'
+
     // Stati per filtro clienti
     const [clienteFilter, setClienteFilter] = useState('');
+
+    // Stati per Overview Table (NUOVO)
+    const [overviewData, setOverviewData] = useState([]); // Array di {cliente, sedi, conteggi}
+    const [expandedClients, setExpandedClients] = useState(new Set()); // Set di clienteId espansi
+    const [loadingOverview, setLoadingOverview] = useState(false);
+
+    // Advanced Filters State (NUOVO)
+    const [mostraFilter, setMostraFilter] = useState('tutti'); // 'tutti' | 'listino_unico' | 'multi_sede'
+    const [ordinaFilter, setOrdinaFilter] = useState('a-z'); // 'a-z' | 'z-a' | 'piu_attivita' | 'meno_attivita'
+
+    // Statistics State (NUOVO)
+    const [stats, setStats] = useState({
+        totaleClienti: 0,
+        totaleAttivita: 0,
+        attivitaGeneriche: 0,
+        attivitaSpecifiche: 0
+    });
 
     // Stati per selezione multipla e cancellazione bulk
     const [selectedIds, setSelectedIds] = useState(new Set());
@@ -49,6 +69,39 @@ function AttivitaStandardManager({ session, onDataChanged }) {
         );
     }, [clienti, clienteFilter]);
 
+    // Filtro e ordinamento overview table (NUOVO)
+    const overviewFiltrata = useMemo(() => {
+        let filtered = [...overviewData];
+
+        // Filtro ricerca clienti (esistente clienteFilter)
+        if (clienteFilter.trim()) {
+            const filterLower = clienteFilter.toLowerCase();
+            filtered = filtered.filter(c =>
+                c.nome_azienda.toLowerCase().includes(filterLower)
+            );
+        }
+
+        // Filtro "Mostra"
+        if (mostraFilter === 'listino_unico') {
+            filtered = filtered.filter(c => c.usa_listino_unico === true);
+        } else if (mostraFilter === 'multi_sede') {
+            filtered = filtered.filter(c => c.usa_listino_unico === false);
+        }
+
+        // Ordinamento
+        if (ordinaFilter === 'a-z') {
+            filtered.sort((a, b) => a.nome_azienda.localeCompare(b.nome_azienda));
+        } else if (ordinaFilter === 'z-a') {
+            filtered.sort((a, b) => b.nome_azienda.localeCompare(a.nome_azienda));
+        } else if (ordinaFilter === 'piu_attivita') {
+            filtered.sort((a, b) => b.totale - a.totale);
+        } else if (ordinaFilter === 'meno_attivita') {
+            filtered.sort((a, b) => a.totale - b.totale);
+        }
+
+        return filtered;
+    }, [overviewData, clienteFilter, mostraFilter, ordinaFilter]);
+
     // Fetch clienti e unità di misura
     useEffect(() => {
         fetchClienti();
@@ -71,16 +124,20 @@ function AttivitaStandardManager({ session, onDataChanged }) {
         }
     };
 
-    // Fetch attività quando cambia il cliente selezionato
+    // Fetch attività quando cambia il cliente selezionato o il tipo listino
     useEffect(() => {
-        if (selectedClienteId) {
+        if (tipoListino === 'aziendale') {
+            // Listino aziendale: fetch sempre
+            fetchAttivita();
+        } else if (selectedClienteId) {
+            // Listino cliente: fetch solo se cliente selezionato
             fetchAttivita();
         } else {
             setAttivita([]);
         }
-        // Reset selezioni quando cambia cliente
+        // Reset selezioni quando cambia cliente o tipo listino
         setSelectedIds(new Set());
-    }, [selectedClienteId]);
+    }, [selectedClienteId, tipoListino]);
 
     // Fetch indirizzi e info cliente quando cambia il cliente selezionato
     useEffect(() => {
@@ -99,6 +156,13 @@ function AttivitaStandardManager({ session, onDataChanged }) {
             fetchAttivita();
         }
     }, [selectedSedeFilter]);
+
+    // Fetch overview data quando tipoListino === 'cliente' (NUOVO)
+    useEffect(() => {
+        if (tipoListino === 'cliente') {
+            fetchOverviewData();
+        }
+    }, [tipoListino]);
 
     const fetchIndirizziCliente = async () => {
         try {
@@ -150,36 +214,285 @@ function AttivitaStandardManager({ session, onDataChanged }) {
         }
     };
 
-    const fetchAttivita = async () => {
-        setLoading(true);
+    // Fetch overview data per tabella listini clienti (NUOVO)
+    const fetchOverviewData = async () => {
+        setLoadingOverview(true);
         setError(null);
+        try {
+            const { data: clientiData, error } = await supabase
+                .from('clienti')
+                .select(`
+                    id,
+                    nome_azienda,
+                    usa_listino_unico,
+                    attivita_standard_clienti (
+                        id,
+                        attivo,
+                        indirizzo_cliente_id
+                    )
+                `)
+                .order('nome_azienda');
+
+            if (error) throw error;
+
+            // Process data - calcola conteggi per ogni cliente
+            const processed = clientiData.map(cliente => {
+                const attivita = cliente.attivita_standard_clienti || [];
+                return {
+                    id: cliente.id,
+                    nome_azienda: cliente.nome_azienda,
+                    usa_listino_unico: cliente.usa_listino_unico,
+                    totale: attivita.length,
+                    attive: attivita.filter(a => a.attivo).length,
+                    generiche: attivita.filter(a => a.indirizzo_cliente_id === null).length,
+                    specifiche_sede: attivita.filter(a => a.indirizzo_cliente_id !== null).length,
+                    sedi: null // Loaded on demand quando cliente espanso
+                };
+            });
+
+            // Filtra clienti SENZA listino (non mostrati in tabella, solo in dropdown)
+            const conListino = processed.filter(c => c.totale > 0);
+
+            // Calcola statistiche globali
+            const newStats = {
+                totaleClienti: conListino.length,
+                totaleAttivita: conListino.reduce((sum, c) => sum + c.totale, 0),
+                attivitaGeneriche: conListino.reduce((sum, c) => sum + c.generiche, 0),
+                attivitaSpecifiche: conListino.reduce((sum, c) => sum + c.specifiche_sede, 0)
+            };
+            setStats(newStats);
+
+            setOverviewData(conListino);
+        } catch (err) {
+            console.error('Errore fetch overview:', err);
+            setError(err.message);
+        } finally {
+            setLoadingOverview(false);
+        }
+    };
+
+    // Toggle expand/collapse cliente in overview table (NUOVO)
+    const handleToggleExpandCliente = async (clienteId) => {
+        const newExpanded = new Set(expandedClients);
+
+        if (newExpanded.has(clienteId)) {
+            // Collapse
+            newExpanded.delete(clienteId);
+            setExpandedClients(newExpanded);
+        } else {
+            // Expand - carica sedi se non già caricate
+            const cliente = overviewData.find(c => c.id === clienteId);
+            if (cliente && !cliente.sedi) {
+                await fetchSediPerCliente(clienteId);
+            }
+            newExpanded.add(clienteId);
+            setExpandedClients(newExpanded);
+        }
+    };
+
+    // Fetch sedi per cliente espanso (NUOVO)
+    const fetchSediPerCliente = async (clienteId) => {
+        try {
+            const { data: sedi, error } = await supabase
+                .from('indirizzi_clienti')
+                .select('id, descrizione, indirizzo_completo, is_default')
+                .eq('cliente_id', clienteId)
+                .order('is_default', { ascending: false });
+
+            if (error) throw error;
+
+            // Per ogni sede, conta attività specifiche
+            const sediConConteggi = await Promise.all(
+                (sedi || []).map(async (sede) => {
+                    const { data: attivitaSede, error: attError } = await supabase
+                        .from('attivita_standard_clienti')
+                        .select('id, attivo')
+                        .eq('cliente_id', clienteId)
+                        .eq('indirizzo_cliente_id', sede.id);
+
+                    if (attError) throw attError;
+
+                    return {
+                        ...sede,
+                        totale: (attivitaSede || []).length,
+                        attive: (attivitaSede || []).filter(a => a.attivo).length
+                    };
+                })
+            );
+
+            // Aggiorna overviewData con sedi caricate
+            setOverviewData(prev => prev.map(c =>
+                c.id === clienteId ? { ...c, sedi: sediConConteggi } : c
+            ));
+        } catch (err) {
+            console.error('Errore fetch sedi:', err);
+            setError(err.message);
+        }
+    };
+
+    // Modifica listino cliente/sede (NUOVO) - apre tabella attività
+    const handleModificaListinoCliente = (clienteId, sedeId = null) => {
+        setSelectedClienteId(clienteId);
+        if (sedeId) {
+            setSelectedSedeFilter(sedeId);
+        } else {
+            setSelectedSedeFilter('');
+        }
+        // Scroll to activity table
+        setTimeout(() => {
+            const tableElement = document.querySelector('.data-table');
+            if (tableElement) {
+                tableElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }, 100);
+    };
+
+    // Export Excel per cliente/sede specifico (NUOVO)
+    const handleExportExcelCliente = async (clienteId, sedeId = null) => {
         try {
             let query = supabase
                 .from('attivita_standard_clienti')
                 .select(`
                     *,
-                    unita_misura (
-                        id,
-                        codice,
-                        descrizione
-                    ),
-                    indirizzi_clienti (
-                        id,
-                        descrizione,
-                        indirizzo_completo
-                    )
+                    unita_misura (codice, descrizione)
                 `)
-                .eq('cliente_id', selectedClienteId);
+                .eq('cliente_id', clienteId);
 
-            // Se cliente NON usa listino unico E c'è un filtro sede selezionato, filtra per quella sede
-            if (!clienteUsaListinoUnico && selectedSedeFilter) {
-                query = query.eq('indirizzo_cliente_id', selectedSedeFilter);
+            if (sedeId) {
+                query = query.eq('indirizzo_cliente_id', sedeId);
             }
 
             const { data, error } = await query.order('codice_attivita');
-
             if (error) throw error;
-            setAttivita(data || []);
+
+            if (!data || data.length === 0) {
+                alert('Nessuna attività da esportare');
+                return;
+            }
+
+            const cliente = clienti.find(c => c.id === clienteId);
+            const nomeCliente = cliente ? cliente.nome_azienda.replace(/[^a-zA-Z0-9]/g, '_') : 'cliente';
+            const dataOggi = new Date().toISOString().split('T')[0];
+
+            const nomeFile = sedeId
+                ? `attivita_${nomeCliente}_SEDE_${dataOggi}.xlsx`
+                : `attivita_${nomeCliente}_${dataOggi}.xlsx`;
+
+            const excelData = data.map(att => ({
+                'Codice Attività': att.codice_attivita,
+                'Normativa': att.normativa || '',
+                'Descrizione': att.descrizione,
+                'Unità di Misura': att.unita_misura?.codice || '',
+                'Costo Unitario (€)': parseFloat(att.costo_unitario).toFixed(2),
+                'Attivo': att.attivo ? 'Sì' : 'No'
+            }));
+
+            const ws = XLSX.utils.json_to_sheet(excelData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Attività Standard');
+            XLSX.writeFile(wb, nomeFile);
+
+            setSuccessMessage(`Esportate ${data.length} attività`);
+            setTimeout(() => setSuccessMessage(''), 3000);
+        } catch (err) {
+            console.error('Errore export:', err);
+            setError(err.message);
+        }
+    };
+
+    // Elimina bulk attività per cliente/sede (NUOVO)
+    const handleEliminaListinoCliente = async (clienteId, sedeId = null, totaleAttivita) => {
+        const cliente = clienti.find(c => c.id === clienteId);
+        const nomeCliente = cliente?.nome_azienda || 'questo cliente';
+
+        const messaggio = sedeId
+            ? `Eliminare tutte le ${totaleAttivita} attività della sede specificata? Questa azione è irreversibile.\n\n⚠️ Gli interventi già registrati NON saranno influenzati.`
+            : `Eliminare tutte le ${totaleAttivita} attività di ${nomeCliente}? Questa azione è irreversibile.\n\n⚠️ Gli interventi già registrati NON saranno influenzati.`;
+
+        if (!window.confirm(messaggio)) return;
+
+        setError(null);
+        setLoading(true);
+
+        try {
+            let query = supabase
+                .from('attivita_standard_clienti')
+                .delete()
+                .eq('cliente_id', clienteId);
+
+            if (sedeId) {
+                query = query.eq('indirizzo_cliente_id', sedeId);
+            }
+
+            const { error } = await query;
+            if (error) throw error;
+
+            setSuccessMessage(`Eliminate ${totaleAttivita} attività`);
+            setTimeout(() => setSuccessMessage(''), 3000);
+
+            // Refresh overview e tabella attività
+            fetchOverviewData();
+            if (selectedClienteId === clienteId) {
+                fetchAttivita();
+            }
+            if (onDataChanged) onDataChanged();
+        } catch (err) {
+            console.error('Errore eliminazione bulk:', err);
+            setError(err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const fetchAttivita = async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            if (tipoListino === 'aziendale') {
+                // Query tabella aziendale
+                const { data, error } = await supabase
+                    .from('attivita_standard_aziendali')
+                    .select(`
+                        *,
+                        unita_misura (
+                            id,
+                            codice,
+                            descrizione
+                        )
+                    `)
+                    .order('codice_attivita');
+
+                if (error) throw error;
+                setAttivita(data || []);
+            } else {
+                // Query tabella cliente (codice esistente)
+                let query = supabase
+                    .from('attivita_standard_clienti')
+                    .select(`
+                        *,
+                        unita_misura (
+                            id,
+                            codice,
+                            descrizione
+                        ),
+                        indirizzi_clienti (
+                            id,
+                            descrizione,
+                            indirizzo_completo
+                        )
+                    `)
+                    .eq('cliente_id', selectedClienteId);
+
+                // Se cliente NON usa listino unico E c'è un filtro sede selezionato, filtra per quella sede
+                if (!clienteUsaListinoUnico && selectedSedeFilter) {
+                    query = query.eq('indirizzo_cliente_id', selectedSedeFilter);
+                }
+
+                const { data, error } = await query.order('codice_attivita');
+
+                if (error) throw error;
+                setAttivita(data || []);
+            }
         } catch (err) {
             console.error('Errore caricamento attività:', err);
             setError(err.message);
@@ -189,7 +502,7 @@ function AttivitaStandardManager({ session, onDataChanged }) {
     };
 
     const handleAdd = () => {
-        if (!selectedClienteId) {
+        if (tipoListino === 'cliente' && !selectedClienteId) {
             alert('Seleziona un cliente prima di aggiungere un\'attività');
             return;
         }
@@ -214,9 +527,13 @@ function AttivitaStandardManager({ session, onDataChanged }) {
         if (!window.confirm('Eliminare questa attività standard? Questa azione è irreversibile.')) return;
 
         setError(null);
+        const tableName = tipoListino === 'aziendale'
+            ? 'attivita_standard_aziendali'
+            : 'attivita_standard_clienti';
+
         try {
             const { error } = await supabase
-                .from('attivita_standard_clienti')
+                .from(tableName)
                 .delete()
                 .eq('id', id);
 
@@ -255,22 +572,37 @@ function AttivitaStandardManager({ session, onDataChanged }) {
             return;
         }
 
-        const payload = {
-            cliente_id: selectedClienteId,
-            codice_attivita: formCodice.trim(),
-            normativa: formNormativa.trim() || null,
-            descrizione: formDescrizione.trim(),
-            unita_misura_id: formUnitaMisuraId,
-            costo_unitario: costoNum,
-            attivo: formAttivo,
-            indirizzo_cliente_id: clienteUsaListinoUnico ? null : (selectedSedeFilter || null)
-        };
+        // Determina tabella target
+        const tableName = tipoListino === 'aziendale'
+            ? 'attivita_standard_aziendali'
+            : 'attivita_standard_clienti';
+
+        // Payload diverso per aziendale vs cliente
+        const payload = tipoListino === 'aziendale'
+            ? {
+                codice_attivita: formCodice.trim(),
+                normativa: formNormativa.trim() || null,
+                descrizione: formDescrizione.trim(),
+                unita_misura_id: formUnitaMisuraId,
+                costo_unitario: costoNum,
+                attivo: formAttivo
+            }
+            : {
+                cliente_id: selectedClienteId,
+                codice_attivita: formCodice.trim(),
+                normativa: formNormativa.trim() || null,
+                descrizione: formDescrizione.trim(),
+                unita_misura_id: formUnitaMisuraId,
+                costo_unitario: costoNum,
+                attivo: formAttivo,
+                indirizzo_cliente_id: clienteUsaListinoUnico ? null : (selectedSedeFilter || null)
+            };
 
         try {
             if (editingId) {
                 // UPDATE
                 const { error } = await supabase
-                    .from('attivita_standard_clienti')
+                    .from(tableName)
                     .update(payload)
                     .eq('id', editingId);
 
@@ -279,12 +611,15 @@ function AttivitaStandardManager({ session, onDataChanged }) {
             } else {
                 // INSERT
                 const { error } = await supabase
-                    .from('attivita_standard_clienti')
+                    .from(tableName)
                     .insert([payload]);
 
                 if (error) {
                     if (error.code === '23505') { // UNIQUE constraint
-                        throw new Error('Codice attività già esistente per questo cliente');
+                        const msg = tipoListino === 'aziendale'
+                            ? 'Codice attività già esistente nel listino aziendale'
+                            : 'Codice attività già esistente per questo cliente';
+                        throw new Error(msg);
                     }
                     throw error;
                 }
@@ -325,12 +660,16 @@ function AttivitaStandardManager({ session, onDataChanged }) {
             return;
         }
 
-        // Trova nome cliente per nome file
-        const cliente = clienti.find(c => c.id === selectedClienteId);
-        const nomeCliente = cliente ? cliente.nome_azienda.replace(/[^a-zA-Z0-9]/g, '_') : 'cliente';
         const dataOggi = new Date().toISOString().split('T')[0];
+        const nomeFile = tipoListino === 'aziendale'
+            ? `attivita_standard_AZIENDALE_${dataOggi}.xlsx`
+            : (() => {
+                const cliente = clienti.find(c => c.id === selectedClienteId);
+                const nomeCliente = cliente ? cliente.nome_azienda.replace(/[^a-zA-Z0-9]/g, '_') : 'cliente';
+                return `attivita_standard_${nomeCliente}_${dataOggi}.xlsx`;
+            })();
 
-        // Prepara dati per Excel (senza campo sede)
+        // Prepara dati per Excel
         const excelData = attivita.map(att => ({
             'Codice Attività': att.codice_attivita,
             'Normativa': att.normativa || '',
@@ -346,7 +685,7 @@ function AttivitaStandardManager({ session, onDataChanged }) {
         XLSX.utils.book_append_sheet(wb, ws, 'Attività Standard');
 
         // Download file
-        XLSX.writeFile(wb, `attivita_standard_${nomeCliente}_${dataOggi}.xlsx`);
+        XLSX.writeFile(wb, nomeFile);
 
         setSuccessMessage(`Esportate ${attivita.length} attività in Excel`);
         setTimeout(() => setSuccessMessage(''), 3000);
@@ -393,8 +732,10 @@ function AttivitaStandardManager({ session, onDataChanged }) {
                     let errori = 0;
                     const importLog = []; // Array per log dettagliato
 
-                    // Determina indirizzo_cliente_id basato su filtro sede attivo
-                    const indirizzoClienteId = selectedSedeFilter || null;
+                    // Determina tabella target e parametri specifici
+                    const tableName = tipoListino === 'aziendale'
+                        ? 'attivita_standard_aziendali'
+                        : 'attivita_standard_clienti';
 
                     for (let rowIndex = 0; rowIndex < jsonData.length; rowIndex++) {
                         const row = jsonData[rowIndex];
@@ -452,29 +793,45 @@ function AttivitaStandardManager({ session, onDataChanged }) {
 
                         const attivo = attivoStr ? (attivoStr.toLowerCase() === 'sì' || attivoStr.toLowerCase() === 'si') : true;
 
-                        const payload = {
-                            cliente_id: selectedClienteId,
-                            codice_attivita: codice,
-                            normativa: normativa,
-                            descrizione: descrizione,
-                            unita_misura_id: um.id,
-                            costo_unitario: costo,
-                            attivo: attivo,
-                            indirizzo_cliente_id: indirizzoClienteId
-                        };
+                        // Payload diverso per aziendale vs cliente
+                        const payload = tipoListino === 'aziendale'
+                            ? {
+                                codice_attivita: codice,
+                                normativa: normativa,
+                                descrizione: descrizione,
+                                unita_misura_id: um.id,
+                                costo_unitario: costo,
+                                attivo: attivo
+                            }
+                            : {
+                                cliente_id: selectedClienteId,
+                                codice_attivita: codice,
+                                normativa: normativa,
+                                descrizione: descrizione,
+                                unita_misura_id: um.id,
+                                costo_unitario: costo,
+                                attivo: attivo,
+                                indirizzo_cliente_id: selectedSedeFilter || null
+                            };
 
                         // Verifica se esiste già record duplicato
-                        const { data: existingRecords } = await supabase
-                            .from('attivita_standard_clienti')
+                        let existingQuery = supabase
+                            .from(tableName)
                             .select('id')
-                            .eq('cliente_id', selectedClienteId)
-                            .eq('codice_attivita', codice)
-                            .eq('indirizzo_cliente_id', indirizzoClienteId);
+                            .eq('codice_attivita', codice);
+
+                        if (tipoListino === 'cliente') {
+                            existingQuery = existingQuery
+                                .eq('cliente_id', selectedClienteId)
+                                .eq('indirizzo_cliente_id', selectedSedeFilter || null);
+                        }
+
+                        const { data: existingRecords } = await existingQuery;
 
                         if (existingRecords && existingRecords.length > 0) {
                             // UPDATE record esistente
                             const { error } = await supabase
-                                .from('attivita_standard_clienti')
+                                .from(tableName)
                                 .update(payload)
                                 .eq('id', existingRecords[0].id);
 
@@ -498,7 +855,7 @@ function AttivitaStandardManager({ session, onDataChanged }) {
                         } else {
                             // INSERT nuovo record
                             const { error } = await supabase
-                                .from('attivita_standard_clienti')
+                                .from(tableName)
                                 .insert([payload]);
 
                             if (error) {
@@ -522,15 +879,19 @@ function AttivitaStandardManager({ session, onDataChanged }) {
 
                     // Genera file log TXT se ci sono errori o aggiornamenti
                     if (importLog.length > 0) {
-                        const cliente = clienti.find(c => c.id === selectedClienteId);
-                        const nomeCliente = cliente ? cliente.nome_azienda : 'cliente';
+                        const nomeTarget = tipoListino === 'aziendale'
+                            ? 'AZIENDALE'
+                            : (() => {
+                                const cliente = clienti.find(c => c.id === selectedClienteId);
+                                return cliente ? cliente.nome_azienda : 'cliente';
+                            })();
                         const timestamp = new Date().toLocaleString('it-IT');
                         const dataFile = new Date().toISOString().split('T')[0];
 
                         let logContent = `REPORT IMPORTAZIONE ATTIVITÀ STANDARD\n`;
                         logContent += `${'='.repeat(60)}\n\n`;
                         logContent += `Data importazione: ${timestamp}\n`;
-                        logContent += `Cliente: ${nomeCliente}\n`;
+                        logContent += `${tipoListino === 'aziendale' ? 'Tipo Listino' : 'Cliente'}: ${nomeTarget}\n`;
                         logContent += `File importato: ${file.name}\n\n`;
                         logContent += `RIEPILOGO:\n`;
                         logContent += `- Righe inserite: ${inserite}\n`;
@@ -568,7 +929,7 @@ function AttivitaStandardManager({ session, onDataChanged }) {
                         const url = URL.createObjectURL(blob);
                         const a = document.createElement('a');
                         a.href = url;
-                        a.download = `log_import_attivita_${nomeCliente.replace(/[^a-zA-Z0-9]/g, '_')}_${dataFile}.txt`;
+                        a.download = `log_import_attivita_${nomeTarget.replace(/[^a-zA-Z0-9]/g, '_')}_${dataFile}.txt`;
                         document.body.appendChild(a);
                         a.click();
                         document.body.removeChild(a);
@@ -637,13 +998,17 @@ function AttivitaStandardManager({ session, onDataChanged }) {
         setError(null);
         setLoading(true);
 
+        const tableName = tipoListino === 'aziendale'
+            ? 'attivita_standard_aziendali'
+            : 'attivita_standard_clienti';
+
         let eliminate = 0;
         let errori = 0;
 
         for (const id of selectedIds) {
             try {
                 const { error } = await supabase
-                    .from('attivita_standard_clienti')
+                    .from(tableName)
                     .delete()
                     .eq('id', id);
 
@@ -683,7 +1048,273 @@ function AttivitaStandardManager({ session, onDataChanged }) {
             {error && <p style={{color: 'red', fontWeight: 'bold'}}>ERRORE: {error}</p>}
             {successMessage && <p style={{color: 'green', fontWeight: 'bold'}}>{successMessage}</p>}
 
-            {/* Filtro e Selezione Cliente */}
+            {/* Selector Tipo Listino */}
+            <div style={{marginBottom: '25px', padding: '15px', backgroundColor: '#f8f9fa', border: '2px solid #dee2e6', borderRadius: '8px'}}>
+                <div style={{marginBottom: '10px'}}>
+                    <strong style={{fontSize: '1.1em'}}>Tipo Listino:</strong>
+                </div>
+                <div style={{display: 'flex', gap: '10px'}}>
+                    <button
+                        onClick={() => setTipoListino('cliente')}
+                        className={tipoListino === 'cliente' ? 'button primary' : 'button secondary'}
+                        style={{flex: 1, padding: '12px'}}
+                    >
+                        Listino Cliente
+                    </button>
+                    <button
+                        onClick={() => setTipoListino('aziendale')}
+                        className={tipoListino === 'aziendale' ? 'button primary' : 'button secondary'}
+                        style={{flex: 1, padding: '12px'}}
+                    >
+                        Listino Aziendale
+                    </button>
+                </div>
+                <small style={{display: 'block', marginTop: '8px', color: '#666'}}>
+                    {tipoListino === 'aziendale'
+                        ? 'Gestisci attività standard valide per tutti i clienti (fallback globale)'
+                        : 'Gestisci attività standard specifiche per cliente/sede'
+                    }
+                </small>
+            </div>
+
+            {/* Statistics Box - solo per listino cliente (NUOVO) */}
+            {tipoListino === 'cliente' && (
+                <div style={{
+                    marginBottom: '20px',
+                    padding: '20px',
+                    backgroundColor: '#f8f9fa',
+                    border: '2px solid #dee2e6',
+                    borderRadius: '8px'
+                }}>
+                    <h3 style={{marginTop: 0, marginBottom: '15px', fontSize: '1.2em'}}>
+                        Statistiche Listini Clienti
+                    </h3>
+                    <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                        gap: '15px'
+                    }}>
+                        <div style={{padding: '10px', backgroundColor: '#e3f2fd', borderRadius: '4px'}}>
+                            <div style={{fontSize: '0.9em', color: '#666', marginBottom: '5px'}}>
+                                Clienti con Listino
+                            </div>
+                            <div style={{fontSize: '1.8em', fontWeight: 'bold', color: '#1976d2'}}>
+                                {stats.totaleClienti}
+                            </div>
+                        </div>
+                        <div style={{padding: '10px', backgroundColor: '#e8f5e9', borderRadius: '4px'}}>
+                            <div style={{fontSize: '0.9em', color: '#666', marginBottom: '5px'}}>
+                                Totale Attività
+                            </div>
+                            <div style={{fontSize: '1.8em', fontWeight: 'bold', color: '#388e3c'}}>
+                                {stats.totaleAttivita}
+                            </div>
+                        </div>
+                        <div style={{padding: '10px', backgroundColor: '#fff3e0', borderRadius: '4px'}}>
+                            <div style={{fontSize: '0.9em', color: '#666', marginBottom: '5px'}}>
+                                Attività Generiche
+                            </div>
+                            <div style={{fontSize: '1.8em', fontWeight: 'bold', color: '#f57c00'}}>
+                                {stats.attivitaGeneriche}
+                            </div>
+                        </div>
+                        <div style={{padding: '10px', backgroundColor: '#fce4ec', borderRadius: '4px'}}>
+                            <div style={{fontSize: '0.9em', color: '#666', marginBottom: '5px'}}>
+                                Attività per Sede
+                            </div>
+                            <div style={{fontSize: '1.8em', fontWeight: 'bold', color: '#c2185b'}}>
+                                {stats.attivitaSpecifiche}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Advanced Search Dropdowns - solo per listino cliente (NUOVO) */}
+            {tipoListino === 'cliente' && (
+                <div style={{
+                    marginBottom: '20px',
+                    padding: '15px',
+                    backgroundColor: '#ffffff',
+                    border: '1px solid #dee2e6',
+                    borderRadius: '6px'
+                }}>
+                    <div style={{display: 'flex', gap: '20px', alignItems: 'center', flexWrap: 'wrap'}}>
+                        <div style={{flex: 1, minWidth: '200px'}}>
+                            <label style={{display: 'block', marginBottom: '5px', fontWeight: 'bold'}}>
+                                Mostra:
+                            </label>
+                            <select
+                                value={mostraFilter}
+                                onChange={(e) => setMostraFilter(e.target.value)}
+                                style={{width: '100%', padding: '8px'}}
+                            >
+                                <option value="tutti">Tutti i clienti</option>
+                                <option value="listino_unico">Solo listini unici</option>
+                                <option value="multi_sede">Solo multi-sede</option>
+                            </select>
+                        </div>
+                        <div style={{flex: 1, minWidth: '200px'}}>
+                            <label style={{display: 'block', marginBottom: '5px', fontWeight: 'bold'}}>
+                                Ordina:
+                            </label>
+                            <select
+                                value={ordinaFilter}
+                                onChange={(e) => setOrdinaFilter(e.target.value)}
+                                style={{width: '100%', padding: '8px'}}
+                            >
+                                <option value="a-z">Nome A-Z</option>
+                                <option value="z-a">Nome Z-A</option>
+                                <option value="piu_attivita">Più attività</option>
+                                <option value="meno_attivita">Meno attività</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Overview Table Espandibile - solo per listino cliente (NUOVO) */}
+            {tipoListino === 'cliente' && (
+                <div style={{marginBottom: '30px'}}>
+                    <h3 style={{marginBottom: '15px'}}>
+                        Listini Clienti Configurati ({overviewFiltrata.length})
+                    </h3>
+
+                    {loadingOverview ? (
+                        <p>Caricamento overview...</p>
+                    ) : overviewFiltrata.length === 0 ? (
+                        <p>Nessun cliente con listino configurato{clienteFilter ? ' (prova a modificare i filtri)' : ''}.</p>
+                    ) : (
+                        <table className="data-table">
+                            <thead>
+                                <tr>
+                                    <th style={{width: '40px'}}></th>
+                                    <th>Cliente</th>
+                                    <th>Tipo Listino</th>
+                                    <th>Attività</th>
+                                    <th>Azioni</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {overviewFiltrata.map(cliente => (
+                                    <React.Fragment key={cliente.id}>
+                                        {/* Riga Cliente */}
+                                        <tr style={{backgroundColor: '#f8f9fa', fontWeight: 'bold'}}>
+                                            <td style={{textAlign: 'center'}}>
+                                                {!cliente.usa_listino_unico && (
+                                                    <button
+                                                        onClick={() => handleToggleExpandCliente(cliente.id)}
+                                                        style={{
+                                                            background: 'none',
+                                                            border: 'none',
+                                                            cursor: 'pointer',
+                                                            fontSize: '1.2em',
+                                                            padding: '0'
+                                                        }}
+                                                        title={expandedClients.has(cliente.id) ? 'Chiudi' : 'Espandi sedi'}
+                                                    >
+                                                        {expandedClients.has(cliente.id) ? '▼' : '▶'}
+                                                    </button>
+                                                )}
+                                            </td>
+                                            <td>{cliente.nome_azienda}</td>
+                                            <td>
+                                                <span style={{
+                                                    padding: '3px 8px',
+                                                    borderRadius: '3px',
+                                                    fontSize: '0.85em',
+                                                    backgroundColor: cliente.usa_listino_unico ? '#e3f2fd' : '#fff3cd'
+                                                }}>
+                                                    {cliente.usa_listino_unico ? 'Unico' : 'Multi-sede'}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <strong>{cliente.attive} active</strong> ({cliente.totale} total)
+                                            </td>
+                                            <td className="actions">
+                                                <button
+                                                    onClick={() => handleModificaListinoCliente(cliente.id)}
+                                                    className="button small"
+                                                    title="Modifica attività"
+                                                >
+                                                    Modifica
+                                                </button>
+                                                <button
+                                                    onClick={() => handleExportExcelCliente(cliente.id)}
+                                                    className="button small"
+                                                    style={{marginLeft: '5px'}}
+                                                    title="Export Excel"
+                                                >
+                                                    Export
+                                                </button>
+                                                <button
+                                                    onClick={() => handleEliminaListinoCliente(cliente.id, null, cliente.totale)}
+                                                    className="button small secondary"
+                                                    style={{marginLeft: '5px'}}
+                                                    title="Elimina tutte le attività"
+                                                >
+                                                    Elimina
+                                                </button>
+                                            </td>
+                                        </tr>
+
+                                        {/* Righe Sedi (se espanso e multi-sede) */}
+                                        {expandedClients.has(cliente.id) && !cliente.usa_listino_unico && cliente.sedi && cliente.sedi.length > 0 && (
+                                            cliente.sedi.map(sede => (
+                                                <tr key={sede.id} style={{backgroundColor: '#ffffff'}}>
+                                                    <td></td>
+                                                    <td style={{paddingLeft: '30px', fontSize: '0.9em'}}>
+                                                        {sede.descrizione || 'Sede'}: {sede.indirizzo_completo}
+                                                    </td>
+                                                    <td>-</td>
+                                                    <td style={{fontSize: '0.9em'}}>
+                                                        <strong>{sede.attive} active</strong> ({sede.totale} total)
+                                                    </td>
+                                                    <td className="actions">
+                                                        <button
+                                                            onClick={() => handleModificaListinoCliente(cliente.id, sede.id)}
+                                                            className="button small"
+                                                        >
+                                                            Modifica
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleExportExcelCliente(cliente.id, sede.id)}
+                                                            className="button small"
+                                                            style={{marginLeft: '5px'}}
+                                                        >
+                                                            Export
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleEliminaListinoCliente(cliente.id, sede.id, sede.totale)}
+                                                            className="button small secondary"
+                                                            style={{marginLeft: '5px'}}
+                                                        >
+                                                            Elimina
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        )}
+
+                                        {/* Messaggio se cliente multi-sede ma senza sedi configurate */}
+                                        {expandedClients.has(cliente.id) && !cliente.usa_listino_unico && (!cliente.sedi || cliente.sedi.length === 0) && (
+                                            <tr>
+                                                <td></td>
+                                                <td colSpan="4" style={{paddingLeft: '30px', fontStyle: 'italic', color: '#999'}}>
+                                                    Nessuna sede configurata per questo cliente
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </React.Fragment>
+                                ))}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
+            )}
+
+            {/* Filtro e Selezione Cliente - solo per listino cliente */}
+            {tipoListino === 'cliente' && (
             <div style={{marginBottom: '20px'}}>
                 <div style={{marginBottom: '10px'}}>
                     <label htmlFor="filtroCliente" style={{marginRight: '10px', fontWeight: 'bold'}}>
@@ -729,10 +1360,13 @@ function AttivitaStandardManager({ session, onDataChanged }) {
                     </select>
                 </div>
             </div>
+            )}
 
-            {selectedClienteId && (
+            {/* Contenuto principale - mostrato se aziendale O se cliente selezionato */}
+            {(tipoListino === 'aziendale' || selectedClienteId) && (
                 <>
-                    {/* Info Modalità Listino */}
+                    {/* Info Modalità Listino - solo per listino cliente */}
+                    {tipoListino === 'cliente' && (
                     <div style={{
                         marginBottom: '20px',
                         padding: '12px 15px',
@@ -742,7 +1376,7 @@ function AttivitaStandardManager({ session, onDataChanged }) {
                     }}>
                         <div style={{display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '5px'}}>
                             <strong style={{fontSize: '1.05em'}}>
-                                {clienteUsaListinoUnico ? '📋 Modalità: Listino Unico' : '🏢 Modalità: Listino per Sede'}
+                                {clienteUsaListinoUnico ? 'Modalità: Listino Unico' : 'Modalità: Listino per Sede'}
                             </strong>
                         </div>
                         <div style={{fontSize: '0.9em', color: '#666'}}>
@@ -753,9 +1387,10 @@ function AttivitaStandardManager({ session, onDataChanged }) {
                             )}
                         </div>
                     </div>
+                    )}
 
-                    {/* Dropdown Filtro Sede (solo se NON listino unico) */}
-                    {!clienteUsaListinoUnico && indirizziDisponibili.length > 0 && (
+                    {/* Dropdown Filtro Sede (solo se listino cliente NON unico) */}
+                    {tipoListino === 'cliente' && !clienteUsaListinoUnico && indirizziDisponibili.length > 0 && (
                         <div style={{marginBottom: '20px', padding: '15px', backgroundColor: '#f8f9fa', border: '1px solid #dee2e6', borderRadius: '4px'}}>
                             <label htmlFor="sedeFilter" style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>
                                 Filtra Attività per Sede:
@@ -818,7 +1453,7 @@ function AttivitaStandardManager({ session, onDataChanged }) {
                     {loading ? (
                         <p>Caricamento attività...</p>
                     ) : attivita.length === 0 ? (
-                        <p>Nessuna attività standard configurata per questo cliente.</p>
+                        <p>Nessuna attività standard configurata{tipoListino === 'aziendale' ? '' : ' per questo cliente'}.</p>
                     ) : (
                         <table className="data-table">
                             <thead>
@@ -835,7 +1470,7 @@ function AttivitaStandardManager({ session, onDataChanged }) {
                                     <th>Descrizione</th>
                                     <th>Normativa</th>
                                     <th>U.M.</th>
-                                    {!clienteUsaListinoUnico && <th>Sede</th>}
+                                    {tipoListino === 'cliente' && !clienteUsaListinoUnico && <th>Sede</th>}
                                     {userRole === 'admin' && <th>Costo Unitario</th>}
                                     <th>Attivo</th>
                                     <th>Azioni</th>
@@ -862,7 +1497,7 @@ function AttivitaStandardManager({ session, onDataChanged }) {
                                             {att.normativa || '-'}
                                         </td>
                                         <td>{att.unita_misura?.codice || '-'}</td>
-                                        {!clienteUsaListinoUnico && (
+                                        {tipoListino === 'cliente' && !clienteUsaListinoUnico && (
                                             <td style={{fontSize: '0.85em', color: '#555'}}>
                                                 {att.indirizzi_clienti ? (
                                                     <span>
@@ -1001,7 +1636,7 @@ function AttivitaStandardManager({ session, onDataChanged }) {
                             </div>
 
                             {/* Box info sede attiva - solo se cliente NON usa listino unico */}
-                            {!clienteUsaListinoUnico && (
+                            {tipoListino === 'cliente' && !clienteUsaListinoUnico && (
                                 <div style={{
                                     marginBottom: '15px',
                                     padding: '12px',
