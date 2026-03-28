@@ -4,6 +4,27 @@ Tutte le modifiche significative al progetto sono documentate in questo file.
 
 Il formato si basa su [Keep a Changelog](https://keepachangelog.com/it/1.0.0/),
 e questo progetto aderisce al [Semantic Versioning](https://semver.org/lang/it/).
+## [1.1.17] - 2026-03-28
+
+### Added
+- Fix spazi mancanti nel PDF: i viewer PDF ignorano gli spazi finali nei blocchi BT...ET
+  separati generati da jsPDF; risolto spostando gli spazi come prefisso del segmento
+  successivo e concatenando segmenti dello stesso stile in un'unica chiamata doc.text()
+- Fix anteprima PDF bianca su Chrome: convertita la data URL Base64 in Blob URL prima
+  di assegnarla all'iframe (Chrome non carica data URL >~2MB negli iframe)
+
+## [1.1.16] - 2025-12-16
+
+### Added
+- Tabella overview listini prezzi clienti con expand/collapse in AttivitaStandardManager
+  - Statistiche aggregate: clienti con listino, totale attività, breakdown per tipo
+  - Filtri avanzati: Mostra (Tutti/Solo listini unici/Solo multi-sede) e Ordina (A-Z/Z-A/Più attività/Meno attività)
+  - Tabella espandibile a 2 livelli: cliente e sedi specifiche
+  - Azioni per riga: Modifica (scroll alla tabella attività), Export Excel, Elimina bulk
+  - Lazy loading delle sedi al primo expand
+  - Sincronizzazione filtro ricerca tra dropdown e tabella overview
+  - Conteggi formato "X active (Y total)" per ogni cliente/sede
+
 ## [1.1.15b] - 2025-12-15
 
 ### Added
