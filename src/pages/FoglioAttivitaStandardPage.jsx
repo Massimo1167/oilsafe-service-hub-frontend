@@ -46,10 +46,10 @@ function FoglioAttivitaStandardPage({ session }) {
             const clienteUsaListinoUnico = foglioData.clienti?.usa_listino_unico ?? true;
             const indirizzoInterventoId = foglioData.indirizzo_intervento_id;
 
-            // 2. Fetch attività standard disponibili per quel cliente
-            // Se listino unico: mostra tutte le attività (indirizzo_cliente_id = NULL)
-            // Se listino per sede: mostra attività specifiche per sede + attività generiche (fallback)
-            let attivitaQuery = supabase
+            // 2. Fetch attività standard con gerarchia (Sede > Cliente > Aziendale)
+
+            // 2a. Fetch attività cliente
+            let attivitaClienteQuery = supabase
                 .from('attivita_standard_clienti')
                 .select(`
                     id,
@@ -69,18 +69,68 @@ function FoglioAttivitaStandardPage({ session }) {
             // Applica filtro per sede se necessario
             if (!clienteUsaListinoUnico && indirizzoInterventoId) {
                 // Mostra: attività specifiche per questa sede OR attività generiche (NULL)
-                attivitaQuery = attivitaQuery.or(`indirizzo_cliente_id.eq.${indirizzoInterventoId},indirizzo_cliente_id.is.null`);
+                attivitaClienteQuery = attivitaClienteQuery.or(`indirizzo_cliente_id.eq.${indirizzoInterventoId},indirizzo_cliente_id.is.null`);
             } else if (clienteUsaListinoUnico) {
                 // Listino unico: mostra solo attività con indirizzo_cliente_id = NULL
-                attivitaQuery = attivitaQuery.is('indirizzo_cliente_id', null);
+                attivitaClienteQuery = attivitaClienteQuery.is('indirizzo_cliente_id', null);
             }
 
-            attivitaQuery = attivitaQuery.order('codice_attivita');
+            // 2b. Fetch attività aziendali (fallback globale)
+            const attivitaAziendaleQuery = supabase
+                .from('attivita_standard_aziendali')
+                .select(`
+                    id,
+                    codice_attivita,
+                    descrizione,
+                    costo_unitario,
+                    unita_misura_id,
+                    unita_misura (
+                        codice,
+                        descrizione
+                    )
+                `)
+                .eq('attivo', true);
 
-            const { data: attivitaData, error: attivitaError } = await attivitaQuery;
+            // Esegui entrambe le query in parallelo
+            const [
+                { data: attivitaClienteData, error: attivitaClienteError },
+                { data: attivitaAziendaleData, error: attivitaAziendaleError }
+            ] = await Promise.all([
+                attivitaClienteQuery.order('codice_attivita'),
+                attivitaAziendaleQuery.order('codice_attivita')
+            ]);
 
-            if (attivitaError) throw attivitaError;
-            setAttivitaDisponibili(attivitaData || []);
+            if (attivitaClienteError) throw attivitaClienteError;
+            if (attivitaAziendaleError) throw attivitaAziendaleError;
+
+            // 2c. Merge con gerarchia (Sede > Cliente > Aziendale)
+            const attivitaMap = new Map();
+
+            // Aggiungi aziendale (priorità bassa)
+            attivitaAziendaleData?.forEach(att => {
+                attivitaMap.set(att.codice_attivita, { ...att, fonte: 'aziendale' });
+            });
+
+            // Sovrascrivi con cliente generico (priorità media)
+            attivitaClienteData
+                ?.filter(att => att.indirizzo_cliente_id === null)
+                .forEach(att => {
+                    attivitaMap.set(att.codice_attivita, { ...att, fonte: 'cliente' });
+                });
+
+            // Sovrascrivi con sede specifica (priorità alta)
+            if (indirizzoInterventoId) {
+                attivitaClienteData
+                    ?.filter(att => att.indirizzo_cliente_id === indirizzoInterventoId)
+                    .forEach(att => {
+                        attivitaMap.set(att.codice_attivita, { ...att, fonte: 'sede' });
+                    });
+            }
+
+            const attivitaFinali = Array.from(attivitaMap.values())
+                .sort((a, b) => a.codice_attivita.localeCompare(b.codice_attivita));
+
+            setAttivitaDisponibili(attivitaFinali);
 
             // 3. Fetch attività già selezionate per questo foglio
             const { data: selezioniData, error: selezioniError } = await supabase
@@ -266,6 +316,7 @@ function FoglioAttivitaStandardPage({ session }) {
                                 <th>Codice</th>
                                 <th>Descrizione</th>
                                 <th>U.M.</th>
+                                <th style={{width: '100px', textAlign: 'center'}}>Fonte</th>
                                 <th style={{width: '120px', textAlign: 'center'}}>Obbligatoria</th>
                             </tr>
                         </thead>
@@ -306,6 +357,23 @@ function FoglioAttivitaStandardPage({ session }) {
                                         <td>{attivita.descrizione}</td>
                                         <td style={{fontSize: '0.9em', color: '#666'}}>
                                             {attivita.unita_misura?.codice || '-'}
+                                        </td>
+                                        <td style={{textAlign: 'center'}}>
+                                            <span style={{
+                                                padding: '3px 8px',
+                                                borderRadius: '4px',
+                                                fontSize: '0.75em',
+                                                fontWeight: 'bold',
+                                                backgroundColor:
+                                                    attivita.fonte === 'sede' ? '#d1ecf1' :
+                                                    attivita.fonte === 'cliente' ? '#fff3cd' : '#e2e3e5',
+                                                color:
+                                                    attivita.fonte === 'sede' ? '#0c5460' :
+                                                    attivita.fonte === 'cliente' ? '#856404' : '#383d41'
+                                            }}>
+                                                {attivita.fonte === 'sede' ? 'Sede' :
+                                                 attivita.fonte === 'cliente' ? 'Cliente' : 'Aziendale'}
+                                            </span>
                                         </td>
                                         <td style={{textAlign: 'center'}}>
                                             {selected && (

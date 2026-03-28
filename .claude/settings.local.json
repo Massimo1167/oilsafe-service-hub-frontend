@@ -23,7 +23,8 @@
       "Bash(echo:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(gh pr create:*)"
     ],
     "deny": [],
     "ask": []
