@@ -124,9 +124,35 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, at
     };
 
     // Renderizza una singola linea di testo con stili misti (grassetto, corsivo, ecc.)
+    // Regole:
+    // 1. Segmenti contigui con lo stesso stile vengono concatenati in un'unica chiamata doc.text()
+    //    (i viewer PDF ignorano gli spazi finali nei blocchi BT...ET separati).
+    // 2. Lo spazio finale di un segmento che precede un cambio stile viene spostato come
+    //    prefisso del segmento successivo, così non viene mai a fine blocco BT...ET.
     const renderLineWithStyles = (currentDoc, lineSegments, x, y) => {
+        // Step 1: sposta gli spazi finali come prefisso del segmento successivo
+        const rebalanced = lineSegments.map((seg, idx) => ({ ...seg }));
+        for (let i = 0; i < rebalanced.length - 1; i++) {
+            const trailingSpaces = rebalanced[i].text.match(/ +$/);
+            if (trailingSpaces) {
+                rebalanced[i] = { ...rebalanced[i], text: rebalanced[i].text.replace(/ +$/, '') };
+                rebalanced[i + 1] = { ...rebalanced[i + 1], text: trailingSpaces[0] + rebalanced[i + 1].text };
+            }
+        }
+
+        // Step 2: unisce segmenti contigui con lo stesso stile in un'unica stringa
+        const merged = [];
+        rebalanced.forEach(seg => {
+            if (seg.text === '') return; // salta segmenti vuoti dopo lo spostamento spazi
+            if (merged.length > 0 && merged[merged.length - 1].style === seg.style) {
+                merged[merged.length - 1] = { text: merged[merged.length - 1].text + seg.text, style: seg.style };
+            } else {
+                merged.push({ text: seg.text, style: seg.style });
+            }
+        });
+
         let currentX = x;
-        lineSegments.forEach(seg => {
+        merged.forEach(seg => {
             currentDoc.setFont(undefined, seg.style);
             currentDoc.text(seg.text, currentX, y);
             currentX += currentDoc.getTextWidth(seg.text);
