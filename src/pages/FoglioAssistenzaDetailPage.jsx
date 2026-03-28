@@ -693,7 +693,15 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
                 { layout: layoutStampa, preview: true }
             );
 
-            setPreviewPdfUrl(pdfDataUrl);
+            // Converti data URL in Blob URL: Chrome non carica data URL grandi negli iframe
+            const base64 = pdfDataUrl.split(',')[1];
+            const binary = atob(base64);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+            const blob = new Blob([bytes], { type: 'application/pdf' });
+            const blobUrl = URL.createObjectURL(blob);
+
+            setPreviewPdfUrl(blobUrl);
             setShowPreview(true);
         } catch (err) {
             console.error(`Errore durante la generazione dell'anteprima PDF per il foglio singolo ${foglioId}:`, err);
@@ -1230,6 +1238,7 @@ function FoglioAssistenzaDetailPage({ session, tecnici }) {
                             </button>
                             <button
                                 onClick={() => {
+                                    if (previewPdfUrl) URL.revokeObjectURL(previewPdfUrl);
                                     setShowPreview(false);
                                     setPreviewPdfUrl(null);
                                 }}

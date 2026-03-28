@@ -44,6 +44,14 @@ This is a React SPA for service management at Oilsafe S.r.l., built with Vite an
 - Voice input support for intervention forms
 - Excel export functionality for client reports
 - Signature capture for service completion
+- Company price list for standard activities
+- Customer price list overview with expand/collapse table
+
+### PDF Generation Notes
+- Three layouts: `table`, `detailed` (default), `detailed_with_costs` (admin only)
+- Markdown formatting supported in descriptions: `**bold**`, `*italic*`, `***bolditalic***` — parsed by `utils/textFormatter.js`
+- **Preview mode**: `generateFoglioAssistenzaPDF(..., { preview: true })` returns a data URL string. Always convert to a **Blob URL** via `URL.createObjectURL()` before assigning to an `<iframe src>` — Chrome cannot load large data URLs (>~2MB) in iframes. Revoke the Blob URL with `URL.revokeObjectURL()` on modal close.
+- **Word-wrap in descriptions**: The `addFormattedTextWithMarkdown` function handles multi-segment styled text with manual word-wrap. Each word carries its trailing space to avoid blank leading tokens after line breaks.
 
 ### Component Structure
 - **Pages**: Top-level route components handling data fetching and page layout
