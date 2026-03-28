@@ -542,7 +542,15 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
             // Genera PDF in modalità preview (ritorna DataURL invece di salvare)
             const pdfDataUrl = await generateFoglioAssistenzaPDF(foglioData, interventiData || [], attivitaPreviste || [], { layout: layoutStampa, preview: true });
 
-            setPreviewPdfUrl(pdfDataUrl);
+            // Converti data URL in Blob URL: Chrome non carica data URL grandi negli iframe
+            const base64 = pdfDataUrl.split(',')[1];
+            const binary = atob(base64);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+            const blob = new Blob([bytes], { type: 'application/pdf' });
+            const blobUrl = URL.createObjectURL(blob);
+
+            setPreviewPdfUrl(blobUrl);
             setShowPreview(true);
         } catch (err) {
             console.error(`Errore durante la generazione della preview per il foglio ${foglioId}:`, err);
@@ -1298,6 +1306,7 @@ function FogliAssistenzaListPage({ session, loadingAnagrafiche, clienti: allClie
                             </button>
                             <button
                                 onClick={() => {
+                                    if (previewPdfUrl) URL.revokeObjectURL(previewPdfUrl);
                                     setShowPreview(false);
                                     setPreviewPdfUrl(null);
                                 }}

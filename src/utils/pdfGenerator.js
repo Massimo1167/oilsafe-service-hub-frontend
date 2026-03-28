@@ -124,13 +124,48 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, at
     };
 
     // Renderizza una singola linea di testo con stili misti (grassetto, corsivo, ecc.)
+    // Regole:
+    // 1. Segmenti contigui con lo stesso stile vengono concatenati in un'unica chiamata doc.text()
+    //    (i viewer PDF ignorano gli spazi finali nei blocchi BT...ET separati).
+    // 2. Lo spazio finale di un segmento che precede un cambio stile viene spostato come
+    //    prefisso del segmento successivo, così non viene mai a fine blocco BT...ET.
     const renderLineWithStyles = (currentDoc, lineSegments, x, y) => {
+        // Step 1: sposta gli spazi finali come prefisso del segmento successivo
+        const rebalanced = lineSegments.map((seg, idx) => ({ ...seg }));
+        for (let i = 0; i < rebalanced.length - 1; i++) {
+            const trailingSpaces = rebalanced[i].text.match(/ +$/);
+            if (trailingSpaces) {
+                rebalanced[i] = { ...rebalanced[i], text: rebalanced[i].text.replace(/ +$/, '') };
+                rebalanced[i + 1] = { ...rebalanced[i + 1], text: trailingSpaces[0] + rebalanced[i + 1].text };
+            }
+        }
+
+        // Step 2: unisce segmenti contigui con lo stesso stile in un'unica stringa
+        const merged = [];
+        rebalanced.forEach(seg => {
+            if (seg.text === '') return; // salta segmenti vuoti dopo lo spostamento spazi
+            if (merged.length > 0 && merged[merged.length - 1].style === seg.style) {
+                merged[merged.length - 1] = { text: merged[merged.length - 1].text + seg.text, style: seg.style };
+            } else {
+                merged.push({ text: seg.text, style: seg.style });
+            }
+        });
+
         let currentX = x;
-        lineSegments.forEach(seg => {
+        merged.forEach(seg => {
             currentDoc.setFont(undefined, seg.style);
             currentDoc.text(seg.text, currentX, y);
             currentX += currentDoc.getTextWidth(seg.text);
         });
+    };
+
+    // Rimuove lo spazio finale dall'ultimo segmento di una riga (evita rientri dopo word-wrap)
+    const trimTrailingSpace = (lineSegments) => {
+        if (lineSegments.length === 0) return lineSegments;
+        const last = lineSegments[lineSegments.length - 1];
+        const trimmed = last.text.replace(/ +$/, '');
+        if (trimmed === last.text) return lineSegments;
+        return [...lineSegments.slice(0, -1), { text: trimmed, style: last.style }];
     };
 
     // Aggiunge testo formattato con supporto markdown (grassetto, corsivo)
@@ -148,7 +183,7 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, at
         const lineHeight = fontSize / 2.83465 * 1.2;
 
         // Processa ogni riga separatamente
-        lines.forEach((line, lineIndex) => {
+        lines.forEach((line) => {
             // Se la riga è vuota, aggiungi solo uno spazio verticale
             if (line.trim() === '') {
                 checkAndAddPage(currentDoc, lineHeight);
@@ -163,33 +198,42 @@ export const generateFoglioAssistenzaPDF = async (foglioData, interventiData, at
             let currentLineWidth = 0;
 
             segments.forEach(segment => {
-                // IMPORTANTE: Splitta solo su spazi e tab, NON su newline
-                const words = segment.text.split(/( +|\t+)/);
+                // Splitta sugli spazi senza parentesi catturanti: ogni parola porta
+                // lo spazio SUCCESSIVO come trailing, così gli spazi non diventano
+                // token separati che causano rientri errati al word-wrap.
+                const words = segment.text.split(' ');
 
-                words.forEach((word) => {
-                    if (!word) return; // Skip empty strings
+                words.forEach((word, wordIndex) => {
+                    if (!word && wordIndex === 0) return; // skip empty da spazio iniziale
+
+                    // Ogni parola porta lo spazio finale tranne l'ultima del segmento
+                    const wordWithSpace = wordIndex < words.length - 1 ? word + ' ' : word;
 
                     currentDoc.setFont(undefined, segment.style);
-                    const wordWidth = currentDoc.getTextWidth(word);
+                    const wordWidth = currentDoc.getTextWidth(wordWithSpace);
 
                     // Se la parola non entra nella linea corrente, stampa la linea e vai a capo
                     if (currentLineWidth + wordWidth > maxWidth && currentLine.length > 0) {
                         checkAndAddPage(currentDoc, lineHeight);
-                        renderLineWithStyles(currentDoc, currentLine, x, yPosition);
+                        renderLineWithStyles(currentDoc, trimTrailingSpace(currentLine), x, yPosition);
                         yPosition += lineHeight;
                         currentLine = [];
                         currentLineWidth = 0;
+                        // La parola va sulla nuova riga senza spazio iniziale
+                        const wordClean = wordIndex < words.length - 1 ? word + ' ' : word;
+                        currentLine.push({ text: wordClean, style: segment.style });
+                        currentLineWidth = currentDoc.getTextWidth(wordClean);
+                    } else {
+                        currentLine.push({ text: wordWithSpace, style: segment.style });
+                        currentLineWidth += wordWidth;
                     }
-
-                    currentLine.push({ text: word, style: segment.style });
-                    currentLineWidth += wordWidth;
                 });
             });
 
             // Stampa l'ultima linea di questa riga logica
             if (currentLine.length > 0) {
                 checkAndAddPage(currentDoc, lineHeight);
-                renderLineWithStyles(currentDoc, currentLine, x, yPosition);
+                renderLineWithStyles(currentDoc, trimTrailingSpace(currentLine), x, yPosition);
                 yPosition += lineHeight;
             }
         });
